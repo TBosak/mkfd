@@ -1,7 +1,4 @@
 import { Hono } from "hono";
-import { serveStatic } from 'hono/serve-static.bun'
-import { resolve } from "path";
-import { write, stdout, file } from "bun";
 import * as cheerio from 'cheerio';
 import * as RSS from 'rss';
 
@@ -9,8 +6,7 @@ const app = new Hono();
 
 const port = parseInt(process.env.PORT) || 3000;
 
-app.use('/feeds/*', serveStatic({ root: './' }))
-app.get('/', (c) => c.text('This is Home! You can access: /feeds/index.rss'))
+app.get('/', (c) => c.text('Home'))
 // app.get('*', serveStatic({ path: './static/fallback.txt' }))
 
 console.log(`Running at http://localhost:${port}`);
@@ -24,14 +20,15 @@ app.get('/feed', async (c) => {
     await fetchData(`https://news.ycombinator.com/newest`).then(response => {response.text().then(txt => {
         res = txt;
     })});
-
-    return c.body(buildRSS(
+    
+    let feed = buildRSS(
         res, 
-        article: {
-            iterator: new cssTarget({ selector: 'tr.athing'}),
-            title: new cssTarget({selector: 'a.titlelink'}),
-            link: new cssTarget({selector: 'a.titlelink'})},
-            null, null, date: {selector: 'span.age', attribute: 'title'}))
+        {iterator: new cssTarget('tr.athing'), title: new cssTarget('a.titlelink'), link: new cssTarget('a.titlelink', 'href')},
+        null, 
+        null, 
+        new cssTarget('span.age', 'title'));
+
+    return c.body(feed);
 });
 
 async function fetchData(url:string): Promise<any> {
@@ -39,7 +36,7 @@ async function fetchData(url:string): Promise<any> {
 };
 
 function buildRSS(
-    res: string,
+    res: any,
     article?: {iterator: cssTarget, 
               title?: cssTarget,
               link?: cssTarget,
@@ -47,37 +44,38 @@ function buildRSS(
     title?: cssTarget, 
     link?: cssTarget,
     date?: cssTarget): any {
-    const $ = cheerio.load(res);
     let input: Array<any> = [];
+    const $ = cheerio.load(res);
 
     if (article) {
-        $(article.iterator).each((i, data) => {
+        $(article.iterator.selector).each((i, data) => {
             input.push({
-                title: $(data).find(article.title.selector)?.attr(article.title.attribute) ?? $(data).find(article.title.selector)?.text(),
-                url: $(data).find(article.link.selector)?.attr(article.link.attribute) ?? $(data).find(article.link.selector)?.text(),
-                date: $(data).find(article.date.selector)?.attr(article.date.attribute) ?? $(data).find(article.date.selector)?.text()
+                title: !!article.title?.attribute ? $(data).find(article.title?.selector)?.attr() : $(data).find(article.title?.selector)?.text(),
+                url: !!article.link?.attribute ? $(data).find(article.link?.selector)?.attr(article.link?.attribute) : $(data).find(article.link?.selector)?.text(),
+                date: !!article.date?.attribute ? $(data).find(article.date?.selector)?.attr(article.date?.attribute) : $(data).find(article.date?.selector)?.text()
             })
+            console.log(input);
         })
     }
     if (title) {
-        $(title.selector).each((i, data) => {
+        $(title?.selector).each((i, data) => {
             input[i].title = $(data).attr(title.attribute) ?? $(data).text();
         }) 
     }
     if (link) {
-        $(link.selector).each((i, data) => {
+        $(link?.selector).each((i, data) => {
             input[i].url = $(data).attr(link.attribute) ?? $(data).text();
         }) 
     }
     if (date) {
-        $(date.selector).each((i, data) => {
-            input[i].title = $(data).attr(date.attribute) ?? $(data).text();
+        $(date?.selector).each((i, data) => {
+            input[i].date = $(data).attr(date.attribute) ?? $(data).text();
         }) 
     }
     
     const feed = new RSS({
-        title: $('title').text(),
-        description: $('meta[property="twitter:description"]').attr('content'),
+        title: $('title')?.text(),
+        description: $('meta[property="twitter:description"]')?.attr('content'),
         author: "Mkfd"
     });
 
@@ -92,10 +90,5 @@ function buildRSS(
 }
 
 export class cssTarget {
-    selector: string;
-    attribute?: string;
-    constructor(public sel: string, public attr?: string) {
-        this.selector = sel;
-        if (attr) this.attribute = attr;
-    }
+    constructor(public selector: string, public attribute?: string){}
 }
