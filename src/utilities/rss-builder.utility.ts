@@ -4,13 +4,13 @@ import { CSSTarget } from "../models/CSSTarget.model";
 import { timestampToDate } from "./data-handler.utility";
 
 export function buildRSS(res: any, article?:
-        { iterator: CSSTarget, 
-          title?: CSSTarget,
-          link?: CSSTarget,
-          date?: CSSTarget},
-          title?: CSSTarget, 
-          link?: CSSTarget, 
-          date?: CSSTarget, 
+        { iterator: CSSTarget | { selector: string, attribute: string }, 
+          title?: CSSTarget | { selector: string, attribute: string },
+          link?: CSSTarget | { selector: string, attribute: string },
+          date?: CSSTarget | { selector: string, attribute: string } },
+          title?: CSSTarget | { selector: string, attribute: string }, 
+          link?: CSSTarget | { selector: string, attribute: string }, 
+          date?: CSSTarget | { selector: string, attribute: string }, 
           timestamp?: boolean): string {
         let input: Array<any> = [];
         const $ = cheerio.load(res);
@@ -21,6 +21,7 @@ export function buildRSS(res: any, article?:
                     url: !!article.link?.attribute ? $(data).find(article.link?.selector)?.attr(article.link?.attribute) : $(data).find(article.link?.selector)?.text(),
                     date: !!article.date?.attribute ? $(data).find(article.date?.selector)?.attr(article.date?.attribute) : $(data).find(article.date?.selector)?.text()
                 })
+                console.log(input);
             })
         }
         if (title) {
