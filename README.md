@@ -1,4 +1,4 @@
-###Mkfd
+### Mkfd
 
 To install dependencies:
 
@@ -11,7 +11,7 @@ To run:
 ```bash
 bun run start
 ```
-###To Do:
+### To Do:
 - [ ] Add all possible RSS fields to models
 - [ ] Create more functional adapters
 - [ ] Outline adapter creation and PR process
