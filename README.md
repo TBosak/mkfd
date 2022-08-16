@@ -1,8 +1,8 @@
 <p align="center">
 <img src="https://user-images.githubusercontent.com/41713011/184979066-5ec001ec-bc72-4ed9-a18c-1fd2211edd76.png"
      alt="mkfd"
-     height="25%"
-     width="25%" />
+     height="35%"
+     width="35%" />
 </p>
      
 Bun installation (right now only on macOS x64 & Silicon, Linux x64, & WSL) <sup>Visit https://bun.sh/ for more info</sup>
