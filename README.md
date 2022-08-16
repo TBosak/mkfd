@@ -1,5 +1,11 @@
 ### Mkfd
 
+Bun installation (right now only on macOS x64 & Silicon, Linux x64, & WSL) <sup>Visit https://bun.sh/ for more info</sup>
+ 
+```bash
+curl https://bun.sh/install | bash
+```
+
 To install dependencies:
 
 ```bash
