@@ -28,4 +28,8 @@ bun run start
 - [ ] Outline adapter creation and PR process
 - [ ] Create docker-compose
 - [ ] Create GUI (show adapter options and params on an index page for end-users, static, Swagger-like)
+- [ ] Utilities
+  - [ ] HTML stripper
+  - [ ] Source url wrapper for relative links
+  - [ ] ...
 - [ ] Amass contributors (the more, the merrier)
