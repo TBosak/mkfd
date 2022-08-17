@@ -1,9 +1,10 @@
 import { CSSTarget } from "../models/CSSTarget.model";
 import IAdapter from "./adapter.interface";
 import { buildRSS } from "../utilities/rss-builder.utility";
+import { ApiConfig } from "../models/apiconfig.model";
 
 export default class HackerNewsAdapter implements IAdapter {
-    
+    config = new ApiConfig("Hacker News");
     constructor(){
         this.buildRSS = this.buildRSS.bind(this);
         this.fetchData = this.fetchData.bind(this);

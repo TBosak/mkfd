@@ -1,17 +1,37 @@
+import { xml } from "cheerio";
 import { Hono } from "hono";
+import { html } from 'hono/html'
+import IAdapter from "./adapters/adapter.interface";
 import HackerNewsAdapter from "./adapters/hacker-news.adapter";
 import SteamgiftsDiscussionAdapter from "./adapters/steamgifts-discussion.adapter"
 
 //ADAPTER DECLARATIONS
 const HackerNews = new HackerNewsAdapter();
 const SteamgiftsDiscussions = new SteamgiftsDiscussionAdapter();
-
+export const Adapters: Array<IAdapter> = 
+[
+  HackerNews,
+  SteamgiftsDiscussions
+]
 //SETUP
 const app = new Hono();
 const port = parseInt(process.env.PORT) || 3000;
 
-//HOMEPAGE
-app.get('/', (c) => c.text('Home'))
+//HOMEPAGE //TODO: ADD STYLING & BUILD CARDS BASED ON ADAPTER CONFIG DATA
+app.get('/', (c) => {
+  var content = [];
+  Adapters.forEach(adapter=>{
+    content.push(
+      html`<h3>${adapter.config.title}</h3><br><hr>`
+    )
+  })
+   content.join(' ');
+
+    return c.html(
+      `${content}`
+    )
+  })
+
 
 //ADAPTER ENDPOINTS
 app.get('/hackernews', async (c) => {
@@ -21,11 +41,12 @@ app.get('/hackernews', async (c) => {
     return c.body(feed);
 });
 
-app.get('/sgdiscussion/:id', async (c) => {
+app.get('/sgdiscussion/:id/:page', async (c) => {
     c.header('Content-Type', 'text/xml');
-    const id = c.req.param('id')
+    const id = c.req.param('id');
+    const page = c.req.param('page');
     let feed;
-    await SteamgiftsDiscussions.fetchData(id).then((res)=>feed = SteamgiftsDiscussions.buildRSS(res));
+    await SteamgiftsDiscussions.fetchData(`${id}/${page}`).then((res)=>feed = SteamgiftsDiscussions.buildRSS(res));
     return c.body(feed);
 });
 
