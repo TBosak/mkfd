@@ -3,21 +3,22 @@ import * as RSS from 'rss';
 import { CSSTarget } from "../models/CSSTarget.model";
 import { timestampToDate } from "./data-handler.utility";
 
+//TODO: ADD HTML STRIPPING TO EACH TARGET 
 export function buildRSS(res: any, article?:
-        { iterator: CSSTarget | { selector: string, attribute: string }, 
-          title?: CSSTarget | { selector: string, attribute: string },
-          link?: CSSTarget | { selector: string, attribute: string },
-          date?: CSSTarget | { selector: string, attribute: string } },
-          title?: CSSTarget | { selector: string, attribute: string }, 
-          link?: CSSTarget | { selector: string, attribute: string }, 
-          date?: CSSTarget | { selector: string, attribute: string }, 
+        { iterator: CSSTarget | { selector: string, attribute?: string, stripHtml?: boolean}, 
+          title?: CSSTarget | { selector: string, attribute?: string, stripHtml?: boolean },
+          link?: CSSTarget | { selector: string, attribute?: string, stripHtml?: boolean },
+          date?: CSSTarget | { selector: string, attribute?: string, stripHtml?: boolean } },
+          title?: CSSTarget | { selector: string, attribute?: string, stripHtml?: boolean }, 
+          link?: CSSTarget | { selector: string, attribute?: string, stripHtml?: boolean }, 
+          date?: CSSTarget | { selector: string, attribute?: string, stripHtml?: boolean }, 
           timestamp?: boolean): string {
         let input: Array<any> = [];
         const $ = cheerio.load(res);
         if (article) {
             $(article.iterator.selector).each((i, data) => {
                 input.push({
-                    title: !!article.title?.attribute ? $(data).find(article.title?.selector)?.attr() : $(data).find(article.title?.selector)?.text(),
+                    title: !!article.title?.attribute ? $(data).find(article.title?.selector)?.attr(article.title?.attribute) : $(data).find(article.title?.selector)?.text(),
                     url: !!article.link?.attribute ? $(data).find(article.link?.selector)?.attr(article.link?.attribute) : $(data).find(article.link?.selector)?.text(),
                     date: !!article.date?.attribute ? $(data).find(article.date?.selector)?.attr(article.date?.attribute) : $(data).find(article.date?.selector)?.text()
                 })
