@@ -23,6 +23,7 @@ To run:
 bun run start
 ```
 ### To Do:
+- [ ] Locally testing subscriptions to feeds
 - [ ] Add all possible RSS fields to models
 - [ ] Create more functional adapters
 - [ ] Outline adapter creation and PR process
@@ -30,6 +31,7 @@ bun run start
 - [ ] Create GUI (show adapter options and params on an index page for end-users, static, Swagger-like)
 - [ ] Utilities
   - [ ] HTML stripper
+  - [ ] Order reverser
   - [ ] Source url wrapper for relative links
   - [ ] ...
 - [ ] Amass contributors (the more, the merrier)
