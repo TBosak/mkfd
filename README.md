@@ -30,8 +30,7 @@ bun run start
 - [ ] Create docker-compose
 - [ ] Create GUI (show adapter options and params on an index page for end-users, static, Swagger-like)
 - [ ] Utilities
-  - [ ] HTML stripper
-  - [ ] Order reverser
-  - [ ] Source url wrapper for relative links
+  - [X] HTML stripper
+  - [X] Source url wrapper for relative links
   - [ ] ...
 - [ ] Amass contributors (the more, the merrier)

@@ -1,45 +1,60 @@
 import * as cheerio from 'cheerio';
 import * as RSS from 'rss';
 import { CSSTarget } from "../models/CSSTarget.model";
-import { timestampToDate } from "./data-handler.utility";
+import { processDates, processLinks, processWords, timestampToDate } from "./data-handler.utility";
 
 //TODO: ADD HTML STRIPPING TO EACH TARGET 
 export function buildRSS(res: any, article?:
-        { iterator: CSSTarget | { selector: string, attribute?: string, stripHtml?: boolean}, 
-          title?: CSSTarget | { selector: string, attribute?: string, stripHtml?: boolean },
-          link?: CSSTarget | { selector: string, attribute?: string, stripHtml?: boolean },
-          date?: CSSTarget | { selector: string, attribute?: string, stripHtml?: boolean } },
-          title?: CSSTarget | { selector: string, attribute?: string, stripHtml?: boolean }, 
-          link?: CSSTarget | { selector: string, attribute?: string, stripHtml?: boolean }, 
-          date?: CSSTarget | { selector: string, attribute?: string, stripHtml?: boolean }, 
-          timestamp?: boolean): string {
+        { iterator: CSSTarget | { selector: string, attribute?: string, stripHtml?: boolean, rootUrl?: string, relativeLink?: boolean, titleCase?: boolean}, 
+          title?: CSSTarget | { selector: string, attribute?: string, stripHtml?: boolean, rootUrl?: string, relativeLink?: boolean, titleCase?: boolean },
+          description?: CSSTarget | { selector: string, attribute?: string, stripHtml?: boolean, rootUrl?: string, relativeLink?: boolean, titleCase?: boolean },
+          link?: CSSTarget | { selector: string, attribute?: string, stripHtml?: boolean, rootUrl?: string, relativeLink?: boolean, titleCase?: boolean },
+          date?: CSSTarget | { selector: string, attribute?: string, stripHtml?: boolean, rootUrl?: string, relativeLink?: boolean, titleCase?: boolean } },
+          title?: CSSTarget | { selector: string, attribute?: string, stripHtml?: boolean, rootUrl?: string, relativeLink?: boolean, titleCase?: boolean },
+          description?: CSSTarget | { selector: string, attribute?: string, stripHtml?: boolean, rootUrl?: string, relativeLink?: boolean, titleCase?: boolean },
+          link?: CSSTarget | { selector: string, attribute?: string, stripHtml?: boolean, rootUrl?: string, relativeLink?: boolean, titleCase?: boolean }, 
+          date?: CSSTarget | { selector: string, attribute?: string, stripHtml?: boolean, rootUrl?: string, relativeLink?: boolean, titleCase?: boolean}, 
+          timestamp?: boolean,
+          reverse?: boolean): string {
         let input: Array<any> = [];
         const $ = cheerio.load(res);
         if (article) {
             $(article.iterator.selector).each((i, data) => {
                 input.push({
-                    title: !!article.title?.attribute ? $(data).find(article.title?.selector)?.attr(article.title?.attribute) : $(data).find(article.title?.selector)?.text(),
-                    url: !!article.link?.attribute ? $(data).find(article.link?.selector)?.attr(article.link?.attribute) : $(data).find(article.link?.selector)?.text(),
-                    date: !!article.date?.attribute ? $(data).find(article.date?.selector)?.attr(article.date?.attribute) : $(data).find(article.date?.selector)?.text()
+                    title: !!article.title?.attribute ? 
+                            processWords($(data).find(article.title?.selector)?.attr(article.title?.attribute),article.title?.titleCase,article.title?.stripHtml) : 
+                            processWords($(data).find(article.title?.selector)?.text(),article.title?.titleCase,article.title?.stripHtml),
+                    description: !!article.description?.attribute ? 
+                                 processWords($(data).find(article.description?.selector)?.attr(article.description?.attribute),article.description?.titleCase,article.description?.stripHtml) : 
+                                 processWords($(data).find(article.description?.selector)?.text(),article.description?.titleCase,article.description?.stripHtml),
+                    url: !!article.link?.attribute ? 
+                         processLinks($(data).find(article.link?.selector)?.attr(article.link?.attribute),article.link?.stripHtml,article.link?.relativeLink,article.link?.rootUrl) : 
+                         processLinks($(data).find(article.link?.selector)?.text(),article.link?.stripHtml,article.link?.relativeLink,article.link?.rootUrl),
+                    date: !!article.date?.attribute ? 
+                          processDates($(data).find(article.date?.selector)?.attr(article.date?.attribute),article.date?.stripHtml,timestamp) : 
+                          processDates($(data).find(article.date?.selector)?.text(),article.date?.stripHtml,timestamp)
                 })
-                console.log(input);
             })
         }
         if (title) {
             $(title?.selector).each((i, data) => {
-                input[i].title = $(data).attr(title.attribute) ?? $(data).text();
+                input[i].title = processWords($(data).attr(title?.attribute),title?.titleCase,title?.stripHtml) ?? processWords($(data).text(),title?.titleCase,title?.stripHtml);
+            })
+        }
+        if (description) {
+            $(description?.selector).each((i, data) => {
+                input[i].description = processWords($(data).attr(description?.attribute),description?.titleCase,description?.stripHtml) ?? processWords($(data).text(),description?.titleCase,description?.stripHtml);
             })
         }
         if (link) {
             $(link?.selector).each((i, data) => {
-                input[i].url = $(data).attr(link.attribute) ?? $(data).text();
+                input[i].url = processLinks($(data).attr(link?.attribute),link?.relativeLink,link?.stripHtml,link?.rootUrl) ?? processLinks($(data).text(),link?.stripHtml,link?.relativeLink,link?.rootUrl);
             })
         }
         if (date) {
             $(date?.selector).each((i, data) => {
-                const dateTime = $(data).text();
-                input[i].date = $(data).attr(date.attribute) ?? dateTime;
-                if(timestamp) input[i].date = timestampToDate(dateTime);
+                input[i].date = processDates($(data).attr(date.attribute),date?.stripHtml,timestamp) 
+                                ?? processDates($(data).text(),date?.stripHtml,timestamp);
             })
         }
     
@@ -50,10 +65,14 @@ export function buildRSS(res: any, article?:
             generator: 'Generated by mkfd',
         });
     
+        if (reverse) {
+            input.reverse();
+        }
+
         for (const article of input) {
             feed.item({
                 title: article.title,
-                description: null,
+                description: article.description,
                 url: article.url,
                 guid: article.url??article.title,
                 categories: null,

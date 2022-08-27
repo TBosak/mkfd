@@ -15,6 +15,7 @@ export default class HackerNewsAdapter implements IAdapter {
             res, 
             {iterator: new CSSTarget('tr.athing'), title: new CSSTarget('a.titlelink'), link: new CSSTarget('a.titlelink', 'href')},
             null, 
+            null,
             null, 
             new CSSTarget('span.age', 'title'));
     };

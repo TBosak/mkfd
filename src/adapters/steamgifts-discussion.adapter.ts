@@ -14,9 +14,10 @@ export default class SteamgiftsDiscussionAdapter implements IAdapter {
         return buildRSS(res, {
             iterator: new CSSTarget('div.comment'), 
             title: new CSSTarget('div.comment__username'),
-            link: new CSSTarget('div.comment__actions > a','href'),
-            date: new CSSTarget('div.comment__actions > span','data-timestamp')
-        })
+            description: new CSSTarget('div.comment__parent > div.comment__summary > div.comment__display-state', null, true),
+            link: new CSSTarget('div.comment__actions > a','href', false, 'https://www.steamgifts.com', true),
+            date: new CSSTarget('div.comment__actions > span','data-timestamp'),
+        }, null, null, null, null, true, true);
     };
 
     async fetchData(param?: string): Promise<string> {
