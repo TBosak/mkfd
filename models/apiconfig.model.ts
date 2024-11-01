@@ -1,4 +1,4 @@
-export class ApiConfig {
+export default class ApiConfig {
     constructor(
     public title?: string,
     public params?: {param: string, description: string}[],

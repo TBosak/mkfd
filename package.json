@@ -3,15 +3,18 @@
   "module": "index.ts",
   "type": "module",
   "scripts": {
-    "start": "bun run src/index.ts"
+    "start": "bun run index.ts --watch"
   },
   "dependencies": {
+    "@types/bun": "^1.1.12",
     "@types/cheerio": "0.22.31",
     "@types/xml": "1.0.8",
+    "bun": "^1.1.33",
     "bun-types": "^0.1.0",
-    "cheerio": "0.22.0",
-    "hono": "^2.0.7",
-    "js-yaml": "4.1.0",
-    "rss": "1.2.2"
+    "cheerio": "^1.0.0",
+    "hono": "^4.6.8",
+    "js-yaml": "^4.1.0",
+    "rss": "1.2.2",
+    "uuid": "^11.0.2"
   }
 }

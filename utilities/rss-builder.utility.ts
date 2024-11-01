@@ -1,6 +1,6 @@
-import * as cheerio from 'cheerio';
-import * as RSS from 'rss';
-import { CSSTarget } from "../models/CSSTarget.model";
+import * as cheerio from "cheerio";
+import RSS from "rss";
+import CSSTarget from "../models/csstarget.model";
 import { processDates, processLinks, processWords, timestampToDate } from "./data-handler.utility";
 
 //TODO: ADD HTML STRIPPING TO EACH TARGET 
@@ -19,7 +19,7 @@ export function buildRSS(res: any, article?:
         let input: Array<any> = [];
         const $ = cheerio.load(res);
         if (article) {
-            $(article.iterator.selector).each((i, data) => {
+            $(article.iterator.selector).each((i: any, data: any) => {
                 input.push({
                     title: !!article.title?.attribute ? 
                             processWords($(data).find(article.title?.selector)?.attr(article.title?.attribute),article.title?.titleCase,article.title?.stripHtml) : 
@@ -37,22 +37,22 @@ export function buildRSS(res: any, article?:
             })
         }
         if (title) {
-            $(title?.selector).each((i, data) => {
+            $(title?.selector).each((i: string | number, data: any) => {
                 input[i].title = processWords($(data).attr(title?.attribute),title?.titleCase,title?.stripHtml) ?? processWords($(data).text(),title?.titleCase,title?.stripHtml);
             })
         }
         if (description) {
-            $(description?.selector).each((i, data) => {
+            $(description?.selector).each((i: string | number, data: any) => {
                 input[i].description = processWords($(data).attr(description?.attribute),description?.titleCase,description?.stripHtml) ?? processWords($(data).text(),description?.titleCase,description?.stripHtml);
             })
         }
         if (link) {
-            $(link?.selector).each((i, data) => {
+            $(link?.selector).each((i: string | number, data: any) => {
                 input[i].url = processLinks($(data).attr(link?.attribute),link?.relativeLink,link?.stripHtml,link?.rootUrl) ?? processLinks($(data).text(),link?.stripHtml,link?.relativeLink,link?.rootUrl);
             })
         }
         if (date) {
-            $(date?.selector).each((i, data) => {
+            $(date?.selector).each((i: string | number, data: any) => {
                 input[i].date = processDates($(data).attr(date.attribute),date?.stripHtml,timestamp) 
                                 ?? processDates($(data).text(),date?.stripHtml,timestamp);
             })

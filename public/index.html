@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Feed Parser</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+</head>
+<body>
+  <article>
+    <header style="text-align:center;">
+    <h1>Feed Parser</h1>
+    <p>Enter the details below to create a new RSS feed parser.</p>
+    </header>
+    <main style="padding-left:30vw;padding-right:30vw;">
+<form action="/" method="post">
+    <!-- Feed Name -->
+    <label for="feedName">Feed Name:</label>
+    <input type="text" name="feedName" id="feedName" required><br><br>
+  
+    <!-- ApiConfig Fields -->
+    <!-- <h3>API Configuration</h3>
+    <label for="title">Title:</label>
+    <input type="text" name="title" id="title"><br><br>
+  
+    <label for="baseUrl">Base URL:</label>
+    <input type="text" name="baseUrl" id="baseUrl" required><br><br>
+  
+    <label for="route">Route:</label>
+    <input type="text" name="route" id="route"><br><br>
+   -->
+    <!-- CSSTarget Fields -->
+    <h3>CSS Selectors for RSS Feed Items</h3>
+    
+    <!-- Iterator Selector -->
+    <label for="itemSelector">Item Selector (Iterator):</label>
+    <input type="text" name="itemSelector" id="itemSelector" required><br><br>
+    <!-- Title Selector -->
+    <label for="titleSelector">Title Selector:</label>
+    <input type="text" name="titleSelector" id="titleSelector"><br><br>
+    <label for="titleAttribute">Title Attribute:</label>
+    <input type="text" name="titleAttribute" id="titleAttribute"><br><br>
+    <label>
+      <input type="checkbox" name="titleStripHtml" id="titleStripHtml"> Strip HTML in Title
+    </label><br><br>
+    <label>
+      <input type="checkbox" name="titleTitleCase" id="titleTitleCase"> Convert Title to Title Case
+    </label><br><br>
+    <details>
+      <summary>Description</summary>
+    <label for="descriptionSelector">Description Selector:</label>
+    <input type="text" name="descriptionSelector" id="descriptionSelector"><br><br>
+    <label for="descriptionAttribute">Description Attribute:</label>
+    <input type="text" name="descriptionAttribute" id="descriptionAttribute"><br><br>
+    <label>
+      <input type="checkbox" name="descriptionStripHtml" id="descriptionStripHtml"> Strip HTML in Description
+    </label><br><br>
+    <label>
+      <input type="checkbox" name="descriptionTitleCase" id="descriptionTitleCase"> Convert Description to Title Case
+    </label>
+    </details>
+    <br><br>
+    <details>
+      <summary>Link</summary>
+    <label for="linkSelector">Link Selector:</label>
+    <input type="text" name="linkSelector" id="linkSelector"><br><br>
+    <label for="linkAttribute">Link Attribute:</label>
+    <input type="text" name="linkAttribute" id="linkAttribute"><br><br>
+    <label>
+      <input type="checkbox" name="linkRelativeLink" id="linkStripHtml"> Relative Link?
+    </label><br><br>
+    <label for="linkBaseUrl">Base URL:</label>
+    <input type="text" name="linkBaseUrl" id="linkBaseUrl">
+    </details>
+    <br><br>
+    <details>
+      <summary>Date</summary>
+      <label for="dateSelector">Date Selector:</label>
+    <input type="text" name="dateSelector" id="dateSelector"><br><br>
+    <label for="dateAttribute">Date Attribute:</label>
+    <input type="text" name="dateAttribute" id="dateAttribute"><br><br>
+    <label for="dateFormat">Date Format:</label>
+    <input type="text" name="dateFormat" id="dateFormat">
+    </details>
+    <br><br>
+     <details>
+      <summary>Additional Options</summary>
+      <label>
+        <input type="checkbox" name="timestamp" id="timestamp"> Use Timestamp
+      </label><br><br>
+      <label>
+        <input type="checkbox" name="reverse" id="reverse"> Reverse Order
+      </label>
+     </details>
+     <br><br>
+    <button type="submit">Submit</button>
+  </form>
+</main>
+<footer>
+  Sample footer
+</footer>
+</article>
+<script>
+  document.getElementById('linkStripHtml').addEventListener('change', function() {
+    if (this.checked) {
+      document.getElementById('linkBaseUrl').style.display = 'block';
+    } else {
+      document.getElementById('linkBaseUrl').style.display = 'none';
+    }
+  });
+</script>
+</body>
+</html>
