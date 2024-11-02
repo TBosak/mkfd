@@ -2,14 +2,14 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Feed Parser</title>
+    <title>Feed Builder</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
 </head>
 <body>
   <article>
     <header style="text-align:center;">
-    <h1>Feed Parser</h1>
-    <p>Enter the details below to create a new RSS feed parser.</p>
+    <h1>Feed Builder</h1>
+    <p>Enter the details below to create a new RSS feed</p>
     </header>
     <main style="padding-left:30vw;padding-right:30vw;">
 <form action="/" method="post">
@@ -70,8 +70,8 @@
     <label>
       <input type="checkbox" name="linkRelativeLink" id="linkStripHtml"> Relative Link?
     </label><br><br>
-    <label for="linkBaseUrl">Base URL:</label>
-    <input type="text" name="linkBaseUrl" id="linkBaseUrl">
+    <label style="display:none;" id="linkBaseUrlLabel" for="linkBaseUrl">Base URL:</label>
+    <input style="display:none;" type="text" name="linkBaseUrl" id="linkBaseUrl">
     </details>
     <br><br>
     <details>
@@ -98,15 +98,17 @@
   </form>
 </main>
 <footer>
-  Sample footer
+  <p>Created by <a href="https://github.com/TBosak">Tim Barani</a></p>
 </footer>
 </article>
 <script>
   document.getElementById('linkStripHtml').addEventListener('change', function() {
     if (this.checked) {
       document.getElementById('linkBaseUrl').style.display = 'block';
+      document.getElementById('linkBaseUrlLabel').style.display = 'block';
     } else {
       document.getElementById('linkBaseUrl').style.display = 'none';
+      document.getElementById('linkBaseUrlLabel').style.display = 'none';
     }
   });
 </script>
