@@ -1,4 +1,4 @@
-import { ApiConfig } from "../models/apiconfig.model.ts";
+import ApiConfig from "../models/apiconfig.model";
 
 export default interface IAdapter {
     config: ApiConfig;

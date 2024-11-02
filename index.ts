@@ -6,23 +6,48 @@ import { v4 as uuidv4 } from 'uuid';
 import * as yaml from 'js-yaml';
 import { join } from 'path';
 import { existsSync, mkdirSync, writeFileSync } from 'fs';
+import ApiConfig from './models/apiconfig.model';
 
 const app = new Hono()
 
-const yamlDir = join(__dirname, 'feeds');
-if (!existsSync(yamlDir)) {
-  mkdirSync(yamlDir);
+var feedUpdater: Worker;
+
+const feedPath = join(__dirname, '/public/feeds');
+if (!existsSync(feedPath)) {
+  mkdirSync(feedPath);
 }
+
+const configsDir = join(__dirname, 'configs');
+if (!existsSync(configsDir)) {
+  mkdirSync(configsDir);
+}
+
+// Start processing immediately on startup
+startFeedUpdaterWorker();
+feedUpdater.postMessage('start');
+
+// Schedule the cron job
+setInterval(() => {
+  if (!feedUpdater) {
+    startFeedUpdaterWorker();
+  } else {
+    feedUpdater.postMessage('start');
+  }
+}, 60 * 1000); // Every minute
 
 app.use('/public/*', serveStatic({ root: './' }))
 app.use('/feeds/*', serveStatic({ root: './' }))
+app.use('/configs/*', serveStatic({ root: './' }))
 
 app.get('/', (ctx) => ctx.html(file('./public/index.html').text()));
 
 app.post('/', async (ctx) => {
   const feedId = uuidv4();
     const data = await ctx.req.formData();
-      const feedName = data.get("feedName")?.toString() || "RSS Feed";
+      const apiConfig: ApiConfig = {
+        title: data.get("feedName")?.toString() || "RSS Feed",
+        baseUrl: data.get("feedUrl")?.toString(),
+      }
       const iteratorTarget = new CSSTarget(
         data.get("itemSelector")?.toString(),
       );
@@ -63,8 +88,8 @@ app.post('/', async (ctx) => {
 
       const feedConfig = {
         feedId,
-        feedName: feedName,
-        config: null,
+        feedName: apiConfig.title,
+        config: apiConfig,
         article: {
           iterator: iteratorTarget,
           title: titleTarget,
@@ -80,16 +105,32 @@ app.post('/', async (ctx) => {
       const yamlStr = yaml.dump(feedConfig);
   
       // Save the YAML file
-      const yamlFilePath = join(yamlDir, `${feedId}.yaml`);
+      const yamlFilePath = join(configsDir, `${feedId}.yaml`);
       writeFileSync(yamlFilePath, yamlStr, 'utf8');
   
       // Provide the user with the RSS feed URL
-      ctx.html(`
+      startFeedUpdaterWorker();
+      return ctx.html(`
         <p>Your RSS feed is being generated and will update periodically.</p>
-        <p>Access it at: <a href="/feed/${feedId}.xml">/feed/${feedId}.xml</a></p>
+        <p>Access it at: <a href="/feeds/${feedId}.xml">/feeds/${feedId}.xml</a></p>
       `);
-      return new Response();
 });
+
+function startFeedUpdaterWorker() {
+  feedUpdater = new Worker("./workers/feed-updater.worker.ts", { type: "module" });
+
+  feedUpdater.onmessage = (message) => {
+    if (message.data.status === 'done') {
+      console.log('Feed updates completed.');
+    } else if (message.data.status === 'error') {
+      console.error('Feed updates encountered an error:', message.data.error);
+    }
+  };
+
+  feedUpdater.onerror = (error) => {
+    console.error('Worker error:', error);
+  };
+}
 
 export default { 
   port: 5000, 

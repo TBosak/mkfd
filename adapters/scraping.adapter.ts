@@ -1,8 +1,8 @@
 import axios from "axios";
-import { ApiConfig } from "../models/apiconfig.model";
-import { CSSTarget } from "../models/csstarget.model";
+import ApiConfig  from "../models/apiconfig.model";
+import CSSTarget from "../models/csstarget.model";
 import { buildRSS } from "../utilities/rss-builder.utility";
-import { BaseAdapter } from "./base-adapter";
+import { BaseAdapter } from "./base.adapter";
 
 export class WebScrapingAdapter extends BaseAdapter {
   article: {

@@ -1,5 +1,5 @@
-import { ApiConfig } from "../models/apiconfig.model.ts";
-import IAdapter from "./adapter.interface.ts";
+import ApiConfig  from "../models/apiconfig.model";
+import IAdapter from "./adapter.interface";
 
 export abstract class BaseAdapter implements IAdapter {
   config: ApiConfig;
