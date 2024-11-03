@@ -25,6 +25,8 @@ bun run start
 ### To Do:
 - [ ] Locally testing subscriptions to feeds
 - [ ] Add all possible RSS fields to models
+- [ ] Add option for parallel iterators
+- [ ] Store/compare feed data to enable timestamping feed items
 - [X] Create dockerfile
 - [X] Create GUI
 - [ ] Utilities
