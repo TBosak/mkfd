@@ -17,25 +17,19 @@
     <label for="feedName">Feed Name:</label>
     <input type="text" name="feedName" id="feedName" required><br><br>
     <!-- Feed URL -->
-    <label for="feedUrl">Feed URL:</label>
+    <label for="feedUrl">Target URL:</label>
     <input type="text" name="feedUrl" id="feedUrl" required><br><br>
-    <!-- ApiConfig Fields -->
-    <!-- <h3>API Configuration</h3>
-    <label for="title">Title:</label>
-    <input type="text" name="title" id="title"><br><br>
-  
-    <label for="baseUrl">Base URL:</label>
-    <input type="text" name="baseUrl" id="baseUrl" required><br><br>
-  
-    <label for="route">Route:</label>
-    <input type="text" name="route" id="route"><br><br>
-   -->
     <!-- CSSTarget Fields -->
+    <label for="feedType">Feed Type:</label>
+    <select name="feedType" id="feedType" value="webScraping">
+      <option value="webScraping">Web Scraping</option>
+      <option value="api">REST API Call</option>
+    </select><br><br>
+    <div id="webScrapingFields">
     <h3>CSS Selectors for RSS Feed Items</h3>
-    
     <!-- Iterator Selector -->
     <label for="itemSelector">Item Selector (Iterator):</label>
-    <input type="text" name="itemSelector" id="itemSelector" required><br><br>
+    <input type="text" name="itemSelector" id="itemSelector"><br><br>
     <!-- Title Selector -->
     <label for="titleSelector">Title Selector:</label>
     <input type="text" name="titleSelector" id="titleSelector"><br><br>
@@ -83,9 +77,50 @@
     <label for="dateFormat">Date Format:</label>
     <input type="text" name="dateFormat" id="dateFormat">
     </details>
+    </div>
+    <!-- API Fields -->
+  <div id="apiFields" style="display: none;">
+    <h3>API Configuration</h3>
+    <label for="apiRoute">API Route (Ex: "/dog/breeds"):</label>
+    <input type="text" name="apiRoute" id="apiRoute"><br><br>
+
+    <label for="apiMethod">HTTP Method:</label>
+    <select name="apiMethod" id="apiMethod">
+      <option value="GET">GET</option>
+      <option value="POST">POST</option>
+    </select><br><br>
+
+    <label for="apiParams">Query Parameters (JSON format):</label><br>
+    <textarea name="apiParams" id="apiParams" rows="5" cols="50">{}</textarea><br><br>
+
+    <label for="apiHeaders">HTTP Headers (JSON format):</label><br>
+    <textarea name="apiHeaders" id="apiHeaders" rows="5" cols="50">{}</textarea><br><br>
+
+    <label for="apiBody">Request Body (JSON format):</label><br>
+    <textarea name="apiBody" id="apiBody" rows="5" cols="50">{}</textarea><br><br>
+
+    <h3>API Response Mapping</h3>
+    <label for="apiItemsPath">Items Path (e.g., 'data.items'):</label>
+    <input type="text" name="apiItemsPath" id="apiItemsPath"><br><br>
+
+    <label for="apiTitleField">Title Field:</label>
+    <input type="text" name="apiTitleField" id="apiTitleField"><br><br>
+
+    <label for="apiDescriptionField">Description Field:</label>
+    <input type="text" name="apiDescriptionField" id="apiDescriptionField"><br><br>
+
+    <label for="apiLinkField">Link Field:</label>
+    <input type="text" name="apiLinkField" id="apiLinkField"><br><br>
+
+    <label for="apiDateField">Date Field:</label>
+    <input type="text" name="apiDateField" id="apiDateField"><br><br>
+  </div>
     <br><br>
      <details>
       <summary>Additional Options</summary>
+      <label>
+        <input type="text" name="refreshTime" id="refreshTime" min="1" value="5"> Refresh Time (in minutes)
+      </label>
       <label>
         <input type="checkbox" name="timestamp" id="timestamp"> Use Timestamp
       </label><br><br>
@@ -109,6 +144,20 @@
     } else {
       document.getElementById('linkBaseUrl').style.display = 'none';
       document.getElementById('linkBaseUrlLabel').style.display = 'none';
+    }
+  });
+
+  const feedTypeSelect = document.getElementById('feedType');
+  const webScrapingFields = document.getElementById('webScrapingFields');
+  const apiFields = document.getElementById('apiFields');
+
+  feedTypeSelect.addEventListener('change', function() {
+    if (this.value === 'webScraping') {
+      webScrapingFields.style.display = 'block';
+      apiFields.style.display = 'none';
+    } else if (this.value === 'api') {
+      webScrapingFields.style.display = 'none';
+      apiFields.style.display = 'block';
     }
   });
 </script>

@@ -25,10 +25,8 @@ bun run start
 ### To Do:
 - [ ] Locally testing subscriptions to feeds
 - [ ] Add all possible RSS fields to models
-- [ ] Create more functional adapters
-- [ ] Outline adapter creation and PR process
-- [ ] Create docker-compose
-- [ ] Create GUI (show adapter options and params on an index page for end-users, static, Swagger-like)
+- [X] Create dockerfile
+- [X] Create GUI
 - [ ] Utilities
   - [X] HTML stripper
   - [X] Source url wrapper for relative links

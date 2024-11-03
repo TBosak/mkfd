@@ -40,3 +40,15 @@ export function processDates(date?: any, removeHtml?: boolean, timestamp?: boole
     if(timestamp) result = timestampToDate(result);
     return result;
 }
+
+export function get(obj, path, defaultValue) {
+    const keys = path.split('.');
+    let result = obj;
+    for (let key of keys) {
+      if (result == null || !(key in result)) {
+        return defaultValue;
+      }
+      result = result[key];
+    }
+    return result;
+  }

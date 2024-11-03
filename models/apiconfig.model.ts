@@ -1,13 +1,13 @@
 export default class ApiConfig {
     constructor(
-    public title?: string,
-    public params?: {param: string, description: string}[],
-    public baseUrl?: string,
-    public apiKey?: string,
-    public apiSecret?: string,
-    public accessToken?: string,
-    public headers?: { [key: string]: string },
-    public withCredentials?: boolean,
-    public route?: string,
-    public contributor?: string){}
-}
+      public title?: string,
+      public baseUrl?: string,
+      public method?: string, // 'GET', 'POST', etc.
+      public route?: string, // API endpoint or route
+      public params?: { [key: string]: string }, // Query parameters
+      public headers?: { [key: string]: string }, // HTTP headers
+      public body?: any, // Request body for POST, PUT, etc.
+      public withCredentials?: boolean,
+      public contributor?: string,
+    ) { }
+  }

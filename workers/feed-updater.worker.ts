@@ -1,8 +1,8 @@
-import { readFile, readdir, writeFile } from 'fs/promises';
-import yaml from 'js-yaml';
+import { writeFile } from 'fs/promises';
 import axios from 'axios';
-import { buildRSS } from '../utilities/rss-builder.utility';
+import { buildRSS, buildRSSFromApiData } from '../utilities/rss-builder.utility';
 import { join } from 'path';
+import * as url from 'url';
 
 declare var self: Worker;
 
@@ -10,38 +10,18 @@ declare var self: Worker;
 const yamlDir = './configs';
 const rssDir = './public/feeds';
 
-// Function to process feeds
-async function processFeeds() {
-  try {
-    const files = await readdir(yamlDir);
-    const yamlFiles = files.filter((file) => file.endsWith('.yaml'));
-
-    for (const file of yamlFiles) {
-      const filePath = join(yamlDir, file);
-      const yamlContent = await readFile(filePath, 'utf8');
-      const feedConfig = yaml.load(yamlContent);
-
-      // Fetch data and update the RSS feed
-      await fetchDataAndUpdateFeed(feedConfig);
-    }
-
-    // Notify the parent that processing is done
-    self.postMessage({ status: 'done' });
-  } catch (error) {
-    console.error('Error processing feeds:', error);
-    self.postMessage({ status: 'error', error: error.message });
-  }
-}
-
 // Function to fetch data and update the feed
 async function fetchDataAndUpdateFeed(feedConfig) {
   try {
-    const response = await axios.get(feedConfig.config.baseUrl);
-    const html = response.data;
+    var rssXml;
 
+    if(feedConfig.feedType === 'webScraping') {
+      const response = await axios.get(feedConfig.config.baseUrl);
+      const html = response.data;
     // Generate the RSS feed using your buildRSS function
-    const rssXml = buildRSS(
+    rssXml = buildRSS(
       html,
+      feedConfig.config,
       feedConfig.article,
       undefined,
       undefined,
@@ -50,7 +30,23 @@ async function fetchDataAndUpdateFeed(feedConfig) {
       feedConfig.timestamp,
       feedConfig.reverse
     );
+  } else if(feedConfig.feedType === 'api') {
+    // Generate the RSS feed using your buildRSSFromApiData function
+    const axiosConfig = {
+      method: feedConfig.config.method || 'GET',
+      url: feedConfig.config.baseUrl + (feedConfig.config.route || ''),
+      headers: feedConfig.config.headers || {},
+      params: feedConfig.config.params || {},
+      data: feedConfig.config.body || {},
+      withCredentials: feedConfig.config.withCredentials || false,
+    };
 
+    console.log('axiosConfig:', axiosConfig);
+    const response = await axios(axiosConfig);
+    const apiData = response.data;
+
+    rssXml = buildRSSFromApiData(apiData, feedConfig.config, feedConfig.apiMapping);
+  }
     // Save the RSS XML to a file
     const rssFilePath = join(rssDir, `${feedConfig.feedId}.xml`);
     await writeFile(rssFilePath, rssXml, 'utf8');
@@ -63,7 +59,7 @@ async function fetchDataAndUpdateFeed(feedConfig) {
 
 // Listen for messages from the parent thread
 self.onmessage = (message) => {
-  if (message.data === 'start') {
-    processFeeds();
+  if (message.data.command === 'start') {
+    fetchDataAndUpdateFeed(message.data.config);
   }
 };
