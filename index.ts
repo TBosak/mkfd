@@ -272,6 +272,8 @@ app.get('/feeds', async (ctx) => {
   return ctx.html(response);
 });
 
+app.get('privacy-policy', (ctx) => ctx.html(`We only keep the data you provide for generating RSS feeds. We do not store any personal information.`));
+
 function initializeWorker(feedConfig: any) {
   feedUpdaters.set(feedConfig.feedId, new Worker("./workers/feed-updater.worker.ts", { type: "module" }));
 
