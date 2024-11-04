@@ -1,7 +1,3 @@
-export function timestampToDate(timestamp: any) {
-    return new Date((timestamp * 1000)).toLocaleTimeString("en-US");
-}
-
 export function stripHtml(html: string) {
     return html.replace(/<(?:.|\n)*?>/gm, '');
 }
@@ -34,10 +30,45 @@ export function processLinks(words?: string, removeHtml?: boolean, relativeLink?
     return result;
 }
 
-export function processDates(date?: any, removeHtml?: boolean, timestamp?: boolean) {
-    var result = date ?? '';
-    if(removeHtml) result = stripHtml(result);
-    if(timestamp) result = timestampToDate(result);
+export function processDates(date?: any, removeHtml?: boolean) {
+    let result = date ?? '';
+    if (removeHtml) result = stripHtml(result);
+
+    // Define regex patterns for various date and time formats
+    const patterns = [
+        { regex: /\b\d{10}\b/, type: 'unix' }, // Unix timestamp (seconds)
+        { regex: /\b\d{13}\b/, type: 'unixMillis' }, // Unix timestamp (milliseconds)
+        { regex: /\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z?\b/, type: 'iso' }, // ISO 8601 with time
+        { regex: /\b\d{4}-\d{2}-\d{2}\b/, type: 'yyyy-mm-dd' }, // YYYY-MM-DD
+        { regex: /\b\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\b/, type: 'yyyy-mm-dd hh:mm:ss' }, // Custom YYYY-MM-DD hh:mm:ss
+        { regex: /\b\w{3}, \d{2} \w{3} \d{4} \d{2}:\d{2}:\d{2} GMT\b/, type: 'utc' } // UTC format with time
+    ];
+
+    // Function to parse a matched date and time substring based on its type
+    function parseDate(value: string, type: string): Date | null {
+        switch (type) {
+            case 'unix':        return new Date(parseInt(value) * 1000); // Unix timestamp (seconds)
+            case 'unixMillis':  return new Date(parseInt(value));        // Unix timestamp (milliseconds)
+            case 'iso':         return new Date(value);                  // ISO 8601
+            case 'yyyy-mm-dd':  return new Date(`${value}T00:00:00Z`);  // YYYY-MM-DD assumed UTC midnight
+            case 'yyyy-mm-dd hh:mm:ss': return new Date(value + 'Z');    // YYYY-MM-DD hh:mm:ss assumed UTC
+            case 'utc':         return new Date(value);                  // UTC format
+            default:            return null;
+        }
+    }
+
+    // Try each pattern to find a matching date and time substring in the input
+    for (const { regex, type } of patterns) {
+        const match = result.match(regex);
+        if (match) {
+            const parsedDate = parseDate(match[0], type);
+            if (parsedDate && !isNaN(parsedDate.getTime())) {
+                return parsedDate.toLocaleString(); // Return standardized date format with time if available
+            }
+        }
+    }
+
+    // If no match is found, return the original input
     return result;
 }
 

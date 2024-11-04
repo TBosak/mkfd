@@ -29,57 +29,87 @@ if (!existsSync(configsDir)) {
 processFeedsAtStart();
 
 app.use('/public/*', serveStatic({ root: './' }))
-app.use('/feeds/*', serveStatic({ root: './' }))
 app.use('/configs/*', serveStatic({ root: './' }))
 
 app.get('/', (ctx) => ctx.html(file('./public/index.html').text()));
 
 app.post('/', async (ctx) => {
     const feedId = uuidv4();
-    const data = await ctx.req.formData();
+    let formData;
+    let jsonData: any = {};
+    let feedType: string = '';
+    const contentType = ctx.req.header('Content-Type') || '';
+
+    if (contentType.includes('application/json')) {
+      // Parse JSON body
+      try {
+        jsonData = await ctx.req.json();
+        feedType = jsonData.feedType || 'webScraping';
+      } catch (error) {
+        console.error('Invalid JSON body:', error);
+        return ctx.text('Invalid JSON body.', 400);
+      }
+    } else if (
+      contentType.includes('multipart/form-data') ||
+      contentType.includes('application/x-www-form-urlencoded')
+    ) {
+      // Parse form data
+      formData = await ctx.req.formData();
+      feedType = formData.get('feedType')?.toString() || 'webScraping';
+    } else {
+      return ctx.text('Unsupported Content-Type.', 415);
+    }
+
+    const extractValue = (key: string) =>{
+      return formData ? formData.get(key)?.toString() : jsonData[key];
+    };
+
     var article = {};
     var apiMapping = {};
-    const feedType = data.get("feedType")?.toString();
       const apiConfig: ApiConfig = {
-        title: data.get("feedName")?.toString() || "RSS Feed",
-        baseUrl: data.get("feedUrl")?.toString(),
+        title: extractValue("feedName") || "RSS Feed",
+        baseUrl: extractValue("feedUrl"),
       }
 
       if(feedType === 'webScraping') {
       const iteratorTarget = new CSSTarget(
-        data.get("itemSelector")?.toString(),
+        extractValue("itemSelector"),
       );
       const titleTarget = new CSSTarget(
-      data.get("titleSelector")?.toString(),
-      data.get("titleAttribute")?.toString() || undefined,
-      data.get("titleStripHtml")?.toString() === 'on',
+      extractValue("titleSelector"),
+      extractValue("titleAttribute") || undefined,
+      extractValue('titleStripHtml') === 'on' || extractValue('titleStripHtml') === true,
       "",
       false,
-      data.get("titleTitleCase")?.toString() === 'on'
+      extractValue("titleTitleCase") === 'on' || extractValue("titleTitleCase") === true,
+      extractValue("titleIterator")
       );
       const descriptionTarget = new CSSTarget(
-        data.get("descriptionSelector")?.toString(),
-        data.get("descriptionAttribute")?.toString() || undefined,
-        data.get("descriptionStripHtml")?.toString() === 'on',
+        extractValue("descriptionSelector"),
+        extractValue("descriptionAttribute") || undefined,
+        extractValue("descriptionStripHtml") === 'on' || extractValue("descriptionStripHtml") === true,
         "",
         false,
-        data.get("descriptionTitleCase")?.toString() === 'on'
+        extractValue("descriptionTitleCase") === 'on' || extractValue("descriptionTitleCase") === true,
+        extractValue("descriptionIterator")
       );
       const linkTarget = new CSSTarget(
-        data.get("linkSelector")?.toString(),
-        data.get("linkAttribute")?.toString() || undefined,
+        extractValue("linkSelector"),
+        extractValue("linkAttribute") || undefined,
         false,
-        data.get("linkBaseUrl")?.toString(),
-        data.get("linkRelativeLink")?.toString() === 'on',
-        false
+        extractValue("linkBaseUrl"),
+        extractValue("linkRelativeLink") === 'on' || extractValue("linkRelativeLink") === true,
+        false,
+        extractValue("linkIterator")
       );
       const dateTarget = new CSSTarget(
-        data.get("dateSelector")?.toString(),
-        data.get("dateAttribute")?.toString() || undefined,
-        data.get("dateStripHtml")?.toString() === 'on',
+        extractValue("dateSelector"),
+        extractValue("dateAttribute") || undefined,
+        extractValue("dateStripHtml") === 'on' || extractValue("dateStripHtml") === true,
         "",
         false,
-        false
+        false,
+        extractValue("dateIterator")
       );
 
       article = {
@@ -92,50 +122,51 @@ app.post('/', async (ctx) => {
   }
     else if (feedType === 'api') {
       // API configuration
-      apiConfig.method = data.get("apiMethod")?.toString() || 'GET';
-      apiConfig.route = data.get("apiRoute")?.toString();
+      apiConfig.method = extractValue("apiMethod") || 'GET';
+      apiConfig.route = extractValue("apiRoute");
   
       // Parse JSON inputs
       try {
-        apiConfig.params = JSON.parse(data.get("apiParams")?.toString() || '{}');
+        apiConfig.params = JSON.parse(extractValue("apiParams") || '{}');
       } catch {
         return ctx.text('Invalid JSON in API parameters.', 400);
       }
   
       try {
-        apiConfig.headers = JSON.parse(data.get("apiHeaders")?.toString() || '{}');
+        apiConfig.headers = JSON.parse(extractValue("apiHeaders") || '{}');
       } catch {
         return ctx.text('Invalid JSON in API headers.', 400);
       }
   
       try {
-        apiConfig.body = JSON.parse(data.get("apiBody")?.toString() || '{}');
+        apiConfig.body = JSON.parse(extractValue("apiBody") || '{}');
       } catch {
         return ctx.text('Invalid JSON in API body.', 400);
       }
   
       // API response mapping
       apiMapping = {
-        items: data.get("apiItemsPath")?.toString(),
-        title: data.get("apiTitleField")?.toString(),
-        description: data.get("apiDescriptionField")?.toString(),
-        link: data.get("apiLinkField")?.toString(),
-        date: data.get("apiDateField")?.toString(),
+        items: extractValue("apiItemsPath"),
+        title: extractValue("apiTitleField"),
+        description: extractValue("apiDescriptionField"),
+        link: extractValue("apiLinkField"),
+        date: extractValue("apiDateField"),
       };
     }
-      const refreshTime = parseInt(data.get("refreshTime")?.toString() || '5');
-      const timestamp = (data.get("timestamp")?.toString() === 'on');
-      const reverse = (data.get("reverse")?.toString() === 'on');
+      const refreshTime = parseInt(extractValue("refreshTime") || '5');
+    const reverse =
+      extractValue('reverse') === 'on' ||
+      extractValue('reverse') === true ||
+      extractValue('reverse') === 'true';
 
       const feedConfig = {
         feedId,
         feedName: apiConfig.title,
-        feedType: data.get("feedType")?.toString() || "webScraping", // 'webScraping' or 'api'
+        feedType: extractValue("feedType") || "webScraping", // 'webScraping' or 'api'
         config: apiConfig,
         article: article,
         apiMapping: apiMapping,
         refreshTime: refreshTime,
-        timestamp: timestamp,
         reverse: reverse,
       };
   
@@ -148,10 +179,97 @@ app.post('/', async (ctx) => {
   
       // Provide the user with the RSS feed URL
       setFeedUpdaterInterval(feedConfig);
+      if(contentType.includes('application/json')){
+        return ctx.json({
+          message: 'RSS feed is being generated.',
+          feedUrl: `public/feeds/${feedId}.xml`,
+        });
+      }
+      else{
       return ctx.html(`
         <p>Your RSS feed is being generated and will update every ${refreshTime} minutes.</p>
-        <p>Access it at: <a href="/feeds/${feedId}.xml">/feeds/${feedId}.xml</a></p>
+        <p>Access it at: <a href="public/feeds/${feedId}.xml">public/feeds/${feedId}.xml</a></p>
       `);
+      }
+});
+
+import { DOMParser } from 'xmldom';
+
+app.get('/feeds', async (ctx) => {
+  const files = await readdir(configsDir);
+  const yamlFiles = files.filter((file) => file.endsWith('.yaml'));
+  const configs = [];
+  
+  // Read feed configurations
+  for (const file of yamlFiles) {
+    const filePath = join(configsDir, file);
+    const yamlContent = await readFile(filePath, 'utf8');
+    const feedConfig = yaml.load(yamlContent);
+    configs.push(feedConfig);
+  }
+
+  // Start building the HTML response
+  let response = `
+    <!DOCTYPE html>
+    <html lang="en">
+    <head>
+      <meta charset="UTF-8">
+      <title>Feeds</title>
+      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+    </head>
+    <body>
+      <main class="container">
+        <header style="text-align:center;"><h1>Active RSS Feeds</h1></header>
+        <div>
+  `;
+
+  // Process each feed to extract information
+  for (const config of configs) {
+    const feedId = config.feedId;
+    const feedName = config.feedName;
+    const feedType = config.feedType;
+
+    // Read the corresponding XML file
+    const xmlFilePath = join(feedPath, `${feedId}.xml`);
+    let lastBuildDate = 'N/A';
+    try {
+      const xmlContent = await readFile(xmlFilePath, 'utf8');
+      // Parse the XML to extract lastBuildDate
+      const parser = new DOMParser();
+      const xmlDoc = parser.parseFromString(xmlContent, 'application/xml');
+      const lastBuildDateNode = xmlDoc.getElementsByTagName('lastBuildDate')[0];
+      if (lastBuildDateNode && lastBuildDateNode.textContent) {
+        lastBuildDate = new Date(lastBuildDateNode.textContent).toLocaleString();
+      }
+    } catch (error) {
+      console.error(`Error reading XML for feedId ${feedId}:`, error);
+    }
+
+    // Build the card for this feed
+    response += `
+      <article>
+        <header>
+          <h2>${feedName}</h2>
+        </header>
+        <p><strong>Feed ID:</strong> ${feedId}</p>
+        <p><strong>Build Time:</strong> ${lastBuildDate}</p>
+        <p><strong>Feed Type:</strong> ${feedType}</p>
+        <footer>
+          <a href="public/feeds/${feedId}.xml" role="button">View Feed</a>
+        </footer>
+      </article>
+    `;
+  }
+
+  // Close the grid and body
+  response += `
+        </div>
+      </main>
+    </body>
+    </html>
+  `;
+
+  return ctx.html(response);
 });
 
 function initializeWorker(feedConfig: any) {

@@ -1,39 +1,46 @@
 import * as cheerio from "cheerio";
 import RSS from "rss";
 import CSSTarget from "../models/csstarget.model";
-import { processDates, processLinks, processWords, timestampToDate, get } from "./data-handler.utility";
+import { processDates, processLinks, processWords, get } from "./data-handler.utility";
 import ApiConfig from './../models/apiconfig.model';
 
 //TODO: ADD HTML STRIPPING TO EACH TARGET 
 export function buildRSS(res: any, apiConfig?: ApiConfig, article?:
-        { iterator: CSSTarget | { selector: string, attribute?: string, stripHtml?: boolean, rootUrl?: string, relativeLink?: boolean, titleCase?: boolean}, 
-          title?: CSSTarget | { selector: string, attribute?: string, stripHtml?: boolean, rootUrl?: string, relativeLink?: boolean, titleCase?: boolean },
-          description?: CSSTarget | { selector: string, attribute?: string, stripHtml?: boolean, rootUrl?: string, relativeLink?: boolean, titleCase?: boolean },
-          link?: CSSTarget | { selector: string, attribute?: string, stripHtml?: boolean, rootUrl?: string, relativeLink?: boolean, titleCase?: boolean },
-          date?: CSSTarget | { selector: string, attribute?: string, stripHtml?: boolean, rootUrl?: string, relativeLink?: boolean, titleCase?: boolean } },
-          title?: CSSTarget | { selector: string, attribute?: string, stripHtml?: boolean, rootUrl?: string, relativeLink?: boolean, titleCase?: boolean },
-          description?: CSSTarget | { selector: string, attribute?: string, stripHtml?: boolean, rootUrl?: string, relativeLink?: boolean, titleCase?: boolean },
-          link?: CSSTarget | { selector: string, attribute?: string, stripHtml?: boolean, rootUrl?: string, relativeLink?: boolean, titleCase?: boolean }, 
-          date?: CSSTarget | { selector: string, attribute?: string, stripHtml?: boolean, rootUrl?: string, relativeLink?: boolean, titleCase?: boolean}, 
-          timestamp?: boolean,
+        { iterator: CSSTarget | { selector: string, attribute?: string, stripHtml?: boolean, rootUrl?: string, relativeLink?: boolean, titleCase?: boolean , iterator: string }, 
+          title?: CSSTarget | { selector: string, attribute?: string, stripHtml?: boolean, rootUrl?: string, relativeLink?: boolean, titleCase?: boolean, iterator: string },
+          description?: CSSTarget | { selector: string, attribute?: string, stripHtml?: boolean, rootUrl?: string, relativeLink?: boolean, titleCase?: boolean, iterator: string },
+          link?: CSSTarget | { selector: string, attribute?: string, stripHtml?: boolean, rootUrl?: string, relativeLink?: boolean, titleCase?: boolean, iterator: string },
+          date?: CSSTarget | { selector: string, attribute?: string, stripHtml?: boolean, rootUrl?: string, relativeLink?: boolean, titleCase?: boolean, iterator: string } },
+          title?: CSSTarget | { selector: string, attribute?: string, stripHtml?: boolean, rootUrl?: string, relativeLink?: boolean, titleCase?: boolean, iterator: string },
+          description?: CSSTarget | { selector: string, attribute?: string, stripHtml?: boolean, rootUrl?: string, relativeLink?: boolean, titleCase?: boolean, iterator: string },
+          link?: CSSTarget | { selector: string, attribute?: string, stripHtml?: boolean, rootUrl?: string, relativeLink?: boolean, titleCase?: boolean, iterator: string }, 
+          date?: CSSTarget | { selector: string, attribute?: string, stripHtml?: boolean, rootUrl?: string, relativeLink?: boolean, titleCase?: boolean, iterator: string }, 
           reverse?: boolean): string {
         let input: Array<any> = [];
         const $ = cheerio.load(res);
         if (article) {
             $(article.iterator.selector).each((i: any, data: any) => {
                 input.push({
-                    title: !!article.title?.attribute ? 
+                    title: !article.title?.iterator ? (!!article.title?.attribute ? 
                             processWords($(data).find(article.title?.selector)?.attr(article.title?.attribute),article.title?.titleCase,article.title?.stripHtml) : 
-                            processWords($(data).find(article.title?.selector)?.text(),article.title?.titleCase,article.title?.stripHtml),
-                    description: !!article.description?.attribute ? 
+                            processWords($(data).find(article.title?.selector)?.text(),article.title?.titleCase,article.title?.stripHtml)) : 
+                            (!!article.title?.attribute ? processWords($($(article.title.iterator).toArray()[i]).find(article.title.selector)?.attr(article.title?.attribute),article.title.titleCase,article.title.stripHtml):
+                            processWords($($(article.title.iterator).toArray()[i]).find(article.title.selector).text(),article.title.titleCase,article.title.stripHtml)),
+                    description: !article.description?.iterator ? (!!article.description?.attribute ? 
                                  processWords($(data).find(article.description?.selector)?.attr(article.description?.attribute),article.description?.titleCase,article.description?.stripHtml) : 
-                                 processWords($(data).find(article.description?.selector)?.text(),article.description?.titleCase,article.description?.stripHtml),
-                    url: !!article.link?.attribute ? 
+                                 processWords($(data).find(article.description?.selector)?.text(),article.description?.titleCase,article.description?.stripHtml)):
+                                 (!!article.description?.attribute ? processWords($($(article.description.iterator).toArray()[i]).find(article.description.selector)?.attr(article.description?.attribute),article.description.titleCase,article.description.stripHtml) :
+                                    processWords($($(article.description.iterator).toArray()[i]).find(article.description.selector).text(),article.description.titleCase,article.description.stripHtml)),
+                    url: !article.link?.iterator ? (!!article.link?.attribute ? 
                          processLinks($(data).find(article.link?.selector)?.attr(article.link?.attribute),article.link?.stripHtml,article.link?.relativeLink,article.link?.rootUrl) : 
-                         processLinks($(data).find(article.link?.selector)?.text(),article.link?.stripHtml,article.link?.relativeLink,article.link?.rootUrl),
-                    date: !!article.date?.attribute ? 
-                          processDates($(data).find(article.date?.selector)?.attr(article.date?.attribute),article.date?.stripHtml,timestamp) : 
-                          processDates($(data).find(article.date?.selector)?.text(),article.date?.stripHtml,timestamp)
+                         processLinks($(data).find(article.link?.selector)?.text(),article.link?.stripHtml,article.link?.relativeLink,article.link?.rootUrl)) :
+                            (!!article.link?.attribute ? processLinks($($(article.link.iterator).toArray()[i]).find(article.link.selector)?.attr(article.link?.attribute),article.link.stripHtml,article.link.relativeLink,article.link.rootUrl) :
+                            processLinks($($(article.link.iterator).toArray()[i]).find(article.link.selector).text(),article.link.stripHtml,article.link.relativeLink,article.link.rootUrl)),
+                    date: !article.date?.iterator ? (!!article.date?.attribute ? 
+                          processDates($(data).find(article.date?.selector)?.attr(article.date?.attribute),article.date?.stripHtml) : 
+                          processDates($(data).find(article.date?.selector)?.text(),article.date?.stripHtml)) :
+                            (!!article.date?.attribute ? processDates($($(article.date.iterator).toArray()[i]).find(article.date.selector)?.attr(article.date?.attribute),article.date.stripHtml) :
+                            processDates($($(article.date.iterator).toArray()[i]).find(article.date.selector).text(),article.date.stripHtml))
                 })
             })
         }
@@ -54,8 +61,8 @@ export function buildRSS(res: any, apiConfig?: ApiConfig, article?:
         }
         if (date) {
             $(date?.selector).each((i: string | number, data: any) => {
-                input[i].date = processDates($(data).attr(date.attribute),date?.stripHtml,timestamp) 
-                                ?? processDates($(data).text(),date?.stripHtml,timestamp);
+                input[i].date = processDates($(data).attr(date.attribute),date?.stripHtml) 
+                                ?? processDates($(data).text(),date?.stripHtml);
             })
         }
     

@@ -8,6 +8,7 @@
 <body>
   <article>
     <header style="text-align:center;">
+    <img height="15%" width="15%" src="public/logo.png">
     <h1>Feed Builder</h1>
     <p>Enter the details below to create a new RSS feed</p>
     </header>
@@ -35,6 +36,8 @@
     <input type="text" name="titleSelector" id="titleSelector"><br><br>
     <label for="titleAttribute">Title Attribute:</label>
     <input type="text" name="titleAttribute" id="titleAttribute"><br><br>
+    <label for="titleIterator">Title Parent Iterator (optional):</label>
+    <input type="text" name="titleIterator" id="titleIterator"><br><br>
     <label>
       <input type="checkbox" name="titleStripHtml" id="titleStripHtml"> Strip HTML in Title
     </label><br><br>
@@ -47,6 +50,8 @@
     <input type="text" name="descriptionSelector" id="descriptionSelector"><br><br>
     <label for="descriptionAttribute">Description Attribute:</label>
     <input type="text" name="descriptionAttribute" id="descriptionAttribute"><br><br>
+    <label for="descriptionIterator">Description Parent Iterator (optional):</label>
+    <input type="text" name="descriptionIterator" id="descriptionIterator"><br><br>
     <label>
       <input type="checkbox" name="descriptionStripHtml" id="descriptionStripHtml"> Strip HTML in Description
     </label><br><br>
@@ -61,6 +66,8 @@
     <input type="text" name="linkSelector" id="linkSelector"><br><br>
     <label for="linkAttribute">Link Attribute:</label>
     <input type="text" name="linkAttribute" id="linkAttribute"><br><br>
+    <label for="linkIterator">Link Parent Iterator (optional):</label>
+    <input type="text" name="linkIterator" id="linkIterator"><br><br>
     <label>
       <input type="checkbox" name="linkRelativeLink" id="linkStripHtml"> Relative Link?
     </label><br><br>
@@ -71,11 +78,15 @@
     <details>
       <summary>Date</summary>
       <label for="dateSelector">Date Selector:</label>
-    <input type="text" name="dateSelector" id="dateSelector"><br><br>
-    <label for="dateAttribute">Date Attribute:</label>
-    <input type="text" name="dateAttribute" id="dateAttribute"><br><br>
-    <label for="dateFormat">Date Format:</label>
-    <input type="text" name="dateFormat" id="dateFormat">
+      <input type="text" name="dateSelector" id="dateSelector"><br><br>
+      <label for="dateAttribute">Date Attribute:</label>
+      <input type="text" name="dateAttribute" id="dateAttribute"><br><br>
+      <label for="dateFormat">Date Format:</label>
+      <input type="text" name="dateFormat" id="dateFormat">
+      <label for="dateIterator">
+        Date Parent Iterator (optional):
+      </label>
+      <input type="text" name="dateIterator" id="dateIterator"><br><br>
     </details>
     </div>
     <!-- API Fields -->
@@ -122,9 +133,6 @@
         <input type="text" name="refreshTime" id="refreshTime" min="1" value="5"> Refresh Time (in minutes)
       </label>
       <label>
-        <input type="checkbox" name="timestamp" id="timestamp"> Use Timestamp
-      </label><br><br>
-      <label>
         <input type="checkbox" name="reverse" id="reverse"> Reverse Order
       </label>
      </details>
@@ -133,7 +141,8 @@
   </form>
 </main>
 <footer>
-  <p>Created by <a href="https://github.com/TBosak">Tim Barani</a></p>
+  <p style="float:left;">Created by <a href="https://github.com/TBosak">Tim Barani</a></p>
+  <a style="float:right;" href="/feeds">View Active Feeds</a>
 </footer>
 </article>
 <script>
