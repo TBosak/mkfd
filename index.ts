@@ -9,6 +9,7 @@ import { existsSync, mkdirSync } from 'fs';
 import { readFile, readdir } from 'fs/promises';
 import ApiConfig from './models/apiconfig.model';
 import { writeFile } from 'fs/promises';
+import { DOMParser } from 'xmldom';
 
 const app = new Hono()
 
@@ -30,11 +31,9 @@ processFeedsAtStart();
 
 app.use('/public/*', serveStatic({ root: './' }))
 app.use('/configs/*', serveStatic({ root: './' }))
-
 app.get('/', (ctx) => ctx.html(file('./public/index.html').text()));
-
 app.post('/', async (ctx) => {
-    const feedId = uuidv4();
+  const feedId = uuidv4();
     let formData;
     let jsonData: any = {};
     let feedType: string = '';
@@ -193,7 +192,21 @@ app.post('/', async (ctx) => {
       }
 });
 
-import { DOMParser } from 'xmldom';
+//GPT ONLY ENDPOINT TO GET HTML AND DETERMINE BEST CSS SELECTORS
+// app.post('/html', async (ctx) => {
+//   //Axios request from url in request body
+//   let jsonData = await ctx.req.json();
+//   let url = jsonData.url;
+//   await axios.get(url)
+//     .then(async (response) => {
+//       // Process the response stream
+//       let data = Buffer.from(response.data, 'utf-8');
+//       let compressed = gzipSync(data);
+//       await Bun.write("./public/html.gz", compressed);
+//     })
+//   let text = await file('./public/html.gz').text()
+//   return ctx.body(text);
+// });
 
 app.get('/feeds', async (ctx) => {
   const files = await readdir(configsDir);
