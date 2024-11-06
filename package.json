@@ -3,7 +3,7 @@
   "module": "index.ts",
   "type": "module",
   "scripts": {
-    "start": "bun run index.ts --watch"
+    "start": "bun run index.ts --watch --passkey=admin123 --cookieSecret=a18c1fd2211edd76"
   },
   "dependencies": {
     "@types/bun": "^1.1.12",
@@ -13,8 +13,13 @@
     "bun": "^1.1.33",
     "bun-types": "^0.1.0",
     "cheerio": "^1.0.0",
+    "cookie": "^1.0.1",
+    "cookie-signature": "^1.2.2",
     "hono": "^4.6.8",
+    "hono-sessions": "^0.7.0",
+    "ipaddr.js": "^2.2.0",
     "js-yaml": "^4.1.0",
+    "minimist": "^1.2.8",
     "rss": "1.2.2",
     "uuid": "^11.0.2",
     "xmldom": "^0.6.0"

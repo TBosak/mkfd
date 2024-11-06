@@ -10,9 +10,15 @@ import { readFile, readdir } from 'fs/promises';
 import ApiConfig from './models/apiconfig.model';
 import { writeFile } from 'fs/promises';
 import { DOMParser } from 'xmldom';
+import minimist from 'minimist';
+import { getConnInfo } from 'hono/cloudflare-workers'
+import { parse as parseCookie, serialize as serializeCookie } from 'cookie';
+import * as cookieSignature from 'cookie-signature';
 
 const app = new Hono()
-
+const args = minimist(process.argv.slice(2));
+const passkey = process.env.PASSKEY ?? args.passkey;
+const cookieSecret = process.env.COOKIE_SECRET ?? args.cookieSecret;
 var feedUpdaters: Map<string, Worker> = new Map();
 var feedIntervals: Map<string, Timer> = new Map();
 
@@ -28,9 +34,66 @@ if (!existsSync(configsDir)) {
 
 // Start processing immediately on startup
 processFeedsAtStart();
+//ALLOW LOCAL NETWORK TO ACCESS API
+const middleware = async (_, next) => {
+  const connInfo = await getConnInfo(_);
+  if (connInfo?.remote?.address == undefined) {
+    // Return after calling `await next()`
+    return await next();
+  } else {
+    const cookies = parseCookie(_.req.header('Cookie') || '');
+    const signedAuthToken = cookies['auth_token'];
+    if (signedAuthToken) {
+      const authToken = cookieSignature.unsign(signedAuthToken, cookieSecret);
+      if (authToken === 'authenticated') {
+        // Return after calling `await next()`
+        return await next();
+      } else {
+        // Handle invalid auth token
+        // Clear the invalid cookie
+        _.res.headers.append(
+          'Set-Cookie',
+          serializeCookie('auth_token', '', {
+            secure: true, // Set to true if using HTTPS
+            maxAge: 0,
+            sameSite: 'lax',
+          })
+        );
+        // Redirect to passkey page
+        return _.redirect('/passkey');
+      }
+    }
 
-app.use('/public/*', serveStatic({ root: './' }))
-app.use('/configs/*', serveStatic({ root: './' }))
+    if (_.req.method === 'POST' && _.req.path === '/passkey') {
+      // Handle passkey submission
+      const data = await _.req.parseBody();
+      const passKey = data['passkey'];
+      if (passKey === passkey) {
+        const signedValue = cookieSignature.sign('authenticated', cookieSecret);
+        _.res.headers.append(
+          'Set-Cookie',
+          serializeCookie('auth_token', signedValue, {
+            secure: true, // Set to true if using HTTPS
+            maxAge: 60 * 60 * 24, // 1 day
+            sameSite: 'lax',
+          })
+        );
+        return _.redirect('/');
+      } else {
+        return _.html('<p>Incorrect passkey. <a href="/passkey">Try again</a>.</p>');
+      }
+    } else if (_.req.path === '/passkey') {
+      // Return after calling `await next()`
+      return await next();
+    } else {
+      return _.redirect('/passkey');
+    }
+  }
+};
+
+app.use('/*', middleware);
+app.use('/public/*', serveStatic({ root: './' }));
+app.use('/configs/*', serveStatic({ root: './' }));
 app.get('/', (ctx) => ctx.html(file('./public/index.html').text()));
 app.post('/', async (ctx) => {
   const feedId = uuidv4();
@@ -283,6 +346,32 @@ app.get('/feeds', async (ctx) => {
   `;
 
   return ctx.html(response);
+});
+
+// Passkey entry routes
+app.get('/passkey', (c) => {
+  return c.html(`
+    <!DOCTYPE html>
+    <html>
+      <head>
+        <title>Enter Passkey</title>
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+      </head>
+      <body>
+        <main class="container">
+          <h1>Enter Passkey</h1>
+          <form method="POST" action="/passkey">
+            <label for="passkey">Passkey:</label>
+            <input type="password" id="passkey" name="passkey" required>
+            <button type="submit">Submit</button>
+          </form>
+        </main>
+      </body>
+    </html>
+  `);
+});
+
+app.post('/passkey', async (c) => {
 });
 
 app.get('privacy-policy', (ctx) => ctx.html(`We only keep the data you provide for generating RSS feeds. We do not store any personal information.`));
