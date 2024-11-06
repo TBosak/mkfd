@@ -1,19 +1,19 @@
 import { file } from 'bun';
-import { Hono } from 'hono';
-import { serveStatic } from 'hono/bun';
-import CSSTarget from './models/csstarget.model';
-import { v4 as uuidv4 } from 'uuid';
-import * as yaml from 'js-yaml';
-import { join } from 'path';
-import { existsSync, mkdirSync } from 'fs';
-import { readFile, readdir } from 'fs/promises';
-import ApiConfig from './models/apiconfig.model';
-import { writeFile } from 'fs/promises';
-import { DOMParser } from 'xmldom';
-import minimist from 'minimist';
-import { getConnInfo } from 'hono/cloudflare-workers'
 import { parse as parseCookie, serialize as serializeCookie } from 'cookie';
 import * as cookieSignature from 'cookie-signature';
+import { existsSync, mkdirSync } from 'fs';
+import { readFile, readdir, writeFile } from 'fs/promises';
+import { Hono } from 'hono';
+import { serveStatic } from 'hono/bun';
+import { getConnInfo } from 'hono/cloudflare-workers';
+import { except } from 'hono/combine';
+import * as yaml from 'js-yaml';
+import minimist from 'minimist';
+import { join } from 'path';
+import { v4 as uuidv4 } from 'uuid';
+import { DOMParser } from 'xmldom';
+import ApiConfig from './models/apiconfig.model';
+import CSSTarget from './models/csstarget.model';
 
 const app = new Hono()
 const args = minimist(process.argv.slice(2));
@@ -91,7 +91,7 @@ const middleware = async (_, next) => {
   }
 };
 
-app.use('/*', middleware);
+app.use('/*', except('/public/*', middleware));
 app.use('/public/*', serveStatic({ root: './' }));
 app.use('/configs/*', serveStatic({ root: './' }));
 app.get('/', (ctx) => ctx.html(file('./public/index.html').text()));
