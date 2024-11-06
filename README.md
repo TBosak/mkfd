@@ -26,9 +26,9 @@ bun run start
 Access the GUI at `http://localhost:5000/`
 
 ### To Do:
-- [ ] Locally testing subscriptions to feeds
+- [X] Locally testing subscriptions to feeds
 - [ ] Add all possible RSS fields to models
-- [ ] Add option for parallel iterators
+- [X] Add option for parallel iterators
 - [ ] Add form validation
 - [ ] Store/compare feed data to enable timestamping feed items
 - [X] Create dockerfile
