@@ -7,7 +7,6 @@ import * as url from 'url';
 declare var self: Worker;
 
 // Directories
-const yamlDir = './configs';
 const rssDir = './public/feeds';
 
 // Function to fetch data and update the feed
@@ -27,7 +26,6 @@ async function fetchDataAndUpdateFeed(feedConfig) {
       undefined,
       undefined,
       undefined,
-      feedConfig.timestamp,
       feedConfig.reverse
     );
   } else if(feedConfig.feedType === 'api') {

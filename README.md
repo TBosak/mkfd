@@ -30,6 +30,8 @@ Access the GUI at `http://localhost:5000/`
 - [ ] Add all possible RSS fields to models
 - [X] Add option for parallel iterators
 - [ ] Add form validation
+- [ ] Add selector suggestion engine
+- [ ] Add feed preview pane
 - [ ] Store/compare feed data to enable timestamping feed items
 - [X] Create dockerfile
 - [X] Create GUI

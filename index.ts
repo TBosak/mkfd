@@ -14,6 +14,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { DOMParser } from 'xmldom';
 import ApiConfig from './models/apiconfig.model';
 import CSSTarget from './models/csstarget.model';
+import axios from 'axios';
+import { buildRSS, buildRSSFromApiData } from './utilities/rss-builder.utility';
 
 const app = new Hono()
 const args = minimist(process.argv.slice(2));
@@ -254,6 +256,133 @@ app.post('/', async (ctx) => {
       `);
       }
 });
+app.post('/preview', async (ctx) => {
+    let jsonData: any = {};
+    let feedType: string = '';
+      try {
+        jsonData = await ctx.req.json();
+        feedType = jsonData.feedType || 'webScraping';
+      } catch (error) {
+        console.error('Invalid JSON body:', error);
+        return ctx.text('Invalid JSON body.', 400);
+      }
+
+    const extractValue = (key: string) =>{
+      return jsonData[key];
+    };
+
+    var article = {};
+    var apiMapping = {};
+      const apiConfig: ApiConfig = {
+        title: extractValue("feedName") || "RSS Feed",
+        baseUrl: extractValue("feedUrl"),
+      }
+
+      if(feedType === 'webScraping') {
+      const iteratorTarget = new CSSTarget(
+        extractValue("itemSelector"),
+      );
+      const titleTarget = new CSSTarget(
+      extractValue("titleSelector"),
+      extractValue("titleAttribute") || undefined,
+      extractValue('titleStripHtml') === 'on' || extractValue('titleStripHtml') === true,
+      "",
+      false,
+      extractValue("titleTitleCase") === 'on' || extractValue("titleTitleCase") === true,
+      extractValue("titleIterator")
+      );
+      const descriptionTarget = new CSSTarget(
+        extractValue("descriptionSelector"),
+        extractValue("descriptionAttribute") || undefined,
+        extractValue("descriptionStripHtml") === 'on' || extractValue("descriptionStripHtml") === true,
+        "",
+        false,
+        extractValue("descriptionTitleCase") === 'on' || extractValue("descriptionTitleCase") === true,
+        extractValue("descriptionIterator")
+      );
+      const linkTarget = new CSSTarget(
+        extractValue("linkSelector"),
+        extractValue("linkAttribute") || undefined,
+        false,
+        extractValue("linkBaseUrl"),
+        extractValue("linkRelativeLink") === 'on' || extractValue("linkRelativeLink") === true,
+        false,
+        extractValue("linkIterator")
+      );
+      const dateTarget = new CSSTarget(
+        extractValue("dateSelector"),
+        extractValue("dateAttribute") || undefined,
+        extractValue("dateStripHtml") === 'on' || extractValue("dateStripHtml") === true,
+        "",
+        false,
+        false,
+        extractValue("dateIterator")
+      );
+
+      article = {
+        iterator: iteratorTarget,
+        title: titleTarget,
+        description: descriptionTarget,
+        link: linkTarget,
+        date: dateTarget,
+    }
+  }
+    else if (feedType === 'api') {
+      // API configuration
+      apiConfig.method = extractValue("apiMethod") || 'GET';
+      apiConfig.route = extractValue("apiRoute");
+  
+      // Parse JSON inputs
+      try {
+        apiConfig.params = JSON.parse(extractValue("apiParams") || '{}');
+      } catch {
+        return ctx.text('Invalid JSON in API parameters.', 400);
+      }
+  
+      try {
+        apiConfig.headers = JSON.parse(extractValue("apiHeaders") || '{}');
+      } catch {
+        return ctx.text('Invalid JSON in API headers.', 400);
+      }
+  
+      try {
+        apiConfig.body = JSON.parse(extractValue("apiBody") || '{}');
+      } catch {
+        return ctx.text('Invalid JSON in API body.', 400);
+      }
+  
+      // API response mapping
+      apiMapping = {
+        items: extractValue("apiItemsPath"),
+        title: extractValue("apiTitleField"),
+        description: extractValue("apiDescriptionField"),
+        link: extractValue("apiLinkField"),
+        date: extractValue("apiDateField"),
+      };
+    }
+      const refreshTime = parseInt(extractValue("refreshTime") || '5');
+    const reverse =
+      extractValue('reverse') === 'on' ||
+      extractValue('reverse') === true ||
+      extractValue('reverse') === 'true';
+
+      const feedConfig = {
+        feedId: "preview",
+        feedName: apiConfig.title,
+        feedType: extractValue("feedType") || "webScraping", // 'webScraping' or 'api'
+        config: apiConfig,
+        article: article,
+        apiMapping: apiMapping,
+        refreshTime: refreshTime,
+        reverse: reverse,
+      };
+  
+      const response = await generatePreview(feedConfig);
+      return ctx.text(response, 200, {
+        'Content-Type': 'application/rss+xml',
+        'Cache-Control': 'no-cache, no-store, must-revalidate',
+      });
+});
 
 //GPT ONLY ENDPOINT TO GET HTML AND DETERMINE BEST CSS SELECTORS
 // app.post('/html', async (ctx) => {
@@ -409,6 +538,47 @@ catch (error) {
   console.error('Error processing feeds:', error);
   }
 }
+
+async function generatePreview(feedConfig: any) {
+        try {
+          var rssXml;
+      
+          if(feedConfig.feedType === 'webScraping') {
+            const response = await axios.get(feedConfig.config.baseUrl);
+            const html = response.data;
+          // Generate the RSS feed using your buildRSS function
+          rssXml = buildRSS(
+            html,
+            feedConfig.config,
+            feedConfig.article,
+            undefined,
+            undefined,
+            undefined,
+            undefined,
+            feedConfig.reverse
+          );
+        } else if(feedConfig.feedType === 'api') {
+          // Generate the RSS feed using your buildRSSFromApiData function
+          const axiosConfig = {
+            method: feedConfig.config.method || 'GET',
+            url: feedConfig.config.baseUrl + (feedConfig.config.route || ''),
+            headers: feedConfig.config.headers || {},
+            params: feedConfig.config.params || {},
+            data: feedConfig.config.body || {},
+            withCredentials: feedConfig.config.withCredentials || false,
+          };
+      
+          console.log('axiosConfig:', axiosConfig);
+          const response = await axios(axiosConfig);
+          const apiData = response.data;
+      
+          rssXml = buildRSSFromApiData(apiData, feedConfig.config, feedConfig.apiMapping);
+        }
+          return rssXml;
+        } catch (error) {
+          console.error(`Error fetching data for feedId ${feedConfig.feedId}:`, error.message);
+        }
+      }
 
 // Schedule the cron job
 function setFeedUpdaterInterval(feedConfig: any) {

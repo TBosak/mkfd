@@ -6,7 +6,7 @@
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
 </head>
 <body>
-  <article>
+  <article id="form">
     <header style="text-align:center;">
     <img height="15%" width="15%" src="public/logo.png">
     <h1>Feed Builder</h1>
@@ -69,7 +69,7 @@
     <label for="linkIterator">Link Parent Iterator (optional):</label>
     <input type="text" name="linkIterator" id="linkIterator"><br><br>
     <label>
-      <input type="checkbox" name="linkRelativeLink" id="linkStripHtml"> Relative Link?
+      <input type="checkbox" name="linkRelativeLink" id="linkRelativeLink"> Relative Link?
     </label><br><br>
     <label style="display:none;" id="linkBaseUrlLabel" for="linkBaseUrl">Base URL:</label>
     <input style="display:none;" type="text" name="linkBaseUrl" id="linkBaseUrl">
@@ -136,16 +136,24 @@
       </label>
      </details>
      <br><br>
-    <button type="submit">Submit</button>
+     <div role="group">
+     <button type="button" id="previewButton" class="outline contrast">Preview</button>
+    <button type="submit" class="outline contrast">Submit</button>
+     </div>
   </form>
 </main>
 <footer>
   <p style="float:left;">Created by <a href="https://github.com/TBosak">Tim Barani</a></p>
   <a style="float:right;" href="/feeds">View Active Feeds</a>
 </footer>
+<article id="preview" style="display:none;">
+  <iframe id="previewFrame" style="width:100%;height:100%;"></iframe>
+  <button onclick="document.getElementById('preview').style.display = 'none';" style="width:100%;" class="outline contrast">Hide</button>
+</article>
 </article>
 <script>
-  document.getElementById('linkStripHtml').addEventListener('change', function() {
+    document.addEventListener('DOMContentLoaded', function() {
+  document.getElementById('linkRelativeLink').addEventListener('change', function() {
     if (this.checked) {
       document.getElementById('linkBaseUrl').style.display = 'block';
       document.getElementById('linkBaseUrlLabel').style.display = 'block';
@@ -168,6 +176,77 @@
       apiFields.style.display = 'block';
     }
   });
+
+  document.getElementById('previewButton').addEventListener('click', handlePreview);
+
+  function handlePreview() {
+    const form = document.querySelector('form');
+
+// Create a FormData object from the form
+const formData = new FormData(form);
+
+// Convert FormData to JSON
+const data = {};
+  formData.forEach((value, key) => {
+    // Handle checkboxes (multiple values)
+    if (data[key]) {
+      if (!Array.isArray(data[key])) {
+        data[key] = [data[key]];
+      }
+      data[key].push(value);
+    } else {
+      data[key] = value;
+    }
+  });
+
+  // Send the AJAX request
+  sendPreviewRequest(data);
+  }
+
+  function sendPreviewRequest(data) {
+  fetch('/preview', {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(data)
+  })
+  .then(response => {
+    if (!response.ok) {
+      throw new Error('Network response was not ok');
+    }
+    return response.text(); // Get the RSS feed XML as text
+  })
+  .then(rssFeedXml => {
+    displayPreview(rssFeedXml);
+  })
+  .catch(error => {
+    console.error('Error fetching preview:', error);
+    alert('An error occurred while fetching the preview.');
+  });
+}
+
+function displayPreview(rssFeedXml) {
+  const preview = document.getElementById('preview');
+  const previewFrame = document.getElementById('previewFrame');
+
+  // Create a Blob from the RSS XML data
+  const blob = new Blob([rssFeedXml], { type: 'xml' });
+  const blobUrl = URL.createObjectURL(blob);
+
+  // Set the iframe src to the Blob URL
+  previewFrame.src = blobUrl;
+
+  // Revoke the Blob URL when the iframe content has loaded
+  previewFrame.onload = () => {
+    URL.revokeObjectURL(blobUrl);
+  };
+
+  // Show the preview
+  preview.style.display = 'block';
+  window.scrollTo(0, preview.offsetTop);
+}
+    });
 </script>
 </body>
 </html>
