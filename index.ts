@@ -91,7 +91,7 @@ const middleware = async (_, next) => {
   }
 };
 
-app.use('/*', except('/public/*', middleware));
+app.use('/*', except('/public/feeds/*', middleware));
 app.use('/public/*', serveStatic({ root: './' }));
 app.use('/configs/*', serveStatic({ root: './' }));
 app.get('/', (ctx) => ctx.html(file('./public/index.html').text()));
