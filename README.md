@@ -25,6 +25,22 @@ bun run start
 
 Access the GUI at `http://localhost:5000/`
 
+Running with Docker:
+
+  -Locally:
+
+  ```bash
+  docker build -t mkfd .
+  docker run -p 5000:5000 -v /local/mount/path:/public -e PASSKEY=your_passkey -e COOKIE_SECRET=your_cookie_secret mkfd
+  ```
+
+  -Dockerhub:
+
+  ```bash
+  docker pull tbosk/mkfd:latest
+  docker run -p 5000:5000 -v /local/mount/path:/public -e PASSKEY=your_passkey -e COOKIE_SECRET=your_cookie_secret tbosk/mkfd:latest
+  ```
+
 ### To Do:
 - [X] Locally testing subscriptions to feeds
 - [ ] Add all possible RSS fields to models
