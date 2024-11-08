@@ -17,10 +17,10 @@ COPY . .
 EXPOSE 5000
 
 # Copy the public directory to the static directory
-RUN cp -r /public /static
+RUN cp -r /configs /backup-configs
 
 # Define a volume for persistent storage
-VOLUME ["/public"]
+VOLUME ["/configs"]
 
 # Copy the entrypoint script
 COPY docker-entrypoint.sh /

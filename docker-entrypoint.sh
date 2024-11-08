@@ -1,5 +1,5 @@
 #!/bin/bash
-cp -r /static/* /public/
+cp -r /backup-configs/* /configs/
 
 # Execute the main command
 exec "$@"
