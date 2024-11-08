@@ -4,44 +4,46 @@
      height="35%"
      width="35%" />
 </p>
-     
-Bun installation <sup>Visit https://bun.sh/ for more info</sup>
+
+## Running locally:
+
+### Bun installation <sup>Visit https://bun.sh/ for more info</sup>
  
 ```bash
 curl https://bun.sh/install | bash
 ```
 
-To install dependencies:
+### To install dependencies:
 
 ```bash
 bun install
 ```
 
-To run:
+### To run:
 
 ```bash
-bun run start
+bun run index.ts --passkey=your_passkey_here --cookieSecret=your_cookie_secret_here
 ```
 
 Access the GUI at `http://localhost:5000/`
 
-Running with Docker:
+## Running with Docker:
 
-  -Locally:
+  ### Locally:
 
   ```bash
   docker build -t mkfd .
   docker run -p 5000:5000 -v /local/mount/path:/public -e PASSKEY=your_passkey -e COOKIE_SECRET=your_cookie_secret mkfd
   ```
 
-  -Dockerhub:
+  ### Dockerhub:
 
   ```bash
   docker pull tbosk/mkfd:latest
   docker run -p 5000:5000 -v /local/mount/path:/public -e PASSKEY=your_passkey -e COOKIE_SECRET=your_cookie_secret tbosk/mkfd:latest
   ```
 
-### To Do:
+## To Do:
 - [X] Locally testing subscriptions to feeds
 - [ ] Add all possible RSS fields to models
 - [X] Add option for parallel iterators
