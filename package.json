@@ -17,7 +17,6 @@
     "cookie-signature": "^1.2.2",
     "hono": "^4.6.8",
     "hono-sessions": "^0.7.0",
-    "ipaddr.js": "^2.2.0",
     "js-yaml": "^4.1.0",
     "minimist": "^1.2.8",
     "rss": "1.2.2",
