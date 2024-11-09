@@ -318,12 +318,22 @@ app.post('/preview', async (ctx) => {
         false,
         extractValue("dateIterator")
       );
+      const authorTarget = new CSSTarget(
+        extractValue("authorSelector"),
+        extractValue("authorAttribute") || undefined,
+        extractValue("authorStripHtml") === 'on' || extractValue("authorStripHtml") === true,
+        "",
+        false,
+        extractValue("authorTitleCase") === 'on' || extractValue("authorTitleCase") === true,
+        extractValue("authorIterator")
+      );
 
       article = {
         iterator: iteratorTarget,
         title: titleTarget,
         description: descriptionTarget,
         link: linkTarget,
+        author: authorTarget,
         date: dateTarget,
     }
   }

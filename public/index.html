@@ -10,7 +10,7 @@
     <header style="text-align:center;">
     <img height="15%" width="15%" src="public/logo.png">
     <h1>Feed Builder</h1>
-    <p>Enter the details below to create a new RSS feed</p>
+    <p>Enter details below to create a new RSS feed</p>
     </header>
     <main style="padding-left:30vw;padding-right:30vw;">
 <form action="/" method="post">
@@ -73,6 +73,24 @@
     </label><br><br>
     <label style="display:none;" id="linkBaseUrlLabel" for="linkBaseUrl">Base URL:</label>
     <input style="display:none;" type="text" name="linkBaseUrl" id="linkBaseUrl">
+    </details>
+    <br><br>
+    <details>
+      <summary>Author</summary>
+      <label for="authorSelector">Author Selector:</label>
+      <input type="text" name="authorSelector" id="authorSelector"><br><br>
+      <label for="authorAttribute">Author Attribute:</label>
+      <input type="text" name="authorAttribute" id="authorAttribute"><br><br>
+      <label for="authorIterator">
+        Author Parent Iterator (optional):
+      </label>
+      <input type="text" name="authorIterator" id="authorIterator"><br><br>
+      <label>
+        <input type="checkbox" name="authorStripHtml" id="authorStripHtml"> Strip HTML in Author
+      </label><br><br>
+      <label>
+        <input type="checkbox" name="authorTitleCase" id="authorTitleCase"> Convert Author to Title Case
+      </label>
     </details>
     <br><br>
     <details>

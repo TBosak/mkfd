@@ -9,10 +9,12 @@ export function buildRSS(res: any, apiConfig?: ApiConfig, article?:
         { iterator: CSSTarget | { selector: string, attribute?: string, stripHtml?: boolean, rootUrl?: string, relativeLink?: boolean, titleCase?: boolean , iterator: string }, 
           title?: CSSTarget | { selector: string, attribute?: string, stripHtml?: boolean, rootUrl?: string, relativeLink?: boolean, titleCase?: boolean, iterator: string },
           description?: CSSTarget | { selector: string, attribute?: string, stripHtml?: boolean, rootUrl?: string, relativeLink?: boolean, titleCase?: boolean, iterator: string },
+          author?: CSSTarget | { selector: string, attribute?: string, stripHtml?: boolean, rootUrl?: string, relativeLink?: boolean, titleCase?: boolean, iterator: string },
           link?: CSSTarget | { selector: string, attribute?: string, stripHtml?: boolean, rootUrl?: string, relativeLink?: boolean, titleCase?: boolean, iterator: string },
           date?: CSSTarget | { selector: string, attribute?: string, stripHtml?: boolean, rootUrl?: string, relativeLink?: boolean, titleCase?: boolean, iterator: string } },
           title?: CSSTarget | { selector: string, attribute?: string, stripHtml?: boolean, rootUrl?: string, relativeLink?: boolean, titleCase?: boolean, iterator: string },
           description?: CSSTarget | { selector: string, attribute?: string, stripHtml?: boolean, rootUrl?: string, relativeLink?: boolean, titleCase?: boolean, iterator: string },
+          author?: CSSTarget | { selector: string, attribute?: string, stripHtml?: boolean, rootUrl?: string, relativeLink?: boolean, titleCase?: boolean, iterator: string },
           link?: CSSTarget | { selector: string, attribute?: string, stripHtml?: boolean, rootUrl?: string, relativeLink?: boolean, titleCase?: boolean, iterator: string }, 
           date?: CSSTarget | { selector: string, attribute?: string, stripHtml?: boolean, rootUrl?: string, relativeLink?: boolean, titleCase?: boolean, iterator: string }, 
           reverse?: boolean): string {
@@ -36,6 +38,11 @@ export function buildRSS(res: any, apiConfig?: ApiConfig, article?:
                          processLinks($(data).find(article.link?.selector)?.text(),article.link?.stripHtml,article.link?.relativeLink,article.link?.rootUrl)) :
                             (!!article.link?.attribute ? processLinks($($(article.link.iterator).toArray()[i]).find(article.link.selector)?.attr(article.link?.attribute),article.link.stripHtml,article.link.relativeLink,article.link.rootUrl) :
                             processLinks($($(article.link.iterator).toArray()[i]).find(article.link.selector).text(),article.link.stripHtml,article.link.relativeLink,article.link.rootUrl)),
+                    author: !article.author.iterator ? (!!article.author?.attribute ?
+                            processWords($(data).find(article.author?.selector)?.attr(article.author?.attribute),article.author?.titleCase,article.author?.stripHtml) : 
+                            processWords($(data).find(article.author?.selector)?.text(),article.author?.titleCase,article.author?.stripHtml)) :
+                                (!!article.author?.attribute ? processWords($($(article.author.iterator).toArray()[i]).find(article.author.selector)?.attr(article.author?.attribute),article.author.titleCase,article.author.stripHtml) :
+                                processWords($($(article.author.iterator).toArray()[i]).find(article.author.selector).text(),article.author.titleCase,article.author.stripHtml)),
                     date: !article.date?.iterator ? (!!article.date?.attribute ? 
                           processDates($(data).find(article.date?.selector)?.attr(article.date?.attribute),article.date?.stripHtml) : 
                           processDates($(data).find(article.date?.selector)?.text(),article.date?.stripHtml)) :
@@ -65,6 +72,11 @@ export function buildRSS(res: any, apiConfig?: ApiConfig, article?:
                                 ?? processDates($(data).text(),date?.stripHtml);
             })
         }
+        if (author) {
+            $(author?.selector).each((i: string | number, data: any) => {
+                input[i].author = processWords($(data).attr(author?.attribute),author?.titleCase,author?.stripHtml) ?? processWords($(data).text(),author?.titleCase,author?.stripHtml);
+            })
+        }
     
         const feed = new RSS({
             title: apiConfig?.title || $('title')?.text(),
@@ -78,15 +90,15 @@ export function buildRSS(res: any, apiConfig?: ApiConfig, article?:
             input.reverse();
         }
 
-        for (const article of input) {
+        for (const item of input) {
             feed.item({
-                title: article.title,
-                description: article.description,
-                url: article.url,
-                guid: article.url??article.title,
+                title: item.title,
+                description: item.description,
+                url: item.url,
+                guid: Bun.hash(JSON.stringify(item)),
                 categories: null,
-                author: null,
-                date: article.date,
+                author: item.author,
+                date: item.date,
                 lat: null,
                 long: null,
                 custom_elements: null,
@@ -114,7 +126,7 @@ export function buildRSSFromApiData(apiData, config, apiMapping) {
         title: get(item, apiMapping.title, ''),
         description: get(item, apiMapping.description, ''),
         url: get(item, apiMapping.link, ''),
-        guid: get(item, apiMapping.link, '') || get(item, apiMapping.title, ''),
+        guid: Bun.hash(JSON.stringify(item)),
         date: get(item, apiMapping.date, '') || new Date(),
       });
     });
