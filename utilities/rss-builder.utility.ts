@@ -38,7 +38,7 @@ export function buildRSS(res: any, apiConfig?: ApiConfig, article?:
                          processLinks($(data).find(article.link?.selector)?.text(),article.link?.stripHtml,article.link?.relativeLink,article.link?.rootUrl)) :
                             (!!article.link?.attribute ? processLinks($($(article.link.iterator).toArray()[i]).find(article.link.selector)?.attr(article.link?.attribute),article.link.stripHtml,article.link.relativeLink,article.link.rootUrl) :
                             processLinks($($(article.link.iterator).toArray()[i]).find(article.link.selector).text(),article.link.stripHtml,article.link.relativeLink,article.link.rootUrl)),
-                    author: !article.author.iterator ? (!!article.author?.attribute ?
+                    author: !article.author?.iterator ? (!!article.author?.attribute ?
                             processWords($(data).find(article.author?.selector)?.attr(article.author?.attribute),article.author?.titleCase,article.author?.stripHtml) : 
                             processWords($(data).find(article.author?.selector)?.text(),article.author?.titleCase,article.author?.stripHtml)) :
                                 (!!article.author?.attribute ? processWords($($(article.author.iterator).toArray()[i]).find(article.author.selector)?.attr(article.author?.attribute),article.author.titleCase,article.author.stripHtml) :
