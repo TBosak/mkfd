@@ -1,7 +1,7 @@
 import { file } from 'bun';
 import { parse as parseCookie, serialize as serializeCookie } from 'cookie';
 import * as cookieSignature from 'cookie-signature';
-import { existsSync, mkdirSync } from 'fs';
+import { existsSync, mkdirSync, unlink } from 'fs';
 import { readFile, readdir, writeFile } from 'fs/promises';
 import { Hono } from 'hono';
 import { serveStatic } from 'hono/bun';
@@ -9,7 +9,7 @@ import { getConnInfo } from 'hono/cloudflare-workers';
 import { except } from 'hono/combine';
 import * as yaml from 'js-yaml';
 import minimist from 'minimist';
-import { join } from 'path';
+import { basename, join } from 'path';
 import { v4 as uuidv4 } from 'uuid';
 import { DOMParser } from 'xmldom';
 import ApiConfig from './models/apiconfig.model';
@@ -434,6 +434,11 @@ app.get('/feeds', async (ctx) => {
     </head>
     <body>
       <main class="container">
+        <script>
+          function confirmDelete(feedId) {
+            return confirm("Are you sure you want to delete this feed?");
+          }
+        </script>
         <header style="text-align:center;"><h1>Active RSS Feeds</h1></header>
         <div>
   `;
@@ -470,7 +475,13 @@ app.get('/feeds', async (ctx) => {
         <p><strong>Build Time:</strong> ${lastBuildDate}</p>
         <p><strong>Feed Type:</strong> ${feedType}</p>
         <footer>
-          <a href="public/feeds/${feedId}.xml" role="button">View Feed</a>
+        <div class="grid">
+            <a href="public/feeds/${feedId}.xml" style="margin-right: auto;line-height:3em;">View Feed</a>
+            <form action="/delete-feed" method="POST" style="display:inline;" onsubmit="return confirmDelete('${feedId}')">
+              <input type="hidden" name="feedId" value="${feedId}">
+              <button type="submit" style="width:25%;margin-left:auto;float:right;" class="outline contrast">Delete</button>
+          </div>
+          </form>
         </footer>
       </article>
     `;
@@ -511,6 +522,24 @@ app.get('/passkey', (c) => {
 });
 
 app.post('/passkey', async (c) => {
+});
+
+app.post('/delete-feed', async (c) => {
+  const data = await c.req.parseBody();
+  const feedId = data['feedId'];
+
+  if (!feedId) {
+    return c.text('Feed name is required.', 400);
+  }
+
+  const sanitizedFeedName = basename(feedId as string); // Prevent path traversal
+  const success = await deleteFeed(sanitizedFeedName);
+
+  if (success) {
+    return c.redirect('/feeds');
+  } else {
+    return c.text('Failed to delete feed.', 500);
+  }
 });
 
 app.get('privacy-policy', (ctx) => ctx.html(`We only keep the data you provide for generating RSS feeds. We do not store any personal information.`));
@@ -633,6 +662,28 @@ function clearFeedUpdaterInterval(feedId: string) {
   if (interval) {
     clearInterval(interval);
     feedIntervals.delete(feedId);
+  }
+}
+
+async function deleteFeed(feedId: string): Promise<boolean> {
+  try {
+    const feedFilePath = join('configs', `${feedId}.yaml`);
+    // Delete the feed file
+    await unlink(feedFilePath, (error) => {
+      if (error) {
+        console.error(`Failed to delete feed file ${feedId}.yaml:`, error);
+      }
+    });
+
+    // Remove the feed from any in-memory data structures or schedules
+    // For example, if you have a Map of feeds:
+    // feedsMap.delete(feedName);
+
+    console.log(`Feed ${feedId} deleted.`);
+    return true;
+  } catch (error) {
+    console.error(`Failed to delete feed ${feedId}:`, error);
+    return false;
   }
 }
 
