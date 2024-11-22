@@ -175,6 +175,7 @@ app.post('/', async (ctx) => {
         false,
         extractValue("dateIterator")
       );
+      const headers = extractValue("headers");
 
       article = {
         iterator: iteratorTarget,
@@ -182,6 +183,7 @@ app.post('/', async (ctx) => {
         description: descriptionTarget,
         link: linkTarget,
         date: dateTarget,
+        headers: headers,
     }
   }
     else if (feedType === 'api') {
@@ -583,7 +585,7 @@ async function generatePreview(feedConfig: any) {
           var rssXml;
       
           if(feedConfig.feedType === 'webScraping') {
-            const response = await axios.get(feedConfig.config.baseUrl);
+            const response = feedConfig.article.headers ? await axios.get(feedConfig.config.baseUrl, {headers: feedConfig.article.headers}) : await axios.get(feedConfig.config.baseUrl);
             const html = response.data;
           // Generate the RSS feed using your buildRSS function
           rssXml = buildRSS(

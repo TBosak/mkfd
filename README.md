@@ -58,7 +58,6 @@ Access the GUI at `http://localhost:5000/`
 - [ ] Utilities
   - [X] HTML stripper
   - [X] Source url wrapper for relative links
-  - [ ] ...
-- [ ] Amass contributors (the more, the merrier)
+- [ ] Amass contributors
 
 [![paypal](https://www.paypalobjects.com/en_US/i/btn/btn_donateCC_LG.gif)](https://www.paypal.com/cgi-bin/webscr?cmd=_s-xclick&hosted_button_id=V5LC4XTQDDE82&source=url)

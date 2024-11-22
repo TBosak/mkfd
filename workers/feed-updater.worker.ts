@@ -15,7 +15,7 @@ async function fetchDataAndUpdateFeed(feedConfig) {
     var rssXml;
 
     if(feedConfig.feedType === 'webScraping') {
-      const response = await axios.get(feedConfig.config.baseUrl);
+      const response = feedConfig.article.headers ? await axios.get(feedConfig.config.baseUrl, {headers: feedConfig.article.headers}) : await axios.get(feedConfig.config.baseUrl);
       const html = response.data;
     // Generate the RSS feed using your buildRSS function
     rssXml = buildRSS(
