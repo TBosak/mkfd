@@ -1,5 +1,5 @@
 import axios from "axios";
-import ApiConfig  from "../models/apiconfig.model";
+import ApiConfig from "../models/apiconfig.model";
 import CSSTarget from "../models/csstarget.model";
 import { buildRSS } from "../utilities/rss-builder.utility";
 import { BaseAdapter } from "./base.adapter";
@@ -15,7 +15,12 @@ export class WebScrapingAdapter extends BaseAdapter {
   timestamp?: boolean;
   reverse?: boolean;
 
-  constructor(config: ApiConfig, articleConfig: any, timestamp?: boolean, reverse?: boolean) {
+  constructor(
+    config: ApiConfig,
+    articleConfig: any,
+    timestamp?: boolean,
+    reverse?: boolean
+  ) {
     super(config);
     this.article = articleConfig;
     this.timestamp = timestamp;

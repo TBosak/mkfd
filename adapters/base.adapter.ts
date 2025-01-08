@@ -1,4 +1,4 @@
-import ApiConfig  from "../models/apiconfig.model";
+import ApiConfig from "../models/apiconfig.model";
 import IAdapter from "./adapter.interface";
 
 export abstract class BaseAdapter implements IAdapter {
