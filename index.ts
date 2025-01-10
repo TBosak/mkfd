@@ -171,6 +171,16 @@ app.post("/", async (ctx) => {
       false,
       extractValue("linkIterator")
     );
+    const enclosureTarget = new CSSTarget(
+      extractValue("enclosureSelector"),
+      extractValue("enclosureAttribute") || undefined,
+      false,
+      extractValue("enclosureBaseUrl"),
+      extractValue("enclosureRelativeLink") === "on" ||
+        extractValue("enclosureRelativeLink") === true,
+      false,
+      extractValue("enclosureIterator")
+    );
     const dateTarget = new CSSTarget(
       extractValue("dateSelector"),
       extractValue("dateAttribute") || undefined,
@@ -188,6 +198,7 @@ app.post("/", async (ctx) => {
       title: titleTarget,
       description: descriptionTarget,
       link: linkTarget,
+      enclosure: enclosureTarget,
       date: dateTarget,
       headers: headers,
     };
@@ -318,6 +329,16 @@ app.post("/preview", async (ctx) => {
       false,
       extractValue("linkIterator")
     );
+    const enclosureTarget = new CSSTarget(
+      extractValue("enclosureSelector"),
+      extractValue("enclosureAttribute") || undefined,
+      false,
+      extractValue("enclosureBaseUrl"),
+      extractValue("enclosureRelativeLink") === "on" ||
+        extractValue("enclosureRelativeLink") === true,
+      false,
+      extractValue("enclosureIterator")
+    );
     const dateTarget = new CSSTarget(
       extractValue("dateSelector"),
       extractValue("dateAttribute") || undefined,
@@ -347,6 +368,7 @@ app.post("/preview", async (ctx) => {
       link: linkTarget,
       author: authorTarget,
       date: dateTarget,
+      enclosure: enclosureTarget,
     };
   } else if (feedType === "api") {
     // API configuration
@@ -669,14 +691,10 @@ async function generatePreview(feedConfig: any) {
         : await axios.get(feedConfig.config.baseUrl);
       const html = response.data;
       // Generate the RSS feed using your buildRSS function
-      rssXml = buildRSS(
+      rssXml = await buildRSS(
         html,
         feedConfig.config,
         feedConfig.article,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
         feedConfig.reverse
       );
     } else if (feedConfig.feedType === "api") {

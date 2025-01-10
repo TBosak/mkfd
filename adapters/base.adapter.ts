@@ -9,5 +9,5 @@ export abstract class BaseAdapter implements IAdapter {
   }
 
   abstract fetchData(param?: string): Promise<string>;
-  abstract buildRSS(res: string): string;
+  abstract buildRSS(res: string): Promise<string>;
 }

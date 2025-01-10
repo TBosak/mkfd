@@ -6,9 +6,6 @@
     "start": "bun run index.ts --watch --passkey=admin123 --cookieSecret=a18c1fd2211edd76"
   },
   "dependencies": {
-    "@types/bun": "^1.1.12",
-    "@types/cheerio": "0.22.31",
-    "@types/xml": "1.0.8",
     "axios": "^1.7.7",
     "bun": "^1.1.33",
     "bun-types": "^0.1.0",
@@ -22,5 +19,10 @@
     "rss": "1.2.2",
     "uuid": "^11.0.2",
     "xmldom": "^0.6.0"
+  },
+  "devDependencies": {
+    "@types/bun": "^1.1.12",
+    "@types/cheerio": "0.22.31",
+    "@types/xml": "1.0.8"
   }
 }

@@ -168,6 +168,45 @@
             </details>
             <br /><br />
             <details>
+              <summary>Enclosure (Image, Video, Etc.)</summary>
+              <label for="enclosureSelector">Enclosure Selector:</label>
+              <input
+                type="text"
+                name="enclosureSelector"
+                id="enclosureSelector" /><br /><br />
+              <label for="enclosureAttribute">Enclosure Attribute:</label>
+              <input
+                type="text"
+                name="enclosureAttribute"
+                id="enclosureAttribute" /><br /><br />
+              <label for="enclosureIterator"
+                >Enclosure Parent Iterator (optional):</label
+              >
+              <input
+                type="text"
+                name="enclosureIterator"
+                id="enclosureIterator" /><br /><br />
+              <label>
+                <input
+                  type="checkbox"
+                  name="enclosureRelativeLink"
+                  id="enclosureRelativeLink" />
+                Relative Link? </label
+              ><br /><br />
+              <label
+                style="display: none"
+                id="enclosureBaseUrlLabel"
+                for="enclosureBaseUrl"
+                >Base URL:</label
+              >
+              <input
+                style="display: none"
+                type="text"
+                name="enclosureBaseUrl"
+                id="enclosureBaseUrl" />
+            </details>
+            <br /><br />
+            <details>
               <summary>Author</summary>
               <label for="authorSelector">Author Selector:</label>
               <input
@@ -383,6 +422,22 @@
             } else {
               document.getElementById("linkBaseUrl").style.display = "none";
               document.getElementById("linkBaseUrlLabel").style.display =
+                "none";
+            }
+          });
+
+        document
+          .getElementById("enclosureRelativeLink")
+          .addEventListener("change", function () {
+            if (this.checked) {
+              document.getElementById("enclosureBaseUrl").style.display =
+                "block";
+              document.getElementById("enclosureBaseUrlLabel").style.display =
+                "block";
+            } else {
+              document.getElementById("enclosureBaseUrl").style.display =
+                "none";
+              document.getElementById("enclosureBaseUrlLabel").style.display =
                 "none";
             }
           });

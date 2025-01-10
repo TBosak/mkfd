@@ -11,6 +11,7 @@ export class WebScrapingAdapter extends BaseAdapter {
     description?: CSSTarget;
     link?: CSSTarget;
     date?: CSSTarget;
+    enclosure?: CSSTarget;
   };
   timestamp?: boolean;
   reverse?: boolean;
@@ -40,16 +41,7 @@ export class WebScrapingAdapter extends BaseAdapter {
     }
   }
 
-  buildRSS(res: string): string {
-    return buildRSS(
-      res,
-      this.article,
-      undefined,
-      undefined,
-      undefined,
-      undefined,
-      this.timestamp,
-      this.reverse
-    );
+  buildRSS(res: string): Promise<string> {
+    return buildRSS(res, this.config, this.article, this.reverse);
   }
 }

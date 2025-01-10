@@ -25,14 +25,10 @@ async function fetchDataAndUpdateFeed(feedConfig) {
         : await axios.get(feedConfig.config.baseUrl);
       const html = response.data;
       // Generate the RSS feed using your buildRSS function
-      rssXml = buildRSS(
+      rssXml = await buildRSS(
         html,
         feedConfig.config,
         feedConfig.article,
-        undefined,
-        undefined,
-        undefined,
-        undefined,
         feedConfig.reverse
       );
     } else if (feedConfig.feedType === "api") {
