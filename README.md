@@ -58,7 +58,8 @@ docker run -p 5000:5000 -v /local/mount/path:/configs -e PASSKEY=your_passkey -e
 - [ ] Add selector suggestion engine  
 - [X] Add feed preview pane  
 - [ ] Store/compare feed data to enable timestamping feed items  
-- [X] Create dockerfile  
+- [X] Create dockerfile
+- [ ] Create Helm chart files
 - [X] Create GUI  
 - [ ] Utilities  
   - [X] HTML stripper  
