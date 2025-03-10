@@ -40,18 +40,13 @@ jobs:
           VERSION=${{ github.run_number }}
           echo "VERSION=$VERSION" >> $GITHUB_ENV
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Build and push Docker images to Docker Hub and GHCR
+        uses: docker/build-push-action@v4
         with:
-          install: true
-
-      - name: Build and push with SBOM & provenance
-        run: |
-          docker buildx build \
-            --attest=type=sbom,mode=max \
-            --provenance=builder-id=https://github.com/tbosk/mkfd/actions/runs/$GITHUB_RUN_ID \
-            --tag docker.io/tbosk/mkfd:latest \
-            --tag docker.io/tbosk/mkfd:${{ env.VERSION }} \
-            --tag ghcr.io/tbosk/mkfd:latest \
-            --tag ghcr.io/tbosk/mkfd:${{ env.VERSION }} \
-            --push .
+          context: .
+          push: true
+          tags: |
+            docker.io/tbosk/mkfd:latest
+            docker.io/tbosk/mkfd:${{ env.VERSION }}
+            ghcr.io/tbosak/mkfd:latest
+            ghcr.io/tbosak/mkfd:${{ env.VERSION }}
