@@ -39,7 +39,7 @@ processFeedsAtStart();
 //ALLOW LOCAL NETWORK TO ACCESS API
 const middleware = async (_, next) => {
   const connInfo = await getConnInfo(_);
-  if (connInfo?.remote?.address == undefined) {
+  if (connInfo?.remote?.address == undefined || connInfo?.remote?.address === '127.0.0.1' || connInfo?.remote?.address === '::1') {
     // Return after calling `await next()`
     return await next();
   } else {
