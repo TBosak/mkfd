@@ -2,7 +2,7 @@ name: Build and Push Docker Images
 
 on:
   push:
-    branches: [ main ]
+    branches: [main]
 
 jobs:
   build-and-push:
@@ -40,6 +40,11 @@ jobs:
           VERSION=${{ github.run_number }}
           echo "VERSION=$VERSION" >> $GITHUB_ENV
 
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          install: true
+
       - name: Build and push Docker images to Docker Hub and GHCR
         uses: docker/build-push-action@v4
         with:
@@ -50,3 +55,5 @@ jobs:
             docker.io/tbosk/mkfd:${{ env.VERSION }}
             ghcr.io/tbosak/mkfd:latest
             ghcr.io/tbosak/mkfd:${{ env.VERSION }}
+          attests: sbom
+          provenance: true

@@ -6,7 +6,7 @@
     "start": "bun run index.ts --watch --passkey=admin123 --cookieSecret=a18c1fd2211edd76"
   },
   "dependencies": {
-    "axios": "^1.7.7",
+    "axios": "^1.8.2",
     "bun": "^1.1.33",
     "bun-types": "^0.1.0",
     "cheerio": "^1.0.0",
