@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="https://user-images.githubusercontent.com/41713011/184979066-5ec001ec-bc72-4ed9-a18c-1fd2211edd76.png"
+  <img src="https://github.com/TBosak/mkfd/blob/main/public/logo.png?raw=true"
        alt="mkfd"
-       height="35%"
-       width="35%" /><br>
+       height="15%"
+       width="15%"/><br><br>
   <img alt="Docker Pulls" src="https://img.shields.io/docker/pulls/tbosk/mkfd">
   <img alt="GitHub Repo stars" src="https://img.shields.io/github/stars/tbosak/mkfd">
 </p>
