@@ -51,5 +51,7 @@ jobs:
             --attest=type=sbom,mode=max \
             --provenance=builder-id=https://github.com/tbosk/mkfd/actions/runs/$GITHUB_RUN_ID \
             --tag docker.io/tbosk/mkfd:latest \
+            --tag docker.io/tbosk/mkfd:${{ env.VERSION }} \
             --tag ghcr.io/tbosk/mkfd:latest \
+            --tag ghcr.io/tbosk/mkfd:${{ env.VERSION }} \
             --push .
