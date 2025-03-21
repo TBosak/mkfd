@@ -15,12 +15,33 @@ import { DOMParser } from "xmldom";
 import ApiConfig from "./models/apiconfig.model";
 import CSSTarget from "./models/csstarget.model";
 import axios from "axios";
+import { createInterface } from "readline";
 import { buildRSS, buildRSSFromApiData } from "./utilities/rss-builder.utility";
 
 const app = new Hono();
 const args = minimist(process.argv.slice(2));
-const passkey = process.env.PASSKEY ?? args.passkey;
-const cookieSecret = process.env.COOKIE_SECRET ?? args.cookieSecret;
+
+async function prompt(question: string): Promise<string> {
+  const rl = createInterface({
+    input: process.stdin,
+    output: process.stdout,
+  });
+
+  return new Promise((resolve) => {
+    rl.question(question, (answer) => {
+      rl.close();
+      resolve(answer);
+    });
+  });
+}
+
+async function getSecrets() {
+  const passkey = process.env.PASSKEY ?? args.passkey ?? await prompt('Enter passkey: ');
+  const cookieSecret = process.env.COOKIE_SECRET ?? args.cookieSecret ?? await prompt('Enter cookie secret: ');
+  return { passkey, cookieSecret };
+}
+
+const { passkey, cookieSecret } = await getSecrets();
 var feedUpdaters: Map<string, Worker> = new Map();
 var feedIntervals: Map<string, Timer> = new Map();
 
