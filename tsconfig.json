@@ -5,6 +5,7 @@
     "target": "esnext",
     "moduleResolution": "node",
     "typeRoots": ["node_modules/@types"],
+    "allowSyntheticDefaultImports": true,
 
     "allowJs": true,
 

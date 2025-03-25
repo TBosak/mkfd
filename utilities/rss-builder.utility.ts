@@ -9,7 +9,6 @@ import {
 } from "./data-handler.utility";
 import ApiConfig from "./../models/apiconfig.model";
 
-//TODO: ADD HTML STRIPPING TO EACH TARGET
 export async function buildRSS(
   res: any,
   apiConfig?: ApiConfig,
@@ -293,6 +292,29 @@ export function buildRSSFromApiData(apiData, config, apiMapping) {
       url: get(item, apiMapping.link, ""),
       guid: Bun.hash(JSON.stringify(item)),
       date: get(item, apiMapping.date, "") || new Date(),
+    });
+  });
+
+  return feed.xml({ indent: true });
+}
+
+
+export function buildRSSFromEmailFolder(emails, config) {
+  const feed = new RSS({
+    title: config.title || "Email RSS Feed",
+    description: "RSS feed generated from IMAP email folder",
+    feed_url: config.baseUrl,
+    site_url: config.baseUrl,
+    pubDate: new Date(),
+  });
+
+  emails.forEach((email) => {
+    feed.item({
+      title: email.subject,
+      description: email.text,
+      url: email.link,
+      guid: Bun.hash(JSON.stringify(email)),
+      date: email.date || new Date(),
     });
   });
 
