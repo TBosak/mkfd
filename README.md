@@ -56,10 +56,9 @@ docker run -p 5000:5000 -v /local/mount/path:/configs -e PASSKEY=your_passkey -e
 ## 🔧 To Do
 
 - [X] **Locally** testing subscriptions to feeds  
-- [ ] Add all possible RSS fields to models  
+- [ ] Add ALL possible RSS fields to models  
 - [X] Add option for parallel iterators  
-- [ ] Add form validation  
-- [ ] Add selector suggestion engine  
+- [ ] Scraping how-to video
 - [X] Add feed preview pane  
 - [ ] Store/compare feed data to enable timestamping feed items  
 - [X] Create dockerfile
@@ -67,7 +66,10 @@ docker run -p 5000:5000 -v /local/mount/path:/configs -e PASSKEY=your_passkey -e
 - [X] Create GUI  
 - [ ] Utilities  
   - [X] HTML stripper  
-  - [X] Source URL wrapper for relative links  
+  - [X] Source URL wrapper for relative links
+  - [ ] Nested link follower/drilldown functionality for each feed field
+  - [ ] Adjust date parser logic with overrides from an optional date format input
+  - [ ] Add selector suggestion engine
 - [ ] Amass contributors  
 
 <br>
