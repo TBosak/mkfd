@@ -47,6 +47,10 @@ docker pull tbosk/mkfd:latest
 docker run -p 5000:5000 -v /local/mount/path:/configs -e PASSKEY=your_passkey -e COOKIE_SECRET=your_cookie_secret tbosk/mkfd:latest
 ```
 
+## GUI
+
+![mkfdgui](https://github.com/user-attachments/assets/620d4f1f-15a6-4120-8265-6ba07aa4aa27)
+
 ---
 
 ## 🔧 To Do
