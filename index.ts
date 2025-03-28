@@ -17,9 +17,12 @@ import CSSTarget from "./models/csstarget.model";
 import axios from "axios";
 import { createInterface } from "readline";
 import { buildRSS, buildRSSFromApiData } from "./utilities/rss-builder.utility";
+import { Config } from 'node-imap';
+import { listImapFolders } from "./utilities/imap.utility";
+import { encrypt } from "./utilities/security.utility";
 
 const app = new Hono();
-const args = minimist(process.argv.slice(2));
+const args = minimist(process.argv.slice(3));
 
 async function prompt(question: string): Promise<string> {
   const rl = createInterface({
@@ -38,10 +41,11 @@ async function prompt(question: string): Promise<string> {
 async function getSecrets() {
   const passkey = process.env.PASSKEY ?? args.passkey ?? await prompt('Enter passkey: ');
   const cookieSecret = process.env.COOKIE_SECRET ?? args.cookieSecret ?? await prompt('Enter cookie secret: ');
-  return { passkey, cookieSecret };
+  const encryptionKey = process.env.ENCRYPTION_KEY ?? args.encryptionKey ?? await prompt('Enter encryption key: ');
+  return { passkey, cookieSecret, encryptionKey };
 }
 
-const { passkey, cookieSecret } = await getSecrets();
+const { passkey, cookieSecret, encryptionKey } = await getSecrets();
 var feedUpdaters: Map<string, Worker> = new Map();
 var feedIntervals: Map<string, Timer> = new Map();
 
@@ -174,11 +178,19 @@ app.post("/", async (ctx) => {
     body: JSON.parse(extract("apiBody", "{}")),
   };
 
+  const emailConfig = {
+    host: extract("emailHost"),
+    port: parseInt(extract("emailPort", "993")),
+    user: extract("emailUsername"),
+    encryptedPassword: encrypt(extract("emailPassword"), encryptionKey),
+    folder: extract("emailFolder"),
+  };
+
   const feedConfig = {
     feedId,
     feedName: apiConfig.title,
     feedType,
-    config: apiConfig,
+    config: feedType === "email" ? emailConfig : apiConfig,
     article:
       feedType === "webScraping"
         ? {
@@ -261,6 +273,14 @@ app.post("/preview", async (ctx) => {
       body: JSON.parse(extract("apiBody", "{}")),
     };
 
+    const emailConfig = {
+      host: extract("emailHost"),
+      port: parseInt(extract("emailPort", "993")),
+      username: extract("emailUsername"),
+      encryptedPassword: encrypt(extract("emailPassword"), encryptionKey),
+      folder: extract("emailFolder"),
+    };
+
     const feedConfig = {
       feedId: "preview",
       feedName: apiConfig.title,
@@ -303,6 +323,7 @@ app.post("/preview", async (ctx) => {
     return ctx.text("Invalid request.", 400);
   }
 });
+
 
 //GPT ONLY ENDPOINT TO GET HTML AND DETERMINE BEST CSS SELECTORS
 // app.post('/html', async (ctx) => {
@@ -511,6 +532,14 @@ app.post("/delete-feed", async (c) => {
   }
 });
 
+app.post('/imap/folders', async (c) => {
+  const config = await c.req.json<Config>();
+  console.log('IMAP config:', config);
+  const folders = await listImapFolders(config);
+  console.log('IMAP folders:', folders);
+  return c.json({ folders });
+});
+
 app.get("privacy-policy", (ctx) =>
   ctx.html(
     `We only keep the data you provide for generating RSS feeds. We do not store any personal information.`
@@ -520,7 +549,7 @@ app.get("privacy-policy", (ctx) =>
 function initializeWorker(feedConfig: any) {
   feedUpdaters.set(
     feedConfig.feedId,
-    new Worker("./workers/feed-updater.worker.ts", { type: "module" })
+    new Worker((feedConfig.feedType === 'email' ?  "./workers/imap-feed.worker.ts" : "./workers/feed-updater.worker.ts"), { type: "module" })
   );
 
   feedUpdaters.get(feedConfig.feedId).onmessage = (message) => {
@@ -567,7 +596,6 @@ async function generatePreview(feedConfig: any) {
           })
         : await axios.get(feedConfig.config.baseUrl);
       const html = response.data;
-      // Generate the RSS feed using your buildRSS function
       rssXml = await buildRSS(
         html,
         feedConfig.config,
@@ -575,7 +603,6 @@ async function generatePreview(feedConfig: any) {
         feedConfig.reverse
       );
     } else if (feedConfig.feedType === "api") {
-      // Generate the RSS feed using your buildRSSFromApiData function
       const axiosConfig = {
         method: feedConfig.config.method || "GET",
         url: feedConfig.config.baseUrl + (feedConfig.config.route || ""),
@@ -604,24 +631,20 @@ async function generatePreview(feedConfig: any) {
   }
 }
 
-// Schedule the cron job
 function setFeedUpdaterInterval(feedConfig: any) {
   const feedId = feedConfig.feedId;
 
-  // Check if an interval already exists
   if (!feedIntervals.has(feedId)) {
     console.log("Setting interval for feed:", feedId);
 
-    // Initialize the worker if not already done
     if (!feedUpdaters.has(feedId)) {
       console.log("Initializing worker for feed:", feedId);
       initializeWorker(feedConfig);
       feedUpdaters
         .get(feedConfig.feedId)
-        .postMessage({ command: "start", config: feedConfig });
+        .postMessage({ command: "start", config: feedConfig, encryptionKey: encryptionKey });
     }
 
-    // Set the interval and store the interval ID
     const interval = setInterval(() => {
       console.log("Engaging worker for feed:", feedId);
       feedUpdaters
@@ -637,7 +660,6 @@ function clearAllFeedUpdaterIntervals() {
   for (const [feedId, intervalId] of feedIntervals.entries()) {
     clearFeedUpdaterInterval(feedId);
 
-    // Terminate the worker
     const worker = feedUpdaters.get(feedId);
     if (worker) {
       worker.terminate();
@@ -657,16 +679,11 @@ function clearFeedUpdaterInterval(feedId: string) {
 async function deleteFeed(feedId: string): Promise<boolean> {
   try {
     const feedFilePath = join("configs", `${feedId}.yaml`);
-    // Delete the feed file
     await unlink(feedFilePath, (error) => {
       if (error) {
         console.error(`Failed to delete feed file ${feedId}.yaml:`, error);
       }
     });
-
-    // Remove the feed from any in-memory data structures or schedules
-    // For example, if you have a Map of feeds:
-    // feedsMap.delete(feedName);
 
     console.log(`Feed ${feedId} deleted.`);
     return true;

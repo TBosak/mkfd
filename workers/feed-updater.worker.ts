@@ -5,14 +5,10 @@ import {
   buildRSSFromApiData,
 } from "../utilities/rss-builder.utility";
 import { join } from "path";
-import * as url from "url";
 
 declare var self: Worker;
-
-// Directories
 const rssDir = "./public/feeds";
 
-// Function to fetch data and update the feed
 async function fetchDataAndUpdateFeed(feedConfig) {
   try {
     var rssXml;
@@ -24,7 +20,6 @@ async function fetchDataAndUpdateFeed(feedConfig) {
           })
         : await axios.get(feedConfig.config.baseUrl);
       const html = response.data;
-      // Generate the RSS feed using your buildRSS function
       rssXml = await buildRSS(
         html,
         feedConfig.config,
@@ -32,7 +27,6 @@ async function fetchDataAndUpdateFeed(feedConfig) {
         feedConfig.reverse
       );
     } else if (feedConfig.feedType === "api") {
-      // Generate the RSS feed using your buildRSSFromApiData function
       const axiosConfig = {
         method: feedConfig.config.method || "GET",
         url: feedConfig.config.baseUrl + (feedConfig.config.route || ""),
@@ -51,8 +45,9 @@ async function fetchDataAndUpdateFeed(feedConfig) {
         feedConfig.config,
         feedConfig.apiMapping
       );
+    } else if (feedConfig.feedType === "email") {
+      
     }
-    // Save the RSS XML to a file
     const rssFilePath = join(rssDir, `${feedConfig.feedId}.xml`);
     await writeFile(rssFilePath, rssXml, "utf8");
 
@@ -65,7 +60,6 @@ async function fetchDataAndUpdateFeed(feedConfig) {
   }
 }
 
-// Listen for messages from the parent thread
 self.onmessage = (message) => {
   if (message.data.command === "start") {
     fetchDataAndUpdateFeed(message.data.config);

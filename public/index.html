@@ -51,14 +51,36 @@
       <form action="/" method="post">
         <label for="feedName">Feed Name:</label>
         <input type="text" name="feedName" id="feedName" required /><br /><br />
+        <div id="urlDiv">
         <label for="feedUrl">Target URL:</label>
-        <input type="text" name="feedUrl" id="feedUrl" required /><br />
-        <br /><br />
+        <input type="text" name="feedUrl" id="feedUrl" />
+        </div>
+        <br />
+        <br />
         <label for="feedType">Feed Type:</label>
         <select name="feedType" id="feedType" value="webScraping">
           <option value="webScraping">Web Scraping</option>
           <option value="api">REST API Call</option>
+          <option value="email">Email</option>
         </select><br /><br />
+        <div id="emailScrapingFields" style="display: none">
+          <h3>Email Configuration</h3>
+          <label for="emailHost">IMAP Server:</label>
+          <input type="text" name="emailHost" id="emailHost" /><br /><br />
+          <label for="emailPort">IMAP Port:</label>
+          <input type="text" name="emailPort" id="emailPort" /><br /><br />
+          <label for="emailUsername">Username:</label>
+          <input type="text" name="emailUsername" id="emailUsername" /><br /><br />
+          <label for="emailPassword">Password:</label>
+          <input type="password" name="emailPassword" id="emailPassword" /><br /><br />
+          <label for="emailFolderFieldSet">Folder:</label>
+          <fieldset name="emailFolderFieldSet" role="group">
+            <select name="emailFolder" id="emailFolder">
+            </select>
+            <input type="button" id="fetchFolders" value="Load Folder Options" />
+          </fieldset>
+          <br /><br />
+        </div>
         <div id="webScrapingFields">
           <h3>CSS Selectors for RSS Feed Items</h3>
           <label for="itemSelector">Item Selector (Iterator):</label>
@@ -267,6 +289,7 @@
   </article>
   <script>
     const feedTypeSelect = document.getElementById("feedType");
+    const emailScrapingFields = document.getElementById("emailScrapingFields");
     const webScrapingFields = document.getElementById("webScrapingFields");
     const apiFields = document.getElementById("apiFields");
     const playgroundBtn = document.getElementById("playgroundBtn");
@@ -339,9 +362,19 @@
         if (this.value === "webScraping") {
           webScrapingFields.style.display = "block";
           apiFields.style.display = "none";
+          emailScrapingFields.style.display = "none";
+          feedUrlDiv.style.display = "block";
         } else if (this.value === "api") {
           webScrapingFields.style.display = "none";
           apiFields.style.display = "block";
+          emailScrapingFields.style.display = "none";
+          feedUrlDiv.style.display = "block";
+        } else if (this.value === "email") {
+          webScrapingFields.style.display = "none";
+          apiFields.style.display = "none";
+          emailScrapingFields.style.display = "block";
+          feedUrlInput.value = "";
+          feedUrlDiv.style.display = "none";
         }
       });
 
@@ -368,6 +401,36 @@
 
         sendPreviewRequest(data);
       }
+
+      document.getElementById('fetchFolders').addEventListener('click', () => {
+        const data = {
+          host: document.getElementById('emailHost').value,
+          port: parseInt(document.getElementById('emailPort').value),
+          user: document.getElementById('emailUsername').value,
+          password: document.getElementById('emailPassword').value
+        };
+
+        fetch('/imap/folders', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(data)
+        })
+          .then(res => res.json())
+          .then(res => {
+            const select = document.getElementById('emailFolder');
+            select.innerHTML = '';
+            res.folders.forEach(folder => {
+              const option = document.createElement('option');
+              option.value = folder;
+              option.textContent = folder;
+              select.appendChild(option);
+            });
+          })
+          .catch(err => {
+            console.error(err);
+            alert('Failed to fetch folders. Check your credentials.');
+          });
+      });
 
       function sendPreviewRequest(data) {
         fetch("/preview", {
