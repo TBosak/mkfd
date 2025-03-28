@@ -47,7 +47,7 @@ docker pull tbosk/mkfd:latest
 docker run -p 5000:5000 -v /local/mount/path:/configs -e PASSKEY=your_passkey -e COOKIE_SECRET=your_cookie_secret tbosk/mkfd:latest
 ```
 
-## GUI
+## 🖼️ GUI
 
 ![mkfdgui](https://github.com/user-attachments/assets/620d4f1f-15a6-4120-8265-6ba07aa4aa27)
 
@@ -68,7 +68,7 @@ docker run -p 5000:5000 -v /local/mount/path:/configs -e PASSKEY=your_passkey -e
   - [X] HTML stripper  
   - [X] Source URL wrapper for relative links
   - [ ] Nested link follower/drilldown functionality for each feed field
-  - [ ] Adjust date parser logic with overrides from an optional date format input
+  - [X] Adjust date parser logic with overrides from an optional date format input
   - [ ] Add selector suggestion engine
 - [ ] Amass contributors  
 
