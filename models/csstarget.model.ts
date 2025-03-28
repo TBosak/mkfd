@@ -6,6 +6,7 @@ export default class CSSTarget {
     public rootUrl?: string,
     public relativeLink?: boolean,
     public titleCase?: boolean,
-    public iterator?: string
+    public iterator?: string,
+    public dateFormat?: string,
   ) {}
 }

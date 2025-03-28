@@ -14,6 +14,7 @@
     "cheerio": "^1.0.0",
     "cookie": "^1.0.1",
     "cookie-signature": "^1.2.2",
+    "dayjs": "^1.11.13",
     "hono": "^4.6.8",
     "hono-sessions": "^0.7.0",
     "js-yaml": "^4.1.0",

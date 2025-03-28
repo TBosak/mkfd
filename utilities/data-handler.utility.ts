@@ -1,3 +1,7 @@
+import dayjs from "dayjs";
+import customParseFormat from "dayjs/plugin/customParseFormat";
+dayjs.extend(customParseFormat);
+
 export function stripHtml(html: string) {
   return html.replace(/<(?:.|\n)*?>/gm, "");
 }
@@ -45,61 +49,66 @@ export function processLinks(
   return result;
 }
 
-export function processDates(date?: any, removeHtml?: boolean) {
+export function processDates(
+  date?: any,
+  removeHtml?: boolean,
+  userDateFormat?: string
+) {
   let result = date ?? "";
   if (removeHtml) result = stripHtml(result);
+  
+  if (userDateFormat) {
+    const parsed = dayjs(result, userDateFormat);
+    if (parsed.isValid()) return parsed.toDate().toLocaleString();
+  }
 
-  // Define regex patterns for various date and time formats
   const patterns = [
-    { regex: /\b\d{10}\b/, type: "unix" }, // Unix timestamp (seconds)
-    { regex: /\b\d{13}\b/, type: "unixMillis" }, // Unix timestamp (milliseconds)
+    { regex: /\b\d{10}\b/, type: "unix" },
+    { regex: /\b\d{13}\b/, type: "unixMillis" },
     {
       regex: /\b\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}(?:\.\d+)?Z?\b/,
       type: "iso",
-    }, // ISO 8601 with time
-    { regex: /\b\d{4}-\d{2}-\d{2}\b/, type: "yyyy-mm-dd" }, // YYYY-MM-DD
+    },
+    { regex: /\b\d{4}-\d{2}-\d{2}\b/, type: "yyyy-mm-dd" },
     {
       regex: /\b\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}\b/,
       type: "yyyy-mm-dd hh:mm:ss",
-    }, // Custom YYYY-MM-DD hh:mm:ss
+    },
     {
       regex: /\b\w{3}, \d{2} \w{3} \d{4} \d{2}:\d{2}:\d{2} GMT\b/,
       type: "utc",
-    }, // UTC format with time
+    },
   ];
 
-  // Function to parse a matched date and time substring based on its type
   function parseDate(value: string, type: string): Date | null {
     switch (type) {
       case "unix":
-        return new Date(parseInt(value) * 1000); // Unix timestamp (seconds)
+        return new Date(parseInt(value) * 1000);
       case "unixMillis":
-        return new Date(parseInt(value)); // Unix timestamp (milliseconds)
+        return new Date(parseInt(value));
       case "iso":
-        return new Date(value); // ISO 8601
+        return new Date(value);
       case "yyyy-mm-dd":
-        return new Date(`${value}T00:00:00Z`); // YYYY-MM-DD assumed UTC midnight
+        return new Date(`${value}T00:00:00Z`);
       case "yyyy-mm-dd hh:mm:ss":
-        return new Date(value + "Z"); // YYYY-MM-DD hh:mm:ss assumed UTC
+        return new Date(value + "Z");
       case "utc":
-        return new Date(value); // UTC format
+        return new Date(value);
       default:
         return null;
     }
   }
 
-  // Try each pattern to find a matching date and time substring in the input
   for (const { regex, type } of patterns) {
     const match = result.match(regex);
     if (match) {
       const parsedDate = parseDate(match[0], type);
       if (parsedDate && !isNaN(parsedDate.getTime())) {
-        return parsedDate.toLocaleString(); // Return standardized date format with time if available
+        return parsedDate.toLocaleString();
       }
     }
   }
 
-  // If no match is found, return the original input
   return result;
 }
 

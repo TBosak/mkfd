@@ -157,24 +157,28 @@ export async function buildRSS(
                   $(el)
                     .find(article.date?.selector)
                     ?.attr(article.date?.attribute),
-                  article.date?.stripHtml
+                  article.date?.stripHtml,
+                  article.date?.dateFormat
                 )
               : processDates(
                   $(el).find(article.date?.selector)?.text(),
-                  article.date?.stripHtml
+                  article.date?.stripHtml,
+                  article.date?.dateFormat
                 )
             : !!article.date?.attribute
             ? processDates(
                 $($(article.date.iterator).toArray()[i])
                   .find(article.date.selector)
                   ?.attr(article.date?.attribute),
-                article.date.stripHtml
+                article.date?.stripHtml,
+                article.date?.dateFormat
               )
             : processDates(
                 $($(article.date.iterator).toArray()[i])
                   .find(article.date.selector)
                   .text(),
-                article.date.stripHtml
+                article.date?.stripHtml,
+                article.date?.dateFormat
               ),
           enclosure: {
             url: !article.enclosure?.iterator

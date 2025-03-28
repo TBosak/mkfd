@@ -122,330 +122,186 @@ app.use("/configs/*", serveStatic({ root: "./" }));
 app.get("/", (ctx) => ctx.html(file("./public/index.html").text()));
 app.post("/", async (ctx) => {
   const feedId = uuidv4();
-  let formData;
-  let jsonData: any = {};
-  let feedType: string = "";
   const contentType = ctx.req.header("Content-Type") || "";
 
-  if (contentType.includes("application/json")) {
-    // Parse JSON body
-    try {
-      jsonData = await ctx.req.json();
-      feedType = jsonData.feedType || "webScraping";
-    } catch (error) {
-      console.error("Invalid JSON body:", error);
-      return ctx.text("Invalid JSON body.", 400);
+  let body: Record<string, any>;
+
+  try {
+    if (contentType.includes("application/json")) {
+      body = await ctx.req.json();
+    } else if (
+      contentType.includes("multipart/form-data") ||
+      contentType.includes("application/x-www-form-urlencoded")
+    ) {
+      const formData = await ctx.req.formData();
+      body = Object.fromEntries(formData);
+    } else {
+      return ctx.text("Unsupported Content-Type.", 415);
     }
-  } else if (
-    contentType.includes("multipart/form-data") ||
-    contentType.includes("application/x-www-form-urlencoded")
-  ) {
-    // Parse form data
-    formData = await ctx.req.formData();
-    feedType = formData.get("feedType")?.toString() || "webScraping";
-  } else {
-    return ctx.text("Unsupported Content-Type.", 415);
+  } catch {
+    return ctx.text("Invalid request body.", 400);
   }
 
-  const extractValue = (key: string) => {
-    return formData ? formData.get(key)?.toString() : jsonData[key];
-  };
+  const extract = (key: string, fallback: any = undefined) =>
+    body[key]?.toString() || fallback;
 
-  var article = {};
-  var apiMapping = {};
+  const feedType = extract("feedType", "webScraping");
+
+  const buildCSSTarget = (prefix: string) => {
+    const dateFormat = extract(`${prefix}Format`);
+    const customDateFormat = dateFormat === 'other' 
+      ? extract('customDateFormat') 
+      : undefined;
+  
+    return new CSSTarget(
+      extract(`${prefix}Selector`),
+      extract(`${prefix}Attribute`),
+      ["on", true, "true"].includes(extract(`${prefix}StripHtml`)),
+      extract(`${prefix}BaseUrl`),
+      ["on", true, "true"].includes(extract(`${prefix}RelativeLink`)),
+      ["on", true, "true"].includes(extract(`${prefix}TitleCase`)),
+      extract(`${prefix}Iterator`),
+      dateFormat === 'other' ? customDateFormat : dateFormat
+    );
+  };
   const apiConfig: ApiConfig = {
-    title: extractValue("feedName") || "RSS Feed",
-    baseUrl: extractValue("feedUrl"),
+    title: extract("feedName", "RSS Feed"),
+    baseUrl: extract("feedUrl"),
+    method: extract("apiMethod", "GET"),
+    route: extract("apiRoute"),
+    params: JSON.parse(extract("apiParams", "{}")),
+    headers: JSON.parse(extract("apiHeaders", "{}")),
+    body: JSON.parse(extract("apiBody", "{}")),
   };
-
-  if (feedType === "webScraping") {
-    const iteratorTarget = new CSSTarget(extractValue("itemSelector"));
-    const titleTarget = new CSSTarget(
-      extractValue("titleSelector"),
-      extractValue("titleAttribute") || undefined,
-      extractValue("titleStripHtml") === "on" ||
-        extractValue("titleStripHtml") === true,
-      "",
-      false,
-      extractValue("titleTitleCase") === "on" ||
-        extractValue("titleTitleCase") === true,
-      extractValue("titleIterator")
-    );
-    const descriptionTarget = new CSSTarget(
-      extractValue("descriptionSelector"),
-      extractValue("descriptionAttribute") || undefined,
-      extractValue("descriptionStripHtml") === "on" ||
-        extractValue("descriptionStripHtml") === true,
-      "",
-      false,
-      extractValue("descriptionTitleCase") === "on" ||
-        extractValue("descriptionTitleCase") === true,
-      extractValue("descriptionIterator")
-    );
-    const linkTarget = new CSSTarget(
-      extractValue("linkSelector"),
-      extractValue("linkAttribute") || undefined,
-      false,
-      extractValue("linkBaseUrl"),
-      extractValue("linkRelativeLink") === "on" ||
-        extractValue("linkRelativeLink") === true,
-      false,
-      extractValue("linkIterator")
-    );
-    const enclosureTarget = new CSSTarget(
-      extractValue("enclosureSelector"),
-      extractValue("enclosureAttribute") || undefined,
-      false,
-      extractValue("enclosureBaseUrl"),
-      extractValue("enclosureRelativeLink") === "on" ||
-        extractValue("enclosureRelativeLink") === true,
-      false,
-      extractValue("enclosureIterator")
-    );
-    const dateTarget = new CSSTarget(
-      extractValue("dateSelector"),
-      extractValue("dateAttribute") || undefined,
-      extractValue("dateStripHtml") === "on" ||
-        extractValue("dateStripHtml") === true,
-      "",
-      false,
-      false,
-      extractValue("dateIterator")
-    );
-    const headers = extractValue("headers");
-
-    article = {
-      iterator: iteratorTarget,
-      title: titleTarget,
-      description: descriptionTarget,
-      link: linkTarget,
-      enclosure: enclosureTarget,
-      date: dateTarget,
-      headers: headers,
-    };
-  } else if (feedType === "api") {
-    // API configuration
-    apiConfig.method = extractValue("apiMethod") || "GET";
-    apiConfig.route = extractValue("apiRoute");
-
-    // Parse JSON inputs
-    try {
-      apiConfig.params = JSON.parse(extractValue("apiParams") || "{}");
-    } catch {
-      return ctx.text("Invalid JSON in API parameters.", 400);
-    }
-
-    try {
-      apiConfig.headers = JSON.parse(extractValue("apiHeaders") || "{}");
-    } catch {
-      return ctx.text("Invalid JSON in API headers.", 400);
-    }
-
-    try {
-      apiConfig.body = JSON.parse(extractValue("apiBody") || "{}");
-    } catch {
-      return ctx.text("Invalid JSON in API body.", 400);
-    }
-
-    // API response mapping
-    apiMapping = {
-      items: extractValue("apiItemsPath"),
-      title: extractValue("apiTitleField"),
-      description: extractValue("apiDescriptionField"),
-      link: extractValue("apiLinkField"),
-      date: extractValue("apiDateField"),
-    };
-  }
-  const refreshTime = parseInt(extractValue("refreshTime") || "5");
-  const reverse =
-    extractValue("reverse") === "on" ||
-    extractValue("reverse") === true ||
-    extractValue("reverse") === "true";
 
   const feedConfig = {
     feedId,
     feedName: apiConfig.title,
-    feedType: extractValue("feedType") || "webScraping", // 'webScraping' or 'api'
+    feedType,
     config: apiConfig,
-    article: article,
-    apiMapping: apiMapping,
-    refreshTime: refreshTime,
-    reverse: reverse,
+    article:
+      feedType === "webScraping"
+        ? {
+            iterator: new CSSTarget(extract("itemSelector")),
+            title: buildCSSTarget("title"),
+            description: buildCSSTarget("description"),
+            link: buildCSSTarget("link"),
+            enclosure: buildCSSTarget("enclosure"),
+            date: buildCSSTarget("date"),
+            headers: extract("headers"),
+          }
+        : {},
+    apiMapping:
+      feedType === "api"
+        ? {
+            items: extract("apiItemsPath"),
+            title: extract("apiTitleField"),
+            description: extract("apiDescriptionField"),
+            link: extract("apiLinkField"),
+            date: extract("apiDateField"),
+          }
+        : {},
+    refreshTime: parseInt(extract("refreshTime", "5")),
+    reverse: ["on", true, "true"].includes(extract("reverse")),
   };
 
-  // Convert the feedConfig to YAML
   const yamlStr = yaml.dump(feedConfig);
-
-  // Save the YAML file
   const yamlFilePath = join(configsDir, `${feedId}.yaml`);
   await writeFile(yamlFilePath, yamlStr, "utf8");
 
-  // Provide the user with the RSS feed URL
   setFeedUpdaterInterval(feedConfig);
+
   if (contentType.includes("application/json")) {
     return ctx.json({
       message: "RSS feed is being generated.",
       feedUrl: `public/feeds/${feedId}.xml`,
     });
-  } else {
-    return ctx.html(`
-        <p>Your RSS feed is being generated and will update every ${refreshTime} minutes.</p>
-        <p>Access it at: <a href="public/feeds/${feedId}.xml">public/feeds/${feedId}.xml</a></p>
-      `);
   }
+
+  return ctx.html(`
+    <p>Your RSS feed is being generated and will update every ${feedConfig.refreshTime} minutes.</p>
+    <p>Access it at: <a href=\"public/feeds/${feedId}.xml\">public/feeds/${feedId}.xml</a></p>
+  `);
 });
+
 app.post("/preview", async (ctx) => {
-  let jsonData: any = {};
-  let feedType: string = "";
   try {
-    jsonData = await ctx.req.json();
-    feedType = jsonData.feedType || "webScraping";
+    const jsonData = await ctx.req.json();
+
+    const extract = (key: string, fallback: any = undefined) => jsonData[key] ?? fallback;
+
+    const buildCSSTarget = (prefix: string) => {
+      const dateFormat = extract(`${prefix}Format`);
+      const customDateFormat = dateFormat === 'other' 
+        ? extract('customDateFormat') 
+        : undefined;
+    
+      return new CSSTarget(
+        extract(`${prefix}Selector`),
+        extract(`${prefix}Attribute`),
+        ["on", true, "true"].includes(extract(`${prefix}StripHtml`)),
+        extract(`${prefix}BaseUrl`),
+        ["on", true, "true"].includes(extract(`${prefix}RelativeLink`)),
+        ["on", true, "true"].includes(extract(`${prefix}TitleCase`)),
+        extract(`${prefix}Iterator`),
+        // Pass either the standard date format or the custom format
+        dateFormat === 'other' ? customDateFormat : dateFormat
+      );
+    };
+
+    const feedType = extract("feedType", "webScraping");
+
+    const apiConfig: ApiConfig = {
+      title: extract("feedName", "RSS Feed"),
+      baseUrl: extract("feedUrl"),
+      method: extract("apiMethod", "GET"),
+      route: extract("apiRoute"),
+      params: JSON.parse(extract("apiParams", "{}")),
+      headers: JSON.parse(extract("apiHeaders", "{}")),
+      body: JSON.parse(extract("apiBody", "{}")),
+    };
+
+    const feedConfig = {
+      feedId: "preview",
+      feedName: apiConfig.title,
+      feedType,
+      config: apiConfig,
+      article:
+        feedType === "webScraping"
+          ? {
+              iterator: new CSSTarget(extract("itemSelector")),
+              title: buildCSSTarget("title"),
+              description: buildCSSTarget("description"),
+              link: buildCSSTarget("link"),
+              author: buildCSSTarget("author"),
+              date: buildCSSTarget("date"),
+              enclosure: buildCSSTarget("enclosure"),
+            }
+          : {},
+      apiMapping:
+        feedType === "api"
+          ? {
+              items: extract("apiItemsPath"),
+              title: extract("apiTitleField"),
+              description: extract("apiDescriptionField"),
+              link: extract("apiLinkField"),
+              date: extract("apiDateField"),
+            }
+          : {},
+      refreshTime: parseInt(extract("refreshTime", "5")),
+      reverse: ["on", true, "true"].includes(extract("reverse")),
+    };
+
+    const response = await generatePreview(feedConfig);
+
+    return ctx.text(response, 200, {
+      "Content-Type": "application/rss+xml",
+      "Cache-Control": "no-cache, no-store, must-revalidate",
+    });
   } catch (error) {
-    console.error("Invalid JSON body:", error);
-    return ctx.text("Invalid JSON body.", 400);
+    console.error("Error generating preview:", error);
+    return ctx.text("Invalid request.", 400);
   }
-
-  const extractValue = (key: string) => {
-    return jsonData[key];
-  };
-
-  var article = {};
-  var apiMapping = {};
-  const apiConfig: ApiConfig = {
-    title: extractValue("feedName") || "RSS Feed",
-    baseUrl: extractValue("feedUrl"),
-  };
-
-  if (feedType === "webScraping") {
-    const iteratorTarget = new CSSTarget(extractValue("itemSelector"));
-    const titleTarget = new CSSTarget(
-      extractValue("titleSelector"),
-      extractValue("titleAttribute") || undefined,
-      extractValue("titleStripHtml") === "on" ||
-        extractValue("titleStripHtml") === true,
-      "",
-      false,
-      extractValue("titleTitleCase") === "on" ||
-        extractValue("titleTitleCase") === true,
-      extractValue("titleIterator")
-    );
-    const descriptionTarget = new CSSTarget(
-      extractValue("descriptionSelector"),
-      extractValue("descriptionAttribute") || undefined,
-      extractValue("descriptionStripHtml") === "on" ||
-        extractValue("descriptionStripHtml") === true,
-      "",
-      false,
-      extractValue("descriptionTitleCase") === "on" ||
-        extractValue("descriptionTitleCase") === true,
-      extractValue("descriptionIterator")
-    );
-    const linkTarget = new CSSTarget(
-      extractValue("linkSelector"),
-      extractValue("linkAttribute") || undefined,
-      false,
-      extractValue("linkBaseUrl"),
-      extractValue("linkRelativeLink") === "on" ||
-        extractValue("linkRelativeLink") === true,
-      false,
-      extractValue("linkIterator")
-    );
-    const enclosureTarget = new CSSTarget(
-      extractValue("enclosureSelector"),
-      extractValue("enclosureAttribute") || undefined,
-      false,
-      extractValue("enclosureBaseUrl"),
-      extractValue("enclosureRelativeLink") === "on" ||
-        extractValue("enclosureRelativeLink") === true,
-      false,
-      extractValue("enclosureIterator")
-    );
-    const dateTarget = new CSSTarget(
-      extractValue("dateSelector"),
-      extractValue("dateAttribute") || undefined,
-      extractValue("dateStripHtml") === "on" ||
-        extractValue("dateStripHtml") === true,
-      "",
-      false,
-      false,
-      extractValue("dateIterator")
-    );
-    const authorTarget = new CSSTarget(
-      extractValue("authorSelector"),
-      extractValue("authorAttribute") || undefined,
-      extractValue("authorStripHtml") === "on" ||
-        extractValue("authorStripHtml") === true,
-      "",
-      false,
-      extractValue("authorTitleCase") === "on" ||
-        extractValue("authorTitleCase") === true,
-      extractValue("authorIterator")
-    );
-
-    article = {
-      iterator: iteratorTarget,
-      title: titleTarget,
-      description: descriptionTarget,
-      link: linkTarget,
-      author: authorTarget,
-      date: dateTarget,
-      enclosure: enclosureTarget,
-    };
-  } else if (feedType === "api") {
-    // API configuration
-    apiConfig.method = extractValue("apiMethod") || "GET";
-    apiConfig.route = extractValue("apiRoute");
-
-    // Parse JSON inputs
-    try {
-      apiConfig.params = JSON.parse(extractValue("apiParams") || "{}");
-    } catch {
-      return ctx.text("Invalid JSON in API parameters.", 400);
-    }
-
-    try {
-      apiConfig.headers = JSON.parse(extractValue("apiHeaders") || "{}");
-    } catch {
-      return ctx.text("Invalid JSON in API headers.", 400);
-    }
-
-    try {
-      apiConfig.body = JSON.parse(extractValue("apiBody") || "{}");
-    } catch {
-      return ctx.text("Invalid JSON in API body.", 400);
-    }
-
-    // API response mapping
-    apiMapping = {
-      items: extractValue("apiItemsPath"),
-      title: extractValue("apiTitleField"),
-      description: extractValue("apiDescriptionField"),
-      link: extractValue("apiLinkField"),
-      date: extractValue("apiDateField"),
-    };
-  }
-  const refreshTime = parseInt(extractValue("refreshTime") || "5");
-  const reverse =
-    extractValue("reverse") === "on" ||
-    extractValue("reverse") === true ||
-    extractValue("reverse") === "true";
-
-  const feedConfig = {
-    feedId: "preview",
-    feedName: apiConfig.title,
-    feedType: extractValue("feedType") || "webScraping", // 'webScraping' or 'api'
-    config: apiConfig,
-    article: article,
-    apiMapping: apiMapping,
-    refreshTime: refreshTime,
-    reverse: reverse,
-  };
-
-  const response = await generatePreview(feedConfig);
-  return ctx.text(response, 200, {
-    "Content-Type": "application/rss+xml",
-    "Cache-Control": "no-cache, no-store, must-revalidate",
-  });
 });
 
 //GPT ONLY ENDPOINT TO GET HTML AND DETERMINE BEST CSS SELECTORS
