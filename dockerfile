@@ -1,23 +1,26 @@
-# Use the official Bun image
-FROM oven/bun:latest
+FROM oven/bun:alpine
 
-# Set the working directory
-WORKDIR /
+RUN apk update && apk add --no-cache bash curl
 
-# Copy package files
+ENV NODE_VERSION=23.6.0
+
+
+RUN curl -fsSL https://nodejs.org/dist/v23.6.0/node-v23.6.0-linux-x64.tar.xz \
+    -o /tmp/node.tar.xz \
+ && tar -C /usr/local --strip-components 1 -xJf /tmp/node.tar.xz \
+ && rm /tmp/node.tar.xz
+
+RUN node -v
+WORKDIR /app
+
 COPY package.json bun.lockb ./
 
-# Install dependencies
 RUN bun install
 
-# Copy the rest of the files
 COPY . .
 
-# Expose the port
 EXPOSE 5000
 
-# Define a volume for persistent storage
 VOLUME ["/configs"]
 
-# Start the server
 CMD ["bun", "run", "index.ts"]

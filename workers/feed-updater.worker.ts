@@ -24,7 +24,7 @@ async function fetchDataAndUpdateFeed(feedConfig) {
         html,
         feedConfig.config,
         feedConfig.article,
-        feedConfig.reverse
+        feedConfig.reverse,
       );
     } else if (feedConfig.feedType === "api") {
       const axiosConfig = {
@@ -43,10 +43,9 @@ async function fetchDataAndUpdateFeed(feedConfig) {
       rssXml = buildRSSFromApiData(
         apiData,
         feedConfig.config,
-        feedConfig.apiMapping
+        feedConfig.apiMapping,
       );
     } else if (feedConfig.feedType === "email") {
-      
     }
     const rssFilePath = join(rssDir, `${feedConfig.feedId}.xml`);
     await writeFile(rssFilePath, rssXml, "utf8");
@@ -55,7 +54,7 @@ async function fetchDataAndUpdateFeed(feedConfig) {
   } catch (error) {
     console.error(
       `Error fetching data for feedId ${feedConfig.feedId}:`,
-      error.message
+      error.message,
     );
   }
 }

@@ -20,7 +20,7 @@ export class WebScrapingAdapter extends BaseAdapter {
     config: ApiConfig,
     articleConfig: any,
     timestamp?: boolean,
-    reverse?: boolean
+    reverse?: boolean,
   ) {
     super(config);
     this.article = articleConfig;

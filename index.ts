@@ -17,7 +17,7 @@ import CSSTarget from "./models/csstarget.model";
 import axios from "axios";
 import { createInterface } from "readline";
 import { buildRSS, buildRSSFromApiData } from "./utilities/rss-builder.utility";
-import { Config } from 'node-imap';
+import { Config } from "node-imap";
 import { listImapFolders } from "./utilities/imap.utility";
 import { encrypt } from "./utilities/security.utility";
 
@@ -39,9 +39,16 @@ async function prompt(question: string): Promise<string> {
 }
 
 async function getSecrets() {
-  const passkey = process.env.PASSKEY ?? args.passkey ?? await prompt('Enter passkey: ');
-  const cookieSecret = process.env.COOKIE_SECRET ?? args.cookieSecret ?? await prompt('Enter cookie secret: ');
-  const encryptionKey = process.env.ENCRYPTION_KEY ?? args.encryptionKey ?? await prompt('Enter encryption key: ');
+  const passkey =
+    process.env.PASSKEY ?? args.passkey ?? (await prompt("Enter passkey: "));
+  const cookieSecret =
+    process.env.COOKIE_SECRET ??
+    args.cookieSecret ??
+    (await prompt("Enter cookie secret: "));
+  const encryptionKey =
+    process.env.ENCRYPTION_KEY ??
+    args.encryptionKey ??
+    (await prompt("Enter encryption key: "));
   return { passkey, cookieSecret, encryptionKey };
 }
 
@@ -64,7 +71,11 @@ processFeedsAtStart();
 //ALLOW LOCAL NETWORK TO ACCESS API
 const middleware = async (_, next) => {
   const connInfo = await getConnInfo(_);
-  if (connInfo?.remote?.address == undefined || connInfo?.remote?.address === '127.0.0.1' || connInfo?.remote?.address === '::1') {
+  if (
+    connInfo?.remote?.address == undefined ||
+    connInfo?.remote?.address === "127.0.0.1" ||
+    connInfo?.remote?.address === "::1"
+  ) {
     // Return after calling `await next()`
     return await next();
   } else {
@@ -84,7 +95,7 @@ const middleware = async (_, next) => {
             secure: true, // Set to true if using HTTPS
             maxAge: 0,
             sameSite: "lax",
-          })
+          }),
         );
         // Redirect to passkey page
         return _.redirect("/passkey");
@@ -103,12 +114,12 @@ const middleware = async (_, next) => {
             secure: true, // Set to true if using HTTPS
             maxAge: 60 * 60 * 24, // 1 day
             sameSite: "lax",
-          })
+          }),
         );
         return _.redirect("/");
       } else {
         return _.html(
-          '<p>Incorrect passkey. <a href="/passkey">Try again</a>.</p>'
+          '<p>Incorrect passkey. <a href="/passkey">Try again</a>.</p>',
         );
       }
     } else if (_.req.path === "/passkey") {
@@ -153,10 +164,9 @@ app.post("/", async (ctx) => {
 
   const buildCSSTarget = (prefix: string) => {
     const dateFormat = extract(`${prefix}Format`);
-    const customDateFormat = dateFormat === 'other' 
-      ? extract('customDateFormat') 
-      : undefined;
-  
+    const customDateFormat =
+      dateFormat === "other" ? extract("customDateFormat") : undefined;
+
     return new CSSTarget(
       extract(`${prefix}Selector`),
       extract(`${prefix}Attribute`),
@@ -165,7 +175,7 @@ app.post("/", async (ctx) => {
       ["on", true, "true"].includes(extract(`${prefix}RelativeLink`)),
       ["on", true, "true"].includes(extract(`${prefix}TitleCase`)),
       extract(`${prefix}Iterator`),
-      dateFormat === 'other' ? customDateFormat : dateFormat
+      dateFormat === "other" ? customDateFormat : dateFormat,
     );
   };
   const apiConfig: ApiConfig = {
@@ -240,14 +250,14 @@ app.post("/preview", async (ctx) => {
   try {
     const jsonData = await ctx.req.json();
 
-    const extract = (key: string, fallback: any = undefined) => jsonData[key] ?? fallback;
+    const extract = (key: string, fallback: any = undefined) =>
+      jsonData[key] ?? fallback;
 
     const buildCSSTarget = (prefix: string) => {
       const dateFormat = extract(`${prefix}Format`);
-      const customDateFormat = dateFormat === 'other' 
-        ? extract('customDateFormat') 
-        : undefined;
-    
+      const customDateFormat =
+        dateFormat === "other" ? extract("customDateFormat") : undefined;
+
       return new CSSTarget(
         extract(`${prefix}Selector`),
         extract(`${prefix}Attribute`),
@@ -257,7 +267,7 @@ app.post("/preview", async (ctx) => {
         ["on", true, "true"].includes(extract(`${prefix}TitleCase`)),
         extract(`${prefix}Iterator`),
         // Pass either the standard date format or the custom format
-        dateFormat === 'other' ? customDateFormat : dateFormat
+        dateFormat === "other" ? customDateFormat : dateFormat,
       );
     };
 
@@ -323,7 +333,6 @@ app.post("/preview", async (ctx) => {
     return ctx.text("Invalid request.", 400);
   }
 });
-
 
 //GPT ONLY ENDPOINT TO GET HTML AND DETERMINE BEST CSS SELECTORS
 // app.post('/html', async (ctx) => {
@@ -391,7 +400,7 @@ app.get("/feeds", async (ctx) => {
       const lastBuildDateNode = xmlDoc.getElementsByTagName("lastBuildDate")[0];
       if (lastBuildDateNode && lastBuildDateNode.textContent) {
         lastBuildDate = new Date(
-          lastBuildDateNode.textContent
+          lastBuildDateNode.textContent,
         ).toLocaleString();
       }
     } catch (error) {
@@ -532,24 +541,29 @@ app.post("/delete-feed", async (c) => {
   }
 });
 
-app.post('/imap/folders', async (c) => {
+app.post("/imap/folders", async (c) => {
   const config = await c.req.json<Config>();
-  console.log('IMAP config:', config);
+  console.log("IMAP config:", config);
   const folders = await listImapFolders(config);
-  console.log('IMAP folders:', folders);
+  console.log("IMAP folders:", folders);
   return c.json({ folders });
 });
 
 app.get("privacy-policy", (ctx) =>
   ctx.html(
-    `We only keep the data you provide for generating RSS feeds. We do not store any personal information.`
-  )
+    `We only keep the data you provide for generating RSS feeds. We do not store any personal information.`,
+  ),
 );
 
 function initializeWorker(feedConfig: any) {
   feedUpdaters.set(
     feedConfig.feedId,
-    new Worker((feedConfig.feedType === 'email' ?  "./workers/imap-feed.worker.ts" : "./workers/feed-updater.worker.ts"), { type: "module" })
+    new Worker(
+      feedConfig.feedType === "email"
+        ? "./workers/imap-feed.worker.ts"
+        : "./workers/feed-updater.worker.ts",
+      { type: "module" },
+    ),
   );
 
   feedUpdaters.get(feedConfig.feedId).onmessage = (message) => {
@@ -558,7 +572,7 @@ function initializeWorker(feedConfig: any) {
     } else if (message.data.status === "error") {
       console.error(
         `Feed updates for ${feedConfig.feedId} encountered an error:`,
-        message.data.error
+        message.data.error,
       );
     }
   };
@@ -600,7 +614,7 @@ async function generatePreview(feedConfig: any) {
         html,
         feedConfig.config,
         feedConfig.article,
-        feedConfig.reverse
+        feedConfig.reverse,
       );
     } else if (feedConfig.feedType === "api") {
       const axiosConfig = {
@@ -619,14 +633,14 @@ async function generatePreview(feedConfig: any) {
       rssXml = buildRSSFromApiData(
         apiData,
         feedConfig.config,
-        feedConfig.apiMapping
+        feedConfig.apiMapping,
       );
     }
     return rssXml;
   } catch (error) {
     console.error(
       `Error fetching data for feedId ${feedConfig.feedId}:`,
-      error.message
+      error.message,
     );
   }
 }
@@ -642,15 +656,22 @@ function setFeedUpdaterInterval(feedConfig: any) {
       initializeWorker(feedConfig);
       feedUpdaters
         .get(feedConfig.feedId)
-        .postMessage({ command: "start", config: feedConfig, encryptionKey: encryptionKey });
+        .postMessage({
+          command: "start",
+          config: feedConfig,
+          encryptionKey: encryptionKey,
+        });
     }
 
-    const interval = setInterval(() => {
-      console.log("Engaging worker for feed:", feedId);
-      feedUpdaters
-        .get(feedId)
-        .postMessage({ command: "start", config: feedConfig });
-    }, feedConfig.refreshTime * 60 * 1000);
+    const interval = setInterval(
+      () => {
+        console.log("Engaging worker for feed:", feedId);
+        feedUpdaters
+          .get(feedId)
+          .postMessage({ command: "start", config: feedConfig });
+      },
+      feedConfig.refreshTime * 60 * 1000,
+    );
 
     feedIntervals.set(feedId, interval);
   }

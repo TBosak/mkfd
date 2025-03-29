@@ -6,7 +6,9 @@
     "moduleResolution": "node",
     "typeRoots": ["node_modules/@types"],
     "allowSyntheticDefaultImports": true,
+    "allowImportingTsExtensions": true,
+    "noEmit": true,
     "allowJs": true,
-    "types": ["bun-types","cheerio", "express"]
+    "types": ["bun-types", "cheerio", "express"]
   }
 }

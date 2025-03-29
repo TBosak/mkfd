@@ -55,22 +55,22 @@ docker run -p 5000:5000 -v /local/mount/path:/configs -e PASSKEY=your_passkey -e
 
 ## 🔧 To Do
 
-- [X] **Locally** testing subscriptions to feeds  
-- [ ] Add ALL possible RSS fields to models  
-- [X] Add option for parallel iterators  
+- [x] **Locally** testing subscriptions to feeds
+- [ ] Add ALL possible RSS fields to models
+- [x] Add option for parallel iterators
 - [ ] Scraping how-to video
-- [X] Add feed preview pane  
-- [ ] Store/compare feed data to enable timestamping feed items  
-- [X] Create dockerfile
+- [x] Add feed preview pane
+- [ ] Store/compare feed data to enable timestamping feed items
+- [x] Create dockerfile
 - [ ] Create Helm chart files
-- [X] Create GUI  
-- [ ] Utilities  
-  - [X] HTML stripper  
-  - [X] Source URL wrapper for relative links
+- [x] Create GUI
+- [ ] Utilities
+  - [x] HTML stripper
+  - [x] Source URL wrapper for relative links
   - [ ] Nested link follower/drilldown functionality for each feed field
-  - [X] Adjust date parser logic with overrides from an optional date format input
+  - [x] Adjust date parser logic with overrides from an optional date format input
   - [ ] Add selector suggestion engine
-- [ ] Amass contributors  
+- [ ] Amass contributors
 
 <br>
 

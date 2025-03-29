@@ -7,7 +7,7 @@ let childProcess: any = null;
 self.onmessage = (message) => {
   if (message.data.command === "start" && !childProcess) {
     const encryptionKey = message.data.encryptionKey;
-    const configHash = message.data.hash || "default-config-hash";
+    const configHash = message.data.config.feedId;
 
     if (!encryptionKey || typeof encryptionKey !== "string") {
       console.error("[IMAP WORKER] Invalid encryption key:", encryptionKey);
@@ -20,29 +20,33 @@ self.onmessage = (message) => {
     childProcess = spawn({
       cmd: [
         "node",
-        "imap-watcher.service.js",
+        "./node/imap-watch.utility.ts",
         `--key=${encryptionKey}`,
-        `--hash=${configHash}`
+        `--hash=${configHash}`,
       ],
-      stdout: "pipe",
-      stderr: "pipe"
+      stdout: "inherit",
+      stderr: "inherit",
     });
 
-    // Optional: watch stdout/stderr to see logs from the Node script
-    childProcess.stdout.ondata = (chunk) => {
-      console.log("[Node IMAP stdout]", chunk.toString());
-    };
-    childProcess.stderr.ondata = (chunk) => {
-      console.error("[Node IMAP stderr]", chunk.toString());
-    };
+    // Now we can handle output
+    // childProcess.stdout.ondata = (chunk) => {
+    //   console.log("[Node IMAP stdout]", chunk.toString());
+    // };
+    // if (childProcess.stderr) {
+    //   childProcess.stderr.ondata = (chunk) => {
+    //     console.error("[Node IMAP stderr]", chunk.toString());
+    //   };
+    // }
 
     childProcess.onexit = (exitCode) => {
-      console.log("[IMAP WORKER] Node IMAP process exited with code:", exitCode);
+      console.log(
+        "[IMAP WORKER] Node IMAP process exited with code:",
+        exitCode,
+      );
       childProcess = null;
     };
 
     self.postMessage({ status: "IMAP worker started." });
-
   } else if (message.data.command === "stop" && childProcess) {
     console.log("[IMAP WORKER] Stopping Node IMAP watcher...");
     childProcess.kill();
