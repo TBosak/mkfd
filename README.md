@@ -59,8 +59,11 @@ Mkfd supports email feeds via IMAP. You can use any email provider that supports
 - **IMAP server**: The IMAP server address for your email provider. For example, Gmail's IMAP server is `imap.gmail.com`.
 - **IMAP port**: The port number for the IMAP server. For Gmail, this is `993`.
 - **IMAP password**: The password for your email account. You may need to generate an app password if you have two-factor authentication enabled.
+- **Folder**: The folder you want to monitor for new emails. Ex: `INBOX`.
 
 The encryption key is used to encrypt your password before storing it in the yaml config file. This is important for security reasons, as it prevents anyone from accessing your password in plain text. Make sure to use an encryption key that is at least 16 characters long.
+
+Email feeds do not refresh on intervals. The process runs continuously and updates when a new email is received.
 
 ## 🖼️ GUI
 
