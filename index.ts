@@ -20,6 +20,7 @@ import { buildRSS, buildRSSFromApiData } from "./utilities/rss-builder.utility";
 import { Config } from "node-imap";
 import { listImapFolders } from "./utilities/imap.utility";
 import { encrypt } from "./utilities/security.utility";
+import puppeteer from "puppeteer";
 
 const app = new Hono();
 const args = minimist(process.argv.slice(3));
@@ -95,7 +96,7 @@ const middleware = async (_, next) => {
             secure: true, // Set to true if using HTTPS
             maxAge: 0,
             sameSite: "lax",
-          }),
+          })
         );
         // Redirect to passkey page
         return _.redirect("/passkey");
@@ -114,12 +115,12 @@ const middleware = async (_, next) => {
             secure: true, // Set to true if using HTTPS
             maxAge: 60 * 60 * 24, // 1 day
             sameSite: "lax",
-          }),
+          })
         );
         return _.redirect("/");
       } else {
         return _.html(
-          '<p>Incorrect passkey. <a href="/passkey">Try again</a>.</p>',
+          '<p>Incorrect passkey. <a href="/passkey">Try again</a>.</p>'
         );
       }
     } else if (_.req.path === "/passkey") {
@@ -175,7 +176,7 @@ app.post("/", async (ctx) => {
       ["on", true, "true"].includes(extract(`${prefix}RelativeLink`)),
       ["on", true, "true"].includes(extract(`${prefix}TitleCase`)),
       extract(`${prefix}Iterator`),
-      dateFormat === "other" ? customDateFormat : dateFormat,
+      dateFormat === "other" ? customDateFormat : dateFormat
     );
   };
   const apiConfig: ApiConfig = {
@@ -186,6 +187,7 @@ app.post("/", async (ctx) => {
     params: JSON.parse(extract("apiParams", "{}")),
     headers: JSON.parse(extract("apiHeaders", "{}")),
     body: JSON.parse(extract("apiBody", "{}")),
+    advanced: ["on", true, "true"].includes(extract("advanced")),
   };
 
   const emailConfig = {
@@ -267,7 +269,7 @@ app.post("/preview", async (ctx) => {
         ["on", true, "true"].includes(extract(`${prefix}TitleCase`)),
         extract(`${prefix}Iterator`),
         // Pass either the standard date format or the custom format
-        dateFormat === "other" ? customDateFormat : dateFormat,
+        dateFormat === "other" ? customDateFormat : dateFormat
       );
     };
 
@@ -281,6 +283,7 @@ app.post("/preview", async (ctx) => {
       params: JSON.parse(extract("apiParams", "{}")),
       headers: JSON.parse(extract("apiHeaders", "{}")),
       body: JSON.parse(extract("apiBody", "{}")),
+      advanced: ["on", true, "true"].includes(extract("advanced")),
     };
 
     const emailConfig = {
@@ -400,7 +403,7 @@ app.get("/feeds", async (ctx) => {
       const lastBuildDateNode = xmlDoc.getElementsByTagName("lastBuildDate")[0];
       if (lastBuildDateNode && lastBuildDateNode.textContent) {
         lastBuildDate = new Date(
-          lastBuildDateNode.textContent,
+          lastBuildDateNode.textContent
         ).toLocaleString();
       }
     } catch (error) {
@@ -551,8 +554,8 @@ app.post("/imap/folders", async (c) => {
 
 app.get("privacy-policy", (ctx) =>
   ctx.html(
-    `We only keep the data you provide for generating RSS feeds. We do not store any personal information.`,
-  ),
+    `We only keep the data you provide for generating RSS feeds. We do not store any personal information.`
+  )
 );
 
 function initializeWorker(feedConfig: any) {
@@ -562,8 +565,8 @@ function initializeWorker(feedConfig: any) {
       feedConfig.feedType === "email"
         ? "./workers/imap-feed.worker.ts"
         : "./workers/feed-updater.worker.ts",
-      { type: "module" },
-    ),
+      { type: "module" }
+    )
   );
 
   feedUpdaters.get(feedConfig.feedId).onmessage = (message) => {
@@ -572,7 +575,7 @@ function initializeWorker(feedConfig: any) {
     } else if (message.data.status === "error") {
       console.error(
         `Feed updates for ${feedConfig.feedId} encountered an error:`,
-        message.data.error,
+        message.data.error
       );
     }
   };
@@ -601,21 +604,39 @@ async function processFeedsAtStart() {
 
 async function generatePreview(feedConfig: any) {
   try {
-    var rssXml;
+    let rssXml;
 
     if (feedConfig.feedType === "webScraping") {
-      const response = feedConfig.article.headers
-        ? await axios.get(feedConfig.config.baseUrl, {
-            headers: feedConfig.article.headers,
-          })
-        : await axios.get(feedConfig.config.baseUrl);
-      const html = response.data;
-      rssXml = await buildRSS(
-        html,
-        feedConfig.config,
-        feedConfig.article,
-        feedConfig.reverse,
-      );
+      // If advanced is true, use Puppeteer
+      if (feedConfig.config.advanced) {
+        const browser = await puppeteer.launch();
+        const page = await browser.newPage();
+        await page.goto(feedConfig.config.baseUrl, {
+          waitUntil: "networkidle2",
+        });
+        const html = await page.content();
+        await browser.close();
+        rssXml = await buildRSS(
+          html,
+          feedConfig.config,
+          feedConfig.article,
+          feedConfig.reverse
+        );
+      } else {
+        // Otherwise, use axios
+        const response = feedConfig.article?.headers
+          ? await axios.get(feedConfig.config.baseUrl, {
+              headers: feedConfig.article.headers,
+            })
+          : await axios.get(feedConfig.config.baseUrl);
+        const html = response.data;
+        rssXml = await buildRSS(
+          html,
+          feedConfig.config,
+          feedConfig.article,
+          feedConfig.reverse
+        );
+      }
     } else if (feedConfig.feedType === "api") {
       const axiosConfig = {
         method: feedConfig.config.method || "GET",
@@ -633,14 +654,14 @@ async function generatePreview(feedConfig: any) {
       rssXml = buildRSSFromApiData(
         apiData,
         feedConfig.config,
-        feedConfig.apiMapping,
+        feedConfig.apiMapping
       );
     }
     return rssXml;
   } catch (error) {
     console.error(
       `Error fetching data for feedId ${feedConfig.feedId}:`,
-      error.message,
+      error.message
     );
   }
 }
@@ -664,14 +685,15 @@ function setFeedUpdaterInterval(feedConfig: any) {
 
       const interval = setInterval(() => {
         console.log("Engaging worker for feed:", feedId);
-        feedUpdaters.get(feedId).postMessage({ command: "start", config: feedConfig });
+        feedUpdaters
+          .get(feedId)
+          .postMessage({ command: "start", config: feedConfig });
       }, feedConfig.refreshTime * 60 * 1000);
 
       feedIntervals.set(feedId, interval);
     }
   }
 }
-
 
 function clearAllFeedUpdaterIntervals() {
   for (const [feedId, intervalId] of feedIntervals.entries()) {
@@ -715,7 +737,6 @@ export default {
   fetch: app.fetch,
 };
 
-// Listen for process exit events
 process.on("exit", () => {
   clearAllFeedUpdaterIntervals();
 });
