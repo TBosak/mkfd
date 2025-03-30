@@ -15,7 +15,7 @@
 curl https://bun.sh/install | bash
 ```
 
-Note: If you are using email feeds, you will need to install a version of NodeJS that can run typescript natively. Mkfd creates a Node process for email feeds, as Bun does not currently play well with the popular IMAP packages that are built to run in Node.
+If you are using email feeds, you will need to install a version of NodeJS that can run typescript natively. Mkfd creates a Node process for email feeds, as Bun does not currently play well with the popular IMAP packages that are built to run in Node.
 
 ### 📦 To install dependencies
 
@@ -49,7 +49,18 @@ docker pull tbosk/mkfd:latest
 docker run -p 5000:5000 -v /local/mount/path:/configs -e PASSKEY=your_passkey -e COOKIE_SECRET=your_cookie_secret -e ENCRYPTION_KEY=your_encryption_key tbosk/mkfd:latest
 ```
 
-If you don't supply the keys and cookie secret, the app will prompt you for them (just make sure to run docker with "it" flag to get an interactive shell).
+If you don't supply the keys and cookie secret, the app will prompt you for them (just make sure to run docker with "it" flag to get an interactive shell). Make sure to reuse your encryption key for email feeds.
+
+## 📧 Email Feeds
+
+Mkfd supports email feeds via IMAP. You can use any email provider that supports IMAP, such as Gmail, Yahoo, or Outlook. To set up an email feed, you need to provide the following information:
+
+- **Email address**: The email address you want to use for the feed.
+- **IMAP server**: The IMAP server address for your email provider. For example, Gmail's IMAP server is `imap.gmail.com`.
+- **IMAP port**: The port number for the IMAP server. For Gmail, this is `993`.
+- **IMAP password**: The password for your email account. You may need to generate an app password if you have two-factor authentication enabled.
+
+The encryption key is used to encrypt your password before storing it in the yaml config file. This is important for security reasons, as it prevents anyone from accessing your password in plain text. Make sure to use an encryption key that is at least 16 characters long.
 
 ## 🖼️ GUI
 

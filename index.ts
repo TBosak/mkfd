@@ -648,34 +648,30 @@ async function generatePreview(feedConfig: any) {
 function setFeedUpdaterInterval(feedConfig: any) {
   const feedId = feedConfig.feedId;
 
-  if (!feedIntervals.has(feedId)) {
-    console.log("Setting interval for feed:", feedId);
+  if (!feedUpdaters.has(feedId)) {
+    console.log("Initializing worker for feed:", feedId);
+    initializeWorker(feedConfig);
+    feedUpdaters.get(feedId).postMessage({
+      command: "start",
+      config: feedConfig,
+      encryptionKey: encryptionKey,
+    });
+  }
 
-    if (!feedUpdaters.has(feedId)) {
-      console.log("Initializing worker for feed:", feedId);
-      initializeWorker(feedConfig);
-      feedUpdaters
-        .get(feedConfig.feedId)
-        .postMessage({
-          command: "start",
-          config: feedConfig,
-          encryptionKey: encryptionKey,
-        });
-    }
+  if (feedConfig.feedType !== "email") {
+    if (!feedIntervals.has(feedId)) {
+      console.log("Setting interval for feed:", feedId);
 
-    const interval = setInterval(
-      () => {
+      const interval = setInterval(() => {
         console.log("Engaging worker for feed:", feedId);
-        feedUpdaters
-          .get(feedId)
-          .postMessage({ command: "start", config: feedConfig });
-      },
-      feedConfig.refreshTime * 60 * 1000,
-    );
+        feedUpdaters.get(feedId).postMessage({ command: "start", config: feedConfig });
+      }, feedConfig.refreshTime * 60 * 1000);
 
-    feedIntervals.set(feedId, interval);
+      feedIntervals.set(feedId, interval);
+    }
   }
 }
+
 
 function clearAllFeedUpdaterIntervals() {
   for (const [feedId, intervalId] of feedIntervals.entries()) {
