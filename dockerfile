@@ -1,16 +1,7 @@
-FROM oven/bun:alpine
+FROM oven/bun:debian
 
-RUN apk update && apk add --no-cache bash curl
+RUN apt-get update && apt-get install -y bash curl && rm -rf /var/lib/apt/lists/*
 
-ENV NODE_VERSION=23.6.0
-
-
-RUN curl -fsSL https://nodejs.org/dist/v23.6.0/node-v23.6.0-linux-x64.tar.xz \
-    -o /tmp/node.tar.xz \
- && tar -C /usr/local --strip-components 1 -xJf /tmp/node.tar.xz \
- && rm /tmp/node.tar.xz
-
-RUN node -v
 WORKDIR /app
 
 COPY package.json bun.lockb ./
@@ -23,4 +14,4 @@ EXPOSE 5000
 
 VOLUME ["/configs"]
 
-CMD ["bun", "run", "index.ts"]
+CMD ["bash", "-c", "bun run /app/index.ts"]
