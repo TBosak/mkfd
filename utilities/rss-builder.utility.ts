@@ -9,7 +9,6 @@ import {
 } from "./data-handler.utility";
 import ApiConfig from "./../models/apiconfig.model";
 
-//TODO: ADD HTML STRIPPING TO EACH TARGET
 export async function buildRSS(
   res: any,
   apiConfig?: ApiConfig,
@@ -22,7 +21,7 @@ export async function buildRSS(
     date?: CSSTarget;
     enclosure?: CSSTarget;
   },
-  reverse?: boolean
+  reverse?: boolean,
 ): Promise<string> {
   const $ = cheerio.load(res);
   const elements = $(article.iterator.selector).toArray();
@@ -38,28 +37,28 @@ export async function buildRSS(
                     .find(article.title?.selector)
                     ?.attr(article.title?.attribute),
                   article.title?.titleCase,
-                  article.title?.stripHtml
+                  article.title?.stripHtml,
                 )
               : processWords(
                   $(el).find(article.title?.selector)?.text(),
                   article.title?.titleCase,
-                  article.title?.stripHtml
+                  article.title?.stripHtml,
                 )
             : !!article.title?.attribute
-            ? processWords(
-                $($(article.title.iterator).toArray()[i])
-                  .find(article.title.selector)
-                  ?.attr(article.title?.attribute),
-                article.title.titleCase,
-                article.title.stripHtml
-              )
-            : processWords(
-                $($(article.title.iterator).toArray()[i])
-                  .find(article.title.selector)
-                  .text(),
-                article.title.titleCase,
-                article.title.stripHtml
-              ),
+              ? processWords(
+                  $($(article.title.iterator).toArray()[i])
+                    .find(article.title.selector)
+                    ?.attr(article.title?.attribute),
+                  article.title.titleCase,
+                  article.title.stripHtml,
+                )
+              : processWords(
+                  $($(article.title.iterator).toArray()[i])
+                    .find(article.title.selector)
+                    .text(),
+                  article.title.titleCase,
+                  article.title.stripHtml,
+                ),
           description: !article.description?.iterator
             ? !!article.description?.attribute
               ? processWords(
@@ -67,28 +66,28 @@ export async function buildRSS(
                     .find(article.description?.selector)
                     ?.attr(article.description?.attribute),
                   article.description?.titleCase,
-                  article.description?.stripHtml
+                  article.description?.stripHtml,
                 )
               : processWords(
                   $(el).find(article.description?.selector)?.text(),
                   article.description?.titleCase,
-                  article.description?.stripHtml
+                  article.description?.stripHtml,
                 )
             : !!article.description?.attribute
-            ? processWords(
-                $($(article.description.iterator).toArray()[i])
-                  .find(article.description.selector)
-                  ?.attr(article.description?.attribute),
-                article.description.titleCase,
-                article.description.stripHtml
-              )
-            : processWords(
-                $($(article.description.iterator).toArray()[i])
-                  .find(article.description.selector)
-                  .text(),
-                article.description.titleCase,
-                article.description.stripHtml
-              ),
+              ? processWords(
+                  $($(article.description.iterator).toArray()[i])
+                    .find(article.description.selector)
+                    ?.attr(article.description?.attribute),
+                  article.description.titleCase,
+                  article.description.stripHtml,
+                )
+              : processWords(
+                  $($(article.description.iterator).toArray()[i])
+                    .find(article.description.selector)
+                    .text(),
+                  article.description.titleCase,
+                  article.description.stripHtml,
+                ),
           url: !article.link?.iterator
             ? !!article.link?.attribute
               ? processLinks(
@@ -97,31 +96,31 @@ export async function buildRSS(
                     ?.attr(article.link?.attribute),
                   article.link?.stripHtml,
                   article.link?.relativeLink,
-                  article.link?.rootUrl
+                  article.link?.rootUrl,
                 )
               : processLinks(
                   $(el).find(article.link?.selector)?.text(),
                   article.link?.stripHtml,
                   article.link?.relativeLink,
-                  article.link?.rootUrl
+                  article.link?.rootUrl,
                 )
             : !!article.link?.attribute
-            ? processLinks(
-                $($(article.link.iterator).toArray()[i])
-                  .find(article.link.selector)
-                  ?.attr(article.link?.attribute),
-                article.link.stripHtml,
-                article.link.relativeLink,
-                article.link.rootUrl
-              )
-            : processLinks(
-                $($(article.link.iterator).toArray()[i])
-                  .find(article.link.selector)
-                  .text(),
-                article.link.stripHtml,
-                article.link.relativeLink,
-                article.link.rootUrl
-              ),
+              ? processLinks(
+                  $($(article.link.iterator).toArray()[i])
+                    .find(article.link.selector)
+                    ?.attr(article.link?.attribute),
+                  article.link.stripHtml,
+                  article.link.relativeLink,
+                  article.link.rootUrl,
+                )
+              : processLinks(
+                  $($(article.link.iterator).toArray()[i])
+                    .find(article.link.selector)
+                    .text(),
+                  article.link.stripHtml,
+                  article.link.relativeLink,
+                  article.link.rootUrl,
+                ),
           author: !article.author?.iterator
             ? !!article.author?.attribute
               ? processWords(
@@ -129,28 +128,28 @@ export async function buildRSS(
                     .find(article.author?.selector)
                     ?.attr(article.author?.attribute),
                   article.author?.titleCase,
-                  article.author?.stripHtml
+                  article.author?.stripHtml,
                 )
               : processWords(
                   $(el).find(article.author?.selector)?.text(),
                   article.author?.titleCase,
-                  article.author?.stripHtml
+                  article.author?.stripHtml,
                 )
             : !!article.author?.attribute
-            ? processWords(
-                $($(article.author.iterator).toArray()[i])
-                  .find(article.author.selector)
-                  ?.attr(article.author?.attribute),
-                article.author.titleCase,
-                article.author.stripHtml
-              )
-            : processWords(
-                $($(article.author.iterator).toArray()[i])
-                  .find(article.author.selector)
-                  .text(),
-                article.author.titleCase,
-                article.author.stripHtml
-              ),
+              ? processWords(
+                  $($(article.author.iterator).toArray()[i])
+                    .find(article.author.selector)
+                    ?.attr(article.author?.attribute),
+                  article.author.titleCase,
+                  article.author.stripHtml,
+                )
+              : processWords(
+                  $($(article.author.iterator).toArray()[i])
+                    .find(article.author.selector)
+                    .text(),
+                  article.author.titleCase,
+                  article.author.stripHtml,
+                ),
           date: !article.date?.iterator
             ? !!article.date?.attribute
               ? processDates(
@@ -158,28 +157,28 @@ export async function buildRSS(
                     .find(article.date?.selector)
                     ?.attr(article.date?.attribute),
                   article.date?.stripHtml,
-                  article.date?.dateFormat
+                  article.date?.dateFormat,
                 )
               : processDates(
                   $(el).find(article.date?.selector)?.text(),
                   article.date?.stripHtml,
-                  article.date?.dateFormat
+                  article.date?.dateFormat,
                 )
             : !!article.date?.attribute
-            ? processDates(
-                $($(article.date.iterator).toArray()[i])
-                  .find(article.date.selector)
-                  ?.attr(article.date?.attribute),
-                article.date?.stripHtml,
-                article.date?.dateFormat
-              )
-            : processDates(
-                $($(article.date.iterator).toArray()[i])
-                  .find(article.date.selector)
-                  .text(),
-                article.date?.stripHtml,
-                article.date?.dateFormat
-              ),
+              ? processDates(
+                  $($(article.date.iterator).toArray()[i])
+                    .find(article.date.selector)
+                    ?.attr(article.date?.attribute),
+                  article.date?.stripHtml,
+                  article.date?.dateFormat,
+                )
+              : processDates(
+                  $($(article.date.iterator).toArray()[i])
+                    .find(article.date.selector)
+                    .text(),
+                  article.date?.stripHtml,
+                  article.date?.dateFormat,
+                ),
           enclosure: {
             url: !article.enclosure?.iterator
               ? !!article.enclosure?.attribute
@@ -189,31 +188,31 @@ export async function buildRSS(
                       ?.attr(article.enclosure?.attribute),
                     article.enclosure?.stripHtml,
                     article.enclosure?.relativeLink,
-                    article.enclosure?.rootUrl
+                    article.enclosure?.rootUrl,
                   )
                 : processLinks(
                     $(el).find(article.enclosure?.selector)?.text(),
                     article.enclosure?.stripHtml,
                     article.enclosure?.relativeLink,
-                    article.enclosure?.rootUrl
+                    article.enclosure?.rootUrl,
                   )
               : !!article.enclosure?.attribute
-              ? processLinks(
-                  $($(article.enclosure.iterator).toArray()[i])
-                    .find(article.enclosure.selector)
-                    ?.attr(article.enclosure?.attribute),
-                  article.enclosure.stripHtml,
-                  article.enclosure.relativeLink,
-                  article.enclosure.rootUrl
-                )
-              : processLinks(
-                  $($(article.enclosure.iterator).toArray()[i])
-                    .find(article.enclosure.selector)
-                    .text(),
-                  article.enclosure.stripHtml,
-                  article.enclosure.relativeLink,
-                  article.enclosure.rootUrl
-                ),
+                ? processLinks(
+                    $($(article.enclosure.iterator).toArray()[i])
+                      .find(article.enclosure.selector)
+                      ?.attr(article.enclosure?.attribute),
+                    article.enclosure.stripHtml,
+                    article.enclosure.relativeLink,
+                    article.enclosure.rootUrl,
+                  )
+                : processLinks(
+                    $($(article.enclosure.iterator).toArray()[i])
+                      .find(article.enclosure.selector)
+                      .text(),
+                    article.enclosure.stripHtml,
+                    article.enclosure.relativeLink,
+                    article.enclosure.rootUrl,
+                  ),
             size: 0,
             type: "application/octet-stream",
           },
@@ -232,13 +231,13 @@ export async function buildRSS(
             console.error(
               "Failed to fetch enclosure:",
               itemData.enclosure.url,
-              err
+              err,
             );
           }
         }
 
         return itemData; // This is the resolved value of the Promise
-      })
+      }),
     );
 
     // Optionally reverse

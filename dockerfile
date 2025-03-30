@@ -1,23 +1,17 @@
-# Use the official Bun image
-FROM oven/bun:latest
+FROM oven/bun:debian
 
-# Set the working directory
-WORKDIR /
+RUN apt-get update && apt-get install -y bash curl && rm -rf /var/lib/apt/lists/*
 
-# Copy package files
+WORKDIR /app
+
 COPY package.json bun.lockb ./
 
-# Install dependencies
 RUN bun install
 
-# Copy the rest of the files
 COPY . .
 
-# Expose the port
 EXPOSE 5000
 
-# Define a volume for persistent storage
 VOLUME ["/configs"]
 
-# Start the server
-CMD ["bun", "run", "index.ts"]
+CMD ["bash", "-c", "bun run /app/index.ts"]

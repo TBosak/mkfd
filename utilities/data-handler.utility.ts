@@ -12,7 +12,6 @@ export function titleCase(words: string) {
   });
 }
 
-//appends url in front of relative links
 export function appendUrl(url?: string, link?: string) {
   if (!!url && !!link) {
     if (link.startsWith("/")) {
@@ -24,11 +23,10 @@ export function appendUrl(url?: string, link?: string) {
   }
 }
 
-//applies relevant utilities to titles, descriptions, etc.
 export function processWords(
   words?: string,
   title?: boolean,
-  removeHtml?: boolean
+  removeHtml?: boolean,
 ) {
   var result = words ?? "";
   if (removeHtml) result = stripHtml(result);
@@ -36,12 +34,11 @@ export function processWords(
   return result;
 }
 
-//applies relevant utilities to urls
 export function processLinks(
   words?: string,
   removeHtml?: boolean,
   relativeLink?: boolean,
-  rootUrl?: string
+  rootUrl?: string,
 ) {
   var result = words ?? "";
   if (removeHtml) result = stripHtml(result);
@@ -52,11 +49,11 @@ export function processLinks(
 export function processDates(
   date?: any,
   removeHtml?: boolean,
-  userDateFormat?: string
+  userDateFormat?: string,
 ) {
   let result = date ?? "";
   if (removeHtml) result = stripHtml(result);
-  
+
   if (userDateFormat) {
     const parsed = dayjs(result, userDateFormat);
     if (parsed.isValid()) return parsed.toDate().toLocaleString();
