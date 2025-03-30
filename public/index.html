@@ -1,490 +1,279 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <title>Feed Builder</title>
-    <link rel="icon" href="/public/logo.ico" />
-    <link
-      rel="stylesheet"
-      href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css"
-    />
-    <style>
-      #playgroundBtn.hidden {
-        display: none;
-      }
 
-      /* Floating in the top-right corner */
-      #playgroundBtn.floating-btn {
-        transform: scale(0.8);
-        position: fixed;
-        top: 1rem;
-        right: 1rem;
-        z-index: 9999;
-      }
+<head>
+  <meta charset="UTF-8" />
+  <title>Feed Builder</title>
+  <link rel="icon" href="/public/logo.ico" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" />
+  <style>
+    #playgroundBtn.hidden {
+      display: none;
+    }
 
-      #closePlaygroundBtn.hidden {
-        display: none;
-      }
+    /* Floating in the top-right corner */
+    #playgroundBtn.floating-btn {
+      transform: scale(0.8);
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      z-index: 9999;
+    }
 
-      #closePlaygroundBtn.floating-btn {
-        position: fixed;
-        left: 50%;
-        transform: translateX(-50%);
-        bottom: 0.25rem;
-        z-index: 10000;
-      }
-    </style>
-  </head>
+    #closePlaygroundBtn.hidden {
+      display: none;
+    }
 
-  <body>
-    <button type="button" id="playgroundBtn" class="outline hidden">
-      Selector Playground
-    </button>
-    <button type="button" id="closePlaygroundBtn" class="contrast hidden">
-      Close
-    </button>
-    <article id="form">
-      <header style="text-align: center">
-        <img
-          style="margin-top: 2em; margin-bottom: 2em"
-          height="10%"
-          width="10%"
-          src="public/logo.png"
-        />
-        <h1>Feed Builder</h1>
-        <p>Enter details below to create a new RSS feed</p>
-      </header>
-      <main style="padding-left: 30vw; padding-right: 30vw">
-        <form action="/" method="post">
-          <label for="feedName">Feed Name:</label>
-          <input
-            type="text"
-            name="feedName"
-            id="feedName"
-            required
-          /><br /><br />
-          <div id="urlDiv">
-            <label for="feedUrl">Target URL:</label>
-            <input type="text" name="feedUrl" id="feedUrl" />
-          </div>
-          <br />
-          <br />
-          <label for="feedType">Feed Type:</label>
-          <select name="feedType" id="feedType" value="webScraping">
-            <option value="webScraping">Web Scraping</option>
-            <option value="api">REST API Call</option>
-            <option value="email">Email</option></select
-          ><br /><br />
-          <div id="emailScrapingFields" style="display: none">
-            <h3>Email Configuration</h3>
-            <label for="emailHost">IMAP Server:</label>
-            <input type="text" name="emailHost" id="emailHost" /><br /><br />
-            <label for="emailPort">IMAP Port:</label>
-            <input type="text" name="emailPort" id="emailPort" /><br /><br />
-            <label for="emailUsername">Username:</label>
-            <input
-              type="text"
-              name="emailUsername"
-              id="emailUsername"
-            /><br /><br />
-            <label for="emailPassword">Password:</label>
-            <input
-              type="password"
-              name="emailPassword"
-              id="emailPassword"
-            /><br /><br />
-            <label for="emailFolderFieldSet">Folder:</label>
-            <fieldset name="emailFolderFieldSet" role="group">
-              <select name="emailFolder" id="emailFolder"></select>
-              <input
-                type="button"
-                id="fetchFolders"
-                value="Load Folder Options"
-              />
-            </fieldset>
-            <br /><br />
-          </div>
-          <div id="webScrapingFields">
-            <h3>CSS Selectors for RSS Feed Items</h3>
-            <label for="itemSelector">Item Selector (Iterator):</label>
-            <input
-              type="text"
-              name="itemSelector"
-              id="itemSelector"
-            /><br /><br />
-            <label for="titleSelector">Title Selector:</label>
-            <input
-              type="text"
-              name="titleSelector"
-              id="titleSelector"
-            /><br /><br />
-            <label for="titleAttribute">Title Attribute:</label>
-            <input
-              type="text"
-              name="titleAttribute"
-              id="titleAttribute"
-            /><br /><br />
-            <label for="titleIterator">Title Parent Iterator (optional):</label>
-            <input
-              type="text"
-              name="titleIterator"
-              id="titleIterator"
-            /><br /><br />
-            <label>
-              <input
-                type="checkbox"
-                name="titleStripHtml"
-                id="titleStripHtml"
-              />
-              Strip HTML in Title </label
-            ><br /><br />
-            <label>
-              <input
-                type="checkbox"
-                name="titleTitleCase"
-                id="titleTitleCase"
-              />
-              Convert Title to Title Case </label
-            ><br /><br />
-            <details>
-              <summary>Description</summary>
-              <label for="descriptionSelector">Description Selector:</label>
-              <input
-                type="text"
-                name="descriptionSelector"
-                id="descriptionSelector"
-              /><br /><br />
-              <label for="descriptionAttribute">Description Attribute:</label>
-              <input
-                type="text"
-                name="descriptionAttribute"
-                id="descriptionAttribute"
-              /><br /><br />
-              <label for="descriptionIterator"
-                >Description Parent Iterator (optional):</label
-              >
-              <input
-                type="text"
-                name="descriptionIterator"
-                id="descriptionIterator"
-              /><br /><br />
-              <label>
-                <input
-                  type="checkbox"
-                  name="descriptionStripHtml"
-                  id="descriptionStripHtml"
-                />
-                Strip HTML in Description </label
-              ><br /><br />
-              <label>
-                <input
-                  type="checkbox"
-                  name="descriptionTitleCase"
-                  id="descriptionTitleCase"
-                />
-                Convert Description to Title Case
-              </label>
-            </details>
-            <br /><br />
-            <details>
-              <summary>Link</summary>
-              <label for="linkSelector">Link Selector:</label>
-              <input
-                type="text"
-                name="linkSelector"
-                id="linkSelector"
-              /><br /><br />
-              <label for="linkAttribute">Link Attribute:</label>
-              <input
-                type="text"
-                name="linkAttribute"
-                id="linkAttribute"
-              /><br /><br />
-              <label for="linkIterator">Link Parent Iterator (optional):</label>
-              <input
-                type="text"
-                name="linkIterator"
-                id="linkIterator"
-              /><br /><br />
-              <label>
-                <input
-                  type="checkbox"
-                  name="linkRelativeLink"
-                  id="linkRelativeLink"
-                />
-                Relative Link? </label
-              ><br /><br />
-              <label
-                style="display: none"
-                id="linkBaseUrlLabel"
-                for="linkBaseUrl"
-                >Base URL:</label
-              >
-              <input
-                style="display: none"
-                type="text"
-                name="linkBaseUrl"
-                id="linkBaseUrl"
-              />
-            </details>
-            <br /><br />
-            <details>
-              <summary>Enclosure (Image, Video, Etc.)</summary>
-              <label for="enclosureSelector">Enclosure Selector:</label>
-              <input
-                type="text"
-                name="enclosureSelector"
-                id="enclosureSelector"
-              /><br /><br />
-              <label for="enclosureAttribute">Enclosure Attribute:</label>
-              <input
-                type="text"
-                name="enclosureAttribute"
-                id="enclosureAttribute"
-              /><br /><br />
-              <label for="enclosureIterator"
-                >Enclosure Parent Iterator (optional):</label
-              >
-              <input
-                type="text"
-                name="enclosureIterator"
-                id="enclosureIterator"
-              /><br /><br />
-              <label>
-                <input
-                  type="checkbox"
-                  name="enclosureRelativeLink"
-                  id="enclosureRelativeLink"
-                />
-                Relative Link? </label
-              ><br /><br />
-              <label
-                style="display: none"
-                id="enclosureBaseUrlLabel"
-                for="enclosureBaseUrl"
-                >Base URL:</label
-              >
-              <input
-                style="display: none"
-                type="text"
-                name="enclosureBaseUrl"
-                id="enclosureBaseUrl"
-              />
-            </details>
-            <br /><br />
-            <details>
-              <summary>Author</summary>
-              <label for="authorSelector">Author Selector:</label>
-              <input
-                type="text"
-                name="authorSelector"
-                id="authorSelector"
-              /><br /><br />
-              <label for="authorAttribute">Author Attribute:</label>
-              <input
-                type="text"
-                name="authorAttribute"
-                id="authorAttribute"
-              /><br /><br />
-              <label for="authorIterator">
-                Author Parent Iterator (optional):
-              </label>
-              <input
-                type="text"
-                name="authorIterator"
-                id="authorIterator"
-              /><br /><br />
-              <label>
-                <input
-                  type="checkbox"
-                  name="authorStripHtml"
-                  id="authorStripHtml"
-                />
-                Strip HTML in Author </label
-              ><br /><br />
-              <label>
-                <input
-                  type="checkbox"
-                  name="authorTitleCase"
-                  id="authorTitleCase"
-                />
-                Convert Author to Title Case
-              </label>
-            </details>
-            <br /><br />
-            <details>
-              <summary>Date</summary>
-              <label for="dateSelector">Date Selector:</label>
-              <input
-                type="text"
-                name="dateSelector"
-                id="dateSelector"
-              /><br /><br />
-              <label for="dateAttribute">Date Attribute:</label>
-              <input
-                type="text"
-                name="dateAttribute"
-                id="dateAttribute"
-              /><br /><br />
-              <label for="dateIterator">
-                Date Parent Iterator (optional):
-              </label>
-              <input
-                type="text"
-                name="dateIterator"
-                id="dateIterator"
-              /><br /><br />
-              <label for="dateFormat">
-                Date Format (optional):
-                <span
-                  class="tooltip"
-                  data-tooltip="Most common formats (e.g., Unix timestamps, ISO formats) are automatically parsed. Only specify if needed."
-                  >ℹ️</span
-                >
-              </label>
-              <select name="dateFormat" id="dateFormat">
-                <option value="">Auto Detect</option>
-                <option value="DD/MM/YYYY">DD/MM/YYYY</option>
-                <option value="DD.MM.YYYY">DD.MM.YYYY</option>
-                <option value="MM/DD/YYYY">MM/DD/YYYY</option>
-                <option value="MM.DD.YYYY">MM.DD.YYYY</option>
-                <option value="other">Other (specify)</option></select
-              ><br /><br />
-              <label
-                for="customDateFormat"
-                id="customDateFormatLabel"
-                style="display: none"
-                >Custom Date Format:</label
-              >
-              <input
-                type="text"
-                name="customDateFormat"
-                id="customDateFormat"
-                placeholder="e.g. YYYY/MM/DD HH:mm"
-                style="display: none"
-              /><br /><br />
-            </details>
-          </div>
-          <!-- API Fields -->
-          <div id="apiFields" style="display: none">
-            <h3>API Configuration</h3>
-            <label for="apiRoute">API Route (Ex: "/dog/breeds"):</label>
-            <input type="text" name="apiRoute" id="apiRoute" /><br /><br />
+    #closePlaygroundBtn.floating-btn {
+      position: fixed;
+      left: 50%;
+      transform: translateX(-50%);
+      bottom: 0.25rem;
+      z-index: 10000;
+    }
+  </style>
+</head>
 
-            <label for="apiMethod">HTTP Method:</label>
-            <select name="apiMethod" id="apiMethod">
-              <option value="GET">GET</option>
-              <option value="POST">POST</option></select
-            ><br /><br />
-
-            <label for="apiParams">Query Parameters (JSON format):</label><br />
-            <textarea name="apiParams" id="apiParams" rows="5" cols="50">
-{}</textarea
-            ><br /><br />
-
-            <label for="apiHeaders">HTTP Headers (JSON format):</label><br />
-            <textarea name="apiHeaders" id="apiHeaders" rows="5" cols="50">
-{}</textarea
-            ><br /><br />
-
-            <label for="apiBody">Request Body (JSON format):</label><br />
-            <textarea name="apiBody" id="apiBody" rows="5" cols="50">
-{}</textarea
-            ><br /><br />
-
-            <h3>API Response Mapping</h3>
-            <label for="apiItemsPath">Items Path (e.g., 'data.items'):</label>
-            <input
-              type="text"
-              name="apiItemsPath"
-              id="apiItemsPath"
-            /><br /><br />
-
-            <label for="apiTitleField">Title Field:</label>
-            <input
-              type="text"
-              name="apiTitleField"
-              id="apiTitleField"
-            /><br /><br />
-
-            <label for="apiDescriptionField">Description Field:</label>
-            <input
-              type="text"
-              name="apiDescriptionField"
-              id="apiDescriptionField"
-            /><br /><br />
-
-            <label for="apiLinkField">Link Field:</label>
-            <input
-              type="text"
-              name="apiLinkField"
-              id="apiLinkField"
-            /><br /><br />
-
-            <label for="apiDateField">Date Field:</label>
-            <input
-              type="text"
-              name="apiDateField"
-              id="apiDateField"
-            /><br /><br />
-          </div>
+<body>
+  <button type="button" id="playgroundBtn" class="outline hidden">
+    Selector Playground
+  </button>
+  <button type="button" id="closePlaygroundBtn" class="contrast hidden">
+    Close
+  </button>
+  <article id="form">
+    <header style="text-align: center">
+      <img style="margin-top: 2em; margin-bottom: 2em" height="10%" width="10%" src="public/logo.png" />
+      <h1>Feed Builder</h1>
+      <p>Enter details below to create a new RSS feed</p>
+    </header>
+    <main style="padding-left: 30vw; padding-right: 30vw">
+      <form action="/" method="post">
+        <label for="feedName">Feed Name:</label>
+        <input type="text" name="feedName" id="feedName" required /><br /><br />
+        <div id="urlDiv">
+          <label for="feedUrl">Target URL:</label>
+          <input type="text" name="feedUrl" id="feedUrl" />
+        </div>
+        <br />
+        <br />
+        <label for="feedType">Feed Type:</label>
+        <select name="feedType" id="feedType" value="webScraping">
+          <option value="webScraping">Web Scraping</option>
+          <option value="api">REST API Call</option>
+          <option value="email">Email</option>
+        </select><br /><br />
+        <div id="emailScrapingFields" style="display: none">
+          <h3>Email Configuration</h3>
+          <label for="emailHost">IMAP Server:</label>
+          <input type="text" name="emailHost" id="emailHost" /><br /><br />
+          <label for="emailPort">IMAP Port:</label>
+          <input type="text" name="emailPort" id="emailPort" /><br /><br />
+          <label for="emailUsername">Username:</label>
+          <input type="text" name="emailUsername" id="emailUsername" /><br /><br />
+          <label for="emailPassword">Password:</label>
+          <input type="password" name="emailPassword" id="emailPassword" /><br /><br />
+          <label for="emailFolderFieldSet">Folder:</label>
+          <fieldset name="emailFolderFieldSet" role="group">
+            <select name="emailFolder" id="emailFolder"></select>
+            <input type="button" id="fetchFolders" value="Load Folder Options" />
+          </fieldset>
           <br /><br />
+        </div>
+        <div id="webScrapingFields">
+          <h3>CSS Selectors for RSS Feed Items</h3>
+          <label for="itemSelector">Item Selector (Iterator):</label>
+          <input type="text" name="itemSelector" id="itemSelector" /><br /><br />
+          <label for="titleSelector">Title Selector:</label>
+          <input type="text" name="titleSelector" id="titleSelector" /><br /><br />
+          <label for="titleAttribute">Title Attribute:</label>
+          <input type="text" name="titleAttribute" id="titleAttribute" /><br /><br />
+          <label for="titleIterator">Title Parent Iterator (optional):</label>
+          <input type="text" name="titleIterator" id="titleIterator" /><br /><br />
+          <label>
+            <input type="checkbox" name="titleStripHtml" id="titleStripHtml" />
+            Strip HTML in Title </label><br /><br />
+          <label>
+            <input type="checkbox" name="titleTitleCase" id="titleTitleCase" />
+            Convert Title to Title Case </label><br /><br />
           <details>
-            <summary>Additional Options</summary>
-            <label for="headers">HTTP Headers (JSON format):</label>
-            <textarea name="headers" id="headers" rows="5" cols="50">
-{}</textarea
-            >
-            <label for="refreshTime">Refresh Time (in minutes):</label>
-            <input
-              type="text"
-              name="refreshTime"
-              id="refreshTime"
-              min="1"
-              value="5"
-            />
+            <summary>Description</summary>
+            <label for="descriptionSelector">Description Selector:</label>
+            <input type="text" name="descriptionSelector" id="descriptionSelector" /><br /><br />
+            <label for="descriptionAttribute">Description Attribute:</label>
+            <input type="text" name="descriptionAttribute" id="descriptionAttribute" /><br /><br />
+            <label for="descriptionIterator">Description Parent Iterator (optional):</label>
+            <input type="text" name="descriptionIterator" id="descriptionIterator" /><br /><br />
             <label>
-              <input type="checkbox" name="reverse" id="reverse" /> Reverse
-              Order
+              <input type="checkbox" name="descriptionStripHtml" id="descriptionStripHtml" />
+              Strip HTML in Description </label><br /><br />
+            <label>
+              <input type="checkbox" name="descriptionTitleCase" id="descriptionTitleCase" />
+              Convert Description to Title Case
             </label>
           </details>
           <br /><br />
-          <div role="group">
-            <button type="button" id="previewButton" class="outline contrast">
-              Preview
-            </button>
-            <button type="submit" class="outline contrast">Submit</button>
-          </div>
-        </form>
-      </main>
-      <footer>
-        <p style="float: left">
-          Created by <a href="https://github.com/TBosak">Tim Barani</a>
-        </p>
-        <a style="float: right" href="/feeds">View Active Feeds</a>
-      </footer>
-      <article id="preview" style="display: none">
-        <iframe id="previewFrame" style="width: 100%; height: 100%"></iframe>
-        <button
-          onclick="document.getElementById('preview').style.display = 'none';"
-          style="width: 100%"
-          class="outline contrast"
-        >
-          Hide
-        </button>
-      </article>
-      <article
-        id="playgroundOverlay"
-        style="
+          <details>
+            <summary>Link</summary>
+            <label for="linkSelector">Link Selector:</label>
+            <input type="text" name="linkSelector" id="linkSelector" /><br /><br />
+            <label for="linkAttribute">Link Attribute:</label>
+            <input type="text" name="linkAttribute" id="linkAttribute" /><br /><br />
+            <label for="linkIterator">Link Parent Iterator (optional):</label>
+            <input type="text" name="linkIterator" id="linkIterator" /><br /><br />
+            <label>
+              <input type="checkbox" name="linkRelativeLink" id="linkRelativeLink" />
+              Relative Link? </label><br /><br />
+            <label style="display: none" id="linkBaseUrlLabel" for="linkBaseUrl">Base URL:</label>
+            <input style="display: none" type="text" name="linkBaseUrl" id="linkBaseUrl" />
+          </details>
+          <br /><br />
+          <details>
+            <summary>Enclosure (Image, Video, Etc.)</summary>
+            <label for="enclosureSelector">Enclosure Selector:</label>
+            <input type="text" name="enclosureSelector" id="enclosureSelector" /><br /><br />
+            <label for="enclosureAttribute">Enclosure Attribute:</label>
+            <input type="text" name="enclosureAttribute" id="enclosureAttribute" /><br /><br />
+            <label for="enclosureIterator">Enclosure Parent Iterator (optional):</label>
+            <input type="text" name="enclosureIterator" id="enclosureIterator" /><br /><br />
+            <label>
+              <input type="checkbox" name="enclosureRelativeLink" id="enclosureRelativeLink" />
+              Relative Link? </label><br /><br />
+            <label style="display: none" id="enclosureBaseUrlLabel" for="enclosureBaseUrl">Base URL:</label>
+            <input style="display: none" type="text" name="enclosureBaseUrl" id="enclosureBaseUrl" />
+          </details>
+          <br /><br />
+          <details>
+            <summary>Author</summary>
+            <label for="authorSelector">Author Selector:</label>
+            <input type="text" name="authorSelector" id="authorSelector" /><br /><br />
+            <label for="authorAttribute">Author Attribute:</label>
+            <input type="text" name="authorAttribute" id="authorAttribute" /><br /><br />
+            <label for="authorIterator">
+              Author Parent Iterator (optional):
+            </label>
+            <input type="text" name="authorIterator" id="authorIterator" /><br /><br />
+            <label>
+              <input type="checkbox" name="authorStripHtml" id="authorStripHtml" />
+              Strip HTML in Author </label><br /><br />
+            <label>
+              <input type="checkbox" name="authorTitleCase" id="authorTitleCase" />
+              Convert Author to Title Case
+            </label>
+          </details>
+          <br /><br />
+          <details>
+            <summary>Date</summary>
+            <label for="dateSelector">Date Selector:</label>
+            <input type="text" name="dateSelector" id="dateSelector" /><br /><br />
+            <label for="dateAttribute">Date Attribute:</label>
+            <input type="text" name="dateAttribute" id="dateAttribute" /><br /><br />
+            <label for="dateIterator">
+              Date Parent Iterator (optional):
+            </label>
+            <input type="text" name="dateIterator" id="dateIterator" /><br /><br />
+            <label for="dateFormat">
+              Date Format (optional):
+              <span class="tooltip"
+                data-tooltip="Most common formats (e.g., Unix timestamps, ISO formats) are automatically parsed. Only specify if needed.">ℹ️</span>
+            </label>
+            <select name="dateFormat" id="dateFormat">
+              <option value="">Auto Detect</option>
+              <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+              <option value="DD.MM.YYYY">DD.MM.YYYY</option>
+              <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+              <option value="MM.DD.YYYY">MM.DD.YYYY</option>
+              <option value="other">Other (specify)</option>
+            </select><br /><br />
+            <label for="customDateFormat" id="customDateFormatLabel" style="display: none">Custom Date Format:</label>
+            <input type="text" name="customDateFormat" id="customDateFormat" placeholder="e.g. YYYY/MM/DD HH:mm"
+              style="display: none" /><br /><br />
+          </details>
+        </div>
+        <!-- API Fields -->
+        <div id="apiFields" style="display: none">
+          <h3>API Configuration</h3>
+          <label for="apiRoute">API Route (Ex: "/dog/breeds"):</label>
+          <input type="text" name="apiRoute" id="apiRoute" /><br /><br />
+
+          <label for="apiMethod">HTTP Method:</label>
+          <select name="apiMethod" id="apiMethod">
+            <option value="GET">GET</option>
+            <option value="POST">POST</option>
+          </select><br /><br />
+
+          <label for="apiParams">Query Parameters (JSON format):</label><br />
+          <textarea name="apiParams" id="apiParams" rows="5" cols="50">{}</textarea><br /><br />
+
+          <label for="apiHeaders">HTTP Headers (JSON format):</label><br />
+          <textarea name="apiHeaders" id="apiHeaders" rows="5" cols="50">{}</textarea><br /><br />
+
+          <label for="apiBody">Request Body (JSON format):</label><br />
+          <textarea name="apiBody" id="apiBody" rows="5" cols="50">{}</textarea><br /><br />
+
+          <h3>API Response Mapping</h3>
+          <label for="apiItemsPath">Items Path (e.g., 'data.items'):</label>
+          <input type="text" name="apiItemsPath" id="apiItemsPath" /><br /><br />
+
+          <label for="apiTitleField">Title Field:</label>
+          <input type="text" name="apiTitleField" id="apiTitleField" /><br /><br />
+
+          <label for="apiDescriptionField">Description Field:</label>
+          <input type="text" name="apiDescriptionField" id="apiDescriptionField" /><br /><br />
+
+          <label for="apiLinkField">Link Field:</label>
+          <input type="text" name="apiLinkField" id="apiLinkField" /><br /><br />
+
+          <label for="apiDateField">Date Field:</label>
+          <input type="text" name="apiDateField" id="apiDateField" /><br /><br />
+        </div>
+        <br /><br />
+        <details>
+          <summary>Additional Options</summary>
+          <label for="headers">HTTP Headers (JSON format):</label>
+          <textarea name="headers" id="headers" rows="5" cols="50">{}</textarea>
+          <label for="refreshTime">Refresh Time (in minutes):</label>
+          <input type="text" name="refreshTime" id="refreshTime" min="1" value="5" />
+          <label>
+            <input type="checkbox" name="reverse" id="reverse" /> Reverse
+            Order
+          </label>
+          <label>
+            <input type="checkbox" name="advanced" id="advanced" />
+            Use Advanced Scraping <span class="tooltip"
+            data-tooltip="Use for websites that have lazily loaded content. This option launches a headless browser that waits for content to load before scraping.">ℹ️</span>
+          </label>
+        </details>
+        <br /><br />
+        <div role="group">
+          <button type="button" id="previewButton" class="outline contrast">
+            Preview
+          </button>
+          <button type="submit" class="outline contrast">Submit</button>
+        </div>
+      </form>
+    </main>
+    <footer>
+      <p style="float: left">
+        Created by <a href="https://github.com/TBosak">Tim Barani</a>
+      </p>
+      <a style="float: right" href="/feeds">View Active Feeds</a>
+    </footer>
+    <article id="preview" style="display: none">
+      <iframe id="previewFrame" style="width: 100%; height: 100%"></iframe>
+      <button onclick="document.getElementById('preview').style.display = 'none';" style="width: 100%"
+        class="outline contrast">
+        Hide
+      </button>
+    </article>
+    <article id="playgroundOverlay" style="
           display: none;
           position: fixed;
           inset: 0;
           background: rgba(0, 0, 0, 0.5);
           z-index: 9999;
-        "
-      >
-        <div
-          style="
+        ">
+      <div style="
             position: relative;
             width: 90%;
             height: 90%;
@@ -492,229 +281,226 @@
             background: #fff;
             border-radius: 8px;
             overflow: hidden;
-          "
-        >
-          <iframe
-            id="playgroundIframe"
-            style="width: 100%; height: 100%; border: 0"
-            sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-modals"
-          ></iframe>
-        </div>
-      </article>
+          ">
+        <iframe id="playgroundIframe" style="width: 100%; height: 100%; border: 0"
+          sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-modals"></iframe>
+      </div>
     </article>
-    <script>
-      const feedTypeSelect = document.getElementById("feedType");
-      const emailScrapingFields = document.getElementById(
-        "emailScrapingFields",
-      );
-      const webScrapingFields = document.getElementById("webScrapingFields");
-      const apiFields = document.getElementById("apiFields");
-      const playgroundBtn = document.getElementById("playgroundBtn");
-      const playgroundOverlay = document.getElementById("playgroundOverlay");
-      const playgroundIframe = document.getElementById("playgroundIframe");
-      const closePlaygroundBtn = document.getElementById("closePlaygroundBtn");
-      const feedUrlInput = document.getElementById("feedUrl");
-      const dateFormatSelect = document.getElementById("dateFormat");
-      const customDateFormatInput = document.getElementById("customDateFormat");
-      const customDateFormatLabel = document.getElementById(
-        "customDateFormatLabel",
-      );
+  </article>
+  <script>
+    const feedTypeSelect = document.getElementById("feedType");
+    const emailScrapingFields = document.getElementById(
+      "emailScrapingFields",
+    );
+    const webScrapingFields = document.getElementById("webScrapingFields");
+    const apiFields = document.getElementById("apiFields");
+    const playgroundBtn = document.getElementById("playgroundBtn");
+    const playgroundOverlay = document.getElementById("playgroundOverlay");
+    const playgroundIframe = document.getElementById("playgroundIframe");
+    const closePlaygroundBtn = document.getElementById("closePlaygroundBtn");
+    const feedUrlInput = document.getElementById("feedUrl");
+    const dateFormatSelect = document.getElementById("dateFormat");
+    const customDateFormatInput = document.getElementById("customDateFormat");
+    const customDateFormatLabel = document.getElementById(
+      "customDateFormatLabel",
+    );
 
-      document.addEventListener("DOMContentLoaded", function () {
-        dateFormatSelect.addEventListener("change", function () {
-          if (this.value === "other") {
-            customDateFormatInput.style.display = "block";
-            customDateFormatLabel.style.display = "block";
-            customDateFormatInput.required = true;
-          } else {
-            customDateFormatInput.style.display = "none";
-            customDateFormatLabel.style.display = "none";
-            customDateFormatInput.required = false;
-            customDateFormatInput.value = ""; // Clear the input when not selected
-          }
-        });
-
-        feedUrlInput.addEventListener("input", function () {
-          const val = this.value.trim();
-          console.log(val);
-          if (val.length > 0) {
-            playgroundBtn.classList.remove("hidden");
-            playgroundBtn.classList.add("floating-btn");
-          } else {
-            playgroundBtn.classList.remove("floating-btn");
-            playgroundBtn.classList.add("hidden");
-          }
-        });
-
-        document
-          .getElementById("linkRelativeLink")
-          .addEventListener("change", function () {
-            if (this.checked) {
-              document.getElementById("linkBaseUrl").style.display = "block";
-              document.getElementById("linkBaseUrlLabel").style.display =
-                "block";
-            } else {
-              document.getElementById("linkBaseUrl").style.display = "none";
-              document.getElementById("linkBaseUrlLabel").style.display =
-                "none";
-            }
-          });
-
-        document
-          .getElementById("enclosureRelativeLink")
-          .addEventListener("change", function () {
-            if (this.checked) {
-              document.getElementById("enclosureBaseUrl").style.display =
-                "block";
-              document.getElementById("enclosureBaseUrlLabel").style.display =
-                "block";
-            } else {
-              document.getElementById("enclosureBaseUrl").style.display =
-                "none";
-              document.getElementById("enclosureBaseUrlLabel").style.display =
-                "none";
-            }
-          });
-
-        feedTypeSelect.addEventListener("change", function () {
-          if (this.value === "webScraping") {
-            webScrapingFields.style.display = "block";
-            apiFields.style.display = "none";
-            emailScrapingFields.style.display = "none";
-            feedUrlDiv.style.display = "block";
-          } else if (this.value === "api") {
-            webScrapingFields.style.display = "none";
-            apiFields.style.display = "block";
-            emailScrapingFields.style.display = "none";
-            feedUrlDiv.style.display = "block";
-          } else if (this.value === "email") {
-            webScrapingFields.style.display = "none";
-            apiFields.style.display = "none";
-            emailScrapingFields.style.display = "block";
-            feedUrlInput.value = "";
-            feedUrlDiv.style.display = "none";
-          }
-        });
-
-        document
-          .getElementById("previewButton")
-          .addEventListener("click", handlePreview);
-
-        function handlePreview() {
-          const form = document.querySelector("form");
-
-          const formData = new FormData(form);
-
-          const data = {};
-          formData.forEach((value, key) => {
-            if (data[key]) {
-              if (!Array.isArray(data[key])) {
-                data[key] = [data[key]];
-              }
-              data[key].push(value);
-            } else {
-              data[key] = value;
-            }
-          });
-
-          sendPreviewRequest(data);
+    document.addEventListener("DOMContentLoaded", function () {
+      dateFormatSelect.addEventListener("change", function () {
+        if (this.value === "other") {
+          customDateFormatInput.style.display = "block";
+          customDateFormatLabel.style.display = "block";
+          customDateFormatInput.required = true;
+        } else {
+          customDateFormatInput.style.display = "none";
+          customDateFormatLabel.style.display = "none";
+          customDateFormatInput.required = false;
+          customDateFormatInput.value = ""; // Clear the input when not selected
         }
+      });
 
-        document
-          .getElementById("fetchFolders")
-          .addEventListener("click", () => {
-            const data = {
-              host: document.getElementById("emailHost").value,
-              port: parseInt(document.getElementById("emailPort").value),
-              user: document.getElementById("emailUsername").value,
-              password: document.getElementById("emailPassword").value,
-            };
-
-            fetch("/imap/folders", {
-              method: "POST",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify(data),
-            })
-              .then((res) => res.json())
-              .then((res) => {
-                const select = document.getElementById("emailFolder");
-                select.innerHTML = "";
-                res.folders.forEach((folder) => {
-                  const option = document.createElement("option");
-                  option.value = folder;
-                  option.textContent = folder;
-                  select.appendChild(option);
-                });
-              })
-              .catch((err) => {
-                console.error(err);
-                alert("Failed to fetch folders. Check your credentials.");
-              });
-          });
-
-        function sendPreviewRequest(data) {
-          fetch("/preview", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-            },
-            body: JSON.stringify(data),
-          })
-            .then((response) => {
-              if (!response.ok) {
-                throw new Error("Network response was not ok");
-              }
-              return response.text();
-            })
-            .then((rssFeedXml) => {
-              displayPreview(rssFeedXml);
-            })
-            .catch((error) => {
-              console.error("Error fetching preview:", error);
-              alert("An error occurred while fetching the preview.");
-            });
+      feedUrlInput.addEventListener("input", function () {
+        const val = this.value.trim();
+        console.log(val);
+        if (val.length > 0) {
+          playgroundBtn.classList.remove("hidden");
+          playgroundBtn.classList.add("floating-btn");
+        } else {
+          playgroundBtn.classList.remove("floating-btn");
+          playgroundBtn.classList.add("hidden");
         }
+      });
 
-        function displayPreview(rssFeedXml) {
-          const preview = document.getElementById("preview");
-          const previewFrame = document.getElementById("previewFrame");
+      document
+        .getElementById("linkRelativeLink")
+        .addEventListener("change", function () {
+          if (this.checked) {
+            document.getElementById("linkBaseUrl").style.display = "block";
+            document.getElementById("linkBaseUrlLabel").style.display =
+              "block";
+          } else {
+            document.getElementById("linkBaseUrl").style.display = "none";
+            document.getElementById("linkBaseUrlLabel").style.display =
+              "none";
+          }
+        });
 
-          const blob = new Blob([rssFeedXml], { type: "xml" });
-          const blobUrl = URL.createObjectURL(blob);
+      document
+        .getElementById("enclosureRelativeLink")
+        .addEventListener("change", function () {
+          if (this.checked) {
+            document.getElementById("enclosureBaseUrl").style.display =
+              "block";
+            document.getElementById("enclosureBaseUrlLabel").style.display =
+              "block";
+          } else {
+            document.getElementById("enclosureBaseUrl").style.display =
+              "none";
+            document.getElementById("enclosureBaseUrlLabel").style.display =
+              "none";
+          }
+        });
 
-          previewFrame.src = blobUrl;
+      feedTypeSelect.addEventListener("change", function () {
+        if (this.value === "webScraping") {
+          webScrapingFields.style.display = "block";
+          apiFields.style.display = "none";
+          emailScrapingFields.style.display = "none";
+          feedUrlDiv.style.display = "block";
+        } else if (this.value === "api") {
+          webScrapingFields.style.display = "none";
+          apiFields.style.display = "block";
+          emailScrapingFields.style.display = "none";
+          feedUrlDiv.style.display = "block";
+        } else if (this.value === "email") {
+          webScrapingFields.style.display = "none";
+          apiFields.style.display = "none";
+          emailScrapingFields.style.display = "block";
+          feedUrlInput.value = "";
+          feedUrlDiv.style.display = "none";
+        }
+      });
 
-          previewFrame.onload = () => {
-            URL.revokeObjectURL(blobUrl);
+      document
+        .getElementById("previewButton")
+        .addEventListener("click", handlePreview);
+
+      function handlePreview() {
+        const form = document.querySelector("form");
+
+        const formData = new FormData(form);
+
+        const data = {};
+        formData.forEach((value, key) => {
+          if (data[key]) {
+            if (!Array.isArray(data[key])) {
+              data[key] = [data[key]];
+            }
+            data[key].push(value);
+          } else {
+            data[key] = value;
+          }
+        });
+
+        sendPreviewRequest(data);
+      }
+
+      document
+        .getElementById("fetchFolders")
+        .addEventListener("click", () => {
+          const data = {
+            host: document.getElementById("emailHost").value,
+            port: parseInt(document.getElementById("emailPort").value),
+            user: document.getElementById("emailUsername").value,
+            password: document.getElementById("emailPassword").value,
           };
 
-          preview.style.display = "block";
-          window.scrollTo(0, preview.offsetTop);
-        }
-      });
+          fetch("/imap/folders", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(data),
+          })
+            .then((res) => res.json())
+            .then((res) => {
+              const select = document.getElementById("emailFolder");
+              select.innerHTML = "";
+              res.folders.forEach((folder) => {
+                const option = document.createElement("option");
+                option.value = folder;
+                option.textContent = folder;
+                select.appendChild(option);
+              });
+            })
+            .catch((err) => {
+              console.error(err);
+              alert("Failed to fetch folders. Check your credentials.");
+            });
+        });
 
-      playgroundBtn.addEventListener("click", () => {
-        const targetUrl = feedUrlInput.value.trim();
-        if (!targetUrl) {
-          alert("Please enter a target URL first.");
-          return;
-        }
-        playgroundOverlay.style.display = "block";
-        closePlaygroundBtn.classList.remove("hidden");
-        closePlaygroundBtn.classList.add("floating-btn");
-        playgroundIframe.src = `/proxy?url=${encodeURIComponent(targetUrl)}`;
-        playgroundBtn.classList.add("hidden");
-        playgroundBtn.classList.remove("floating-btn");
-      });
+      function sendPreviewRequest(data) {
+        fetch("/preview", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(data),
+        })
+          .then((response) => {
+            if (!response.ok) {
+              throw new Error("Network response was not ok");
+            }
+            return response.text();
+          })
+          .then((rssFeedXml) => {
+            displayPreview(rssFeedXml);
+          })
+          .catch((error) => {
+            console.error("Error fetching preview:", error);
+            alert("An error occurred while fetching the preview.");
+          });
+      }
 
-      closePlaygroundBtn.addEventListener("click", () => {
-        playgroundOverlay.style.display = "none";
-        playgroundIframe.src = "";
-        playgroundBtn.classList.remove("hidden");
-        playgroundBtn.classList.add("floating-btn");
-        closePlaygroundBtn.classList.add("hidden");
-        closePlaygroundBtn.classList.remove("floating-btn");
-      });
-    </script>
-  </body>
+      function displayPreview(rssFeedXml) {
+        const preview = document.getElementById("preview");
+        const previewFrame = document.getElementById("previewFrame");
+
+        const blob = new Blob([rssFeedXml], { type: "xml" });
+        const blobUrl = URL.createObjectURL(blob);
+
+        previewFrame.src = blobUrl;
+
+        previewFrame.onload = () => {
+          URL.revokeObjectURL(blobUrl);
+        };
+
+        preview.style.display = "block";
+        window.scrollTo(0, preview.offsetTop);
+      }
+    });
+
+    playgroundBtn.addEventListener("click", () => {
+      const targetUrl = feedUrlInput.value.trim();
+      if (!targetUrl) {
+        alert("Please enter a target URL first.");
+        return;
+      }
+      playgroundOverlay.style.display = "block";
+      closePlaygroundBtn.classList.remove("hidden");
+      closePlaygroundBtn.classList.add("floating-btn");
+      playgroundIframe.src = `/proxy?url=${encodeURIComponent(targetUrl)}`;
+      playgroundBtn.classList.add("hidden");
+      playgroundBtn.classList.remove("floating-btn");
+    });
+
+    closePlaygroundBtn.addEventListener("click", () => {
+      playgroundOverlay.style.display = "none";
+      playgroundIframe.src = "";
+      playgroundBtn.classList.remove("hidden");
+      playgroundBtn.classList.add("floating-btn");
+      closePlaygroundBtn.classList.add("hidden");
+      closePlaygroundBtn.classList.remove("floating-btn");
+    });
+  </script>
+</body>
+
 </html>
