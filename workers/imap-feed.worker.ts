@@ -23,26 +23,35 @@ self.onmessage = (message) => {
         "./node/imap-watch.utility.ts",
         `--key=${encryptionKey}`,
         `--hash=${configHash}`,
-        "--preview",
-        preview
+        `--preview=${preview}`,
       ],
-      stdout: "pipe",
+      stdout: preview ? "pipe" : "inherit",
       stderr: "inherit",
     });
 
-    const previewPromise = new Response(childProcess.stdout).text();
-
-    childProcess.onexit = async (exitCode) => {
-      if (preview) {
-        const rssResult = await previewPromise;
-        console.log("Preview result: ", rssResult);
-        self.postMessage({ status: "IMAP worker finished.", data: rssResult });
-      } else {
+    if (preview) {
+      let rssChunks = "";
+      const reader = childProcess.stdout.getReader();
+    
+      (async () => {
+        while (true) {
+          const { value, done } = await reader.read();
+          if (done) break;
+          rssChunks += new TextDecoder().decode(value);
+        }
+      })();
+    
+      childProcess.onexit = () => {
+        console.log("Preview result: ", rssChunks);
+        self.postMessage({ status: "finished", data: rssChunks });
+        childProcess = null;
+      };
+    } else {
+      childProcess.onexit = async (exitCode) => {
         console.log("[IMAP WORKER] Exited:", exitCode);
-      }
-      childProcess = null;
-    };
-  
+        childProcess = null;
+      };
+    }
   } else if (message.data.command === "stop" && childProcess) {
     console.log("[IMAP WORKER] Stopping Node IMAP watcher...");
     childProcess.kill();

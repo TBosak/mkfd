@@ -17,7 +17,8 @@ const __dirname = dirname(__filename);
 const args = minimist(process.argv.slice(2));
 const encryptionKey: string = args.key || "";
 const configHash: string = args.hash || "";
-const preview: string | boolean = args.preview || false;
+const preview = JSON.parse(args.preview) || false;
+console.error(preview);
 
 export interface Email {
   UID: number;
@@ -44,15 +45,22 @@ if (!preview) {
   const fileContents = readFileSync(yamlPath, "utf8");
   rawConfig = yaml.load(fileContents);
 }
-if (preview) rawConfig = JSON.parse(preview as string);
 
-const imapConfig = {
-  host: rawConfig.config.host,
-  port: rawConfig.config.port,
-  user: rawConfig.config.user,
-  password: decrypt(rawConfig.config.encryptedPassword, encryptionKey),
-  folder: rawConfig.config.folder || "INBOX",
-};
+var imapConfig = !preview
+  ? {
+      host: rawConfig.config.host,
+      port: rawConfig.config.port,
+      user: rawConfig.config.user,
+      password: decrypt(rawConfig.config.encryptedPassword, encryptionKey),
+      folder: rawConfig.config.folder || "INBOX",
+    }
+  : {
+      host: preview.host,
+      port: preview.port,
+      user: preview.user,
+      password: preview.encryptedPassword,
+      folder: preview.folder || "INBOX",
+    };
 
 class ImapWatcher {
   private config: any;
@@ -66,6 +74,7 @@ class ImapWatcher {
       host: config.host,
       port: config.port,
       tls: true,
+      autotls: "never",
     });
   }
 
@@ -76,7 +85,7 @@ class ImapWatcher {
       await this.fetchRecentStartupEmails();
 
       this.imap.on("mail", (n) => {
-        console.log(`[IMAP] New mail event: ${n}`);
+        console.error(`[IMAP] New mail event: ${n}`);
         this.fetchNewEmails();
       });
 
@@ -91,7 +100,7 @@ class ImapWatcher {
   public connect(): Promise<void> {
     return new Promise((resolve, reject) => {
       this.imap.once("ready", () => {
-        console.log("[IMAP] Connected");
+        console.error("[IMAP] Connected");
         resolve();
       });
       this.imap.once("error", reject);
@@ -104,7 +113,7 @@ class ImapWatcher {
     return new Promise((resolve, reject) => {
       this.imap.openBox(boxName, false, (err) => {
         if (err) return reject(err);
-        console.log(`[IMAP] Box "${boxName}" opened`);
+        console.error(`[IMAP] Box "${boxName}" opened`);
         resolve();
       });
     });
@@ -112,7 +121,7 @@ class ImapWatcher {
 
   public fetchRecentStartupEmails(): Promise<void> {
     return new Promise((resolve, reject) => {
-      console.log("[IMAP] Fetching emails...");
+      console.error("[IMAP] Fetching emails...");
       const twoDaysAgo = new Date();
       twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
 
@@ -120,7 +129,7 @@ class ImapWatcher {
         [["SINCE", twoDaysAgo.toUTCString()]],
         (err, results) => {
           if (err || !results || results.length === 0) {
-            console.log("[IMAP] No recent emails found on startup.");
+            console.error("[IMAP] No recent emails found on startup.");
             resolve();
           }
 
@@ -189,7 +198,7 @@ class ImapWatcher {
                 );
 
               if (emails.length > 0) {
-                console.log("[IMAP] Startup emails fetched");
+                console.error("[IMAP] Startup emails fetched");
                 const rss = buildRSSFromEmailFolder(emails, this.config);
 
                 if (!preview) {
@@ -201,16 +210,16 @@ class ImapWatcher {
                     ),
                     rss
                   );
-                  console.log("[IMAP] RSS Feed generated");
+                  console.error("[IMAP] RSS Feed generated");
                 } else {
                   process.stdout.write(rss);
-                  console.log("[IMAP] RSS Feed generated for preview");
+                  console.error("[IMAP] RSS Feed generated for preview");
                 }
               } else {
-                console.log("[IMAP] No valid emails found.");
+                console.error("[IMAP] No valid emails found.");
               }
             });
-            console.log("[IMAP] Finished processing emails.");
+            console.error("[IMAP] Finished processing emails.");
             resolve();
           });
 
@@ -224,7 +233,7 @@ class ImapWatcher {
   }
 
   private fetchNewEmails(): void {
-    console.log("[IMAP] Fetching emails...");
+    console.error("[IMAP] Fetching emails...");
 
     this.imap.search(["ALL"], (err, results) => {
       if (err || !results || results.length === 0) {
@@ -290,18 +299,18 @@ class ImapWatcher {
             .map((result) => (result as PromiseFulfilledResult<Email>).value);
 
           if (emails.length > 0) {
-            console.log("[IMAP] Recent emails fetched, updating RSS...");
+            console.error("[IMAP] Recent emails fetched, updating RSS...");
             const rss = buildRSSFromEmailFolder(emails, this.config);
             writeFileSync(
               path.join(__dirname, "../public/feeds", `${configHash}.xml`),
               rss
             );
-            console.log("[IMAP] RSS Feed regenerated");
+            console.error("[IMAP] RSS Feed regenerated");
           } else {
-            console.log("[IMAP] No valid emails found.");
+            console.error("[IMAP] No valid emails found.");
           }
         });
-        console.log("[IMAP] Completed processing new emails.");
+        console.error("[IMAP] Completed processing new emails.");
       });
 
       fetch.once("error", (fetchErr) => {
@@ -311,13 +320,13 @@ class ImapWatcher {
   }
 
   private reconnect(): void {
-    console.log("[IMAP] Reconnecting in 10s...");
+    console.error("[IMAP] Reconnecting in 10s...");
     setTimeout(() => this.start(), 10000);
   }
 
   public stop(): void {
     if (this.imap) {
-      console.log("[IMAP] Stopping watcher...");
+      console.error("[IMAP] Stopping watcher...");
       this.imap.end();
     }
   }
@@ -351,7 +360,10 @@ if (preview) {
     await watcher.connect();
     await watcher.openBox();
     await watcher.fetchRecentStartupEmails();
-  } catch (err) {}
+  } catch (err) {
+    console.error("[IMAP] Preview caught error:", err);
+    process.exit(1);
+  }
   process.exit(0);
 } else {
   watcher.start();
