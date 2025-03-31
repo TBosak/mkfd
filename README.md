@@ -39,14 +39,14 @@ bun run index.ts --passkey=your_passkey_here --cookieSecret=your_cookie_secret_h
 
 ```bash
 docker build -t mkfd .
-docker run -p 5000:5000 -v /local/mount/path:/configs -e PASSKEY=your_passkey -e COOKIE_SECRET=your_cookie_secret -e ENCRYPTION_KEY=your_encryption_key mkfd
+docker run -p 5000:5000 -v /local/mount/path:/app/configs -e PASSKEY=your_passkey -e COOKIE_SECRET=your_cookie_secret -e ENCRYPTION_KEY=your_encryption_key mkfd
 ```
 
 ### 📥 From Docker Hub
 
 ```bash
 docker pull tbosk/mkfd:latest
-docker run -p 5000:5000 -v /local/mount/path:/configs -e PASSKEY=your_passkey -e COOKIE_SECRET=your_cookie_secret -e ENCRYPTION_KEY=your_encryption_key tbosk/mkfd:latest
+docker run -p 5000:5000 -v /local/mount/path:/app/configs -e PASSKEY=your_passkey -e COOKIE_SECRET=your_cookie_secret -e ENCRYPTION_KEY=your_encryption_key tbosk/mkfd:latest
 ```
 
 If you don't supply the keys and cookie secret, the app will prompt you for them (just make sure to run docker with "it" flag to get an interactive shell). Make sure to reuse your encryption key for email feeds.
