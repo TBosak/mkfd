@@ -73,7 +73,6 @@ Email feeds do not refresh on intervals. The process runs continuously and updat
 
 ## 🔧 To Do
 
-- [x] **Locally** testing subscriptions to feeds
 - [ ] Add ALL possible RSS fields to models
 - [x] Add option for parallel iterators
 - [ ] Scraping how-to video
@@ -85,7 +84,7 @@ Email feeds do not refresh on intervals. The process runs continuously and updat
 - [ ] Utilities
   - [x] HTML stripper
   - [x] Source URL wrapper for relative links
-  - [ ] Nested link follower/drilldown functionality for each feed field
+  - [ ] Nested link follower/drilldown functionality for each feed item property
   - [x] Adjust date parser logic with overrides from an optional date format input
   - [ ] Add selector suggestion engine
 - [ ] Amass contributors
