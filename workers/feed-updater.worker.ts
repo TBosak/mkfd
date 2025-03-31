@@ -34,7 +34,7 @@ async function fetchDataAndUpdateFeed(feedConfig) {
       }
       const response = await axios(axiosConfig)
       const apiData = response.data
-      rssXml = buildRSSFromApiData(apiData, feedConfig.config, feedConfig.apiMapping)
+      rssXml = buildRSSFromApiData(apiData, feedConfig)
     } else if (feedConfig.feedType === "email") {
     }
     const rssFilePath = join(rssDir, `${feedConfig.feedId}.xml`)

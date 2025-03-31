@@ -162,7 +162,7 @@ app.post("/", async (ctx) => {
     body[key]?.toString() || fallback;
 
   const feedType = extract("feedType", "webScraping");
-
+  
   const buildCSSTarget = (prefix: string) => {
     const dateFormat = extract(`${prefix}Format`);
     const customDateFormat =
@@ -227,6 +227,7 @@ app.post("/", async (ctx) => {
         : {},
     refreshTime: parseInt(extract("refreshTime", "5")),
     reverse: ["on", true, "true"].includes(extract("reverse")),
+    strict: ["on", true, "true"].includes(extract("strict")),
   };
 
   const yamlStr = yaml.dump(feedConfig);
@@ -323,6 +324,7 @@ app.post("/preview", async (ctx) => {
           : {},
       refreshTime: parseInt(extract("refreshTime", "5")),
       reverse: ["on", true, "true"].includes(extract("reverse")),
+      strict: ["on", true, "true"].includes(extract("strict")),
     };
 
     const response = await generatePreview(feedConfig);
@@ -653,8 +655,7 @@ async function generatePreview(feedConfig: any) {
 
       rssXml = buildRSSFromApiData(
         apiData,
-        feedConfig.config,
-        feedConfig.apiMapping
+        feedConfig,
       );
     }
     return rssXml;
