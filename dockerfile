@@ -12,6 +12,6 @@ COPY . .
 
 EXPOSE 5000
 
-VOLUME ["/configs"]
+VOLUME ["/app/configs"]
 
 CMD ["bash", "-c", "bun run /app/index.ts"]

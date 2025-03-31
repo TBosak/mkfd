@@ -17,6 +17,7 @@ const __dirname = dirname(__filename);
 const args = minimist(process.argv.slice(2));
 const encryptionKey: string = args.key || "";
 const configHash: string = args.hash || "";
+const preview: string | boolean = args.preview || false;
 
 export interface Email {
   UID: number;
@@ -28,23 +29,22 @@ export interface Email {
 
 if (!encryptionKey || !configHash) {
   console.error(
-    "Usage: node imap-watcher.service.ts --key=<encryptionKey> --hash=<configHash>",
+    "Usage: node imap-watcher.service.ts --key=<encryptionKey> --hash=<configHash>"
   );
   process.exit(1);
 }
 
-const yamlPath: string = path.join(
-  __dirname,
-  "../configs",
-  `${configHash}.yaml`,
-);
-if (!existsSync(yamlPath)) {
-  console.error(`YAML config not found at: ${yamlPath}`);
-  process.exit(1);
+var rawConfig: any;
+if (!preview) {
+  const yamlPath = path.join(__dirname, "../configs", `${configHash}.yaml`);
+  if (!existsSync(yamlPath)) {
+    console.error(`YAML config not found at: ${yamlPath}`);
+    process.exit(1);
+  }
+  const fileContents = readFileSync(yamlPath, "utf8");
+  rawConfig = yaml.load(fileContents);
 }
-
-const fileContents = readFileSync(yamlPath, "utf8");
-const rawConfig = yaml.load(fileContents);
+if (preview) rawConfig = JSON.parse(preview as string);
 
 const imapConfig = {
   host: rawConfig.config.host,
@@ -72,8 +72,8 @@ class ImapWatcher {
   async start(): Promise<void> {
     try {
       await this.connect();
-      await this.openBox(this.config.folder);
-      this.fetchRecentStartupEmails();
+      await this.openBox();
+      await this.fetchRecentStartupEmails();
 
       this.imap.on("mail", (n) => {
         console.log(`[IMAP] New mail event: ${n}`);
@@ -88,7 +88,7 @@ class ImapWatcher {
     }
   }
 
-  private connect(): Promise<void> {
+  public connect(): Promise<void> {
     return new Promise((resolve, reject) => {
       this.imap.once("ready", () => {
         console.log("[IMAP] Connected");
@@ -99,7 +99,8 @@ class ImapWatcher {
     });
   }
 
-  private openBox(boxName: string): Promise<void> {
+  public openBox(): Promise<void> {
+    const boxName = this.config.folder || "INBOX";
     return new Promise((resolve, reject) => {
       this.imap.openBox(boxName, false, (err) => {
         if (err) return reject(err);
@@ -109,94 +110,116 @@ class ImapWatcher {
     });
   }
 
-  private fetchRecentStartupEmails(): void {
-    console.log("[IMAP] Fetching emails...");
-    const twoDaysAgo = new Date();
-    twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+  public fetchRecentStartupEmails(): Promise<void> {
+    return new Promise((resolve, reject) => {
+      console.log("[IMAP] Fetching emails...");
+      const twoDaysAgo = new Date();
+      twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
 
-    this.imap.search([["SINCE", twoDaysAgo.toUTCString()]], (err, results) => {
-      if (err || !results || results.length === 0) {
-        console.log("[IMAP] No recent emails found on startup.");
-        return;
-      }
-
-      const recentUids = results
-        .sort((a: number, b: number) => a - b)
-        .slice(-10);
-      const fetch = this.imap.fetch(recentUids, { bodies: [""], struct: true });
-      const tasks: Promise<Email>[] = [];
-
-      fetch.on("message", (msg, seqno) => {
-        const chunks: Buffer[] = [];
-        msg.on("body", (stream) => {
-          stream.on("data", (chunk: Buffer | string) => {
-            if (typeof chunk === "string") {
-              chunks.push(Buffer.from(chunk, "utf-8"));
-            } else {
-              chunks.push(chunk);
-            }
-          });
-        });
-
-        const task = new Promise<Email>((resolveTask, rejectTask) => {
-          msg.once("end", async () => {
-            try {
-              const raw = Buffer.concat(chunks);
-              const parsed = await simpleParser(raw);
-
-              const subject = parsed.subject
-                ? libmime.decodeWords(parsed.subject)
-                : "(No Subject)";
-              const from = parsed.from?.text
-                ? libmime.decodeWords(parsed.from.text)
-                : "(Unknown Sender)";
-              const date =
-                parsed.date?.toISOString() || new Date().toISOString();
-              const content = parsed.text || parsed.html || "(No content)";
-              const email: Email = {
-                UID: seqno,
-                subject,
-                from,
-                date,
-                content,
-              };
-              resolveTask(email);
-            } catch (parseErr) {
-              console.error(
-                `[IMAP] Failed to parse message ${seqno}:`,
-                parseErr,
-              );
-              rejectTask(parseErr);
-            }
-          });
-        });
-        tasks.push(task);
-      });
-
-      fetch.once("end", async () => {
-        await Promise.allSettled(tasks).then((results) => {
-          const emails = results
-            .filter((result) => result.status === "fulfilled")
-            .map((result) => (result as PromiseFulfilledResult<Email>).value);
-
-          if (emails.length > 0) {
-            console.log("[IMAP] Startup emails fetched");
-            const rss = buildRSSFromEmailFolder(emails, this.config);
-            writeFileSync(
-              path.join(__dirname, "../public/feeds", `${configHash}.xml`),
-              rss,
-            );
-            console.log("[IMAP] RSS Feed generated");
-          } else {
-            console.log("[IMAP] No valid emails found.");
+      this.imap.search(
+        [["SINCE", twoDaysAgo.toUTCString()]],
+        (err, results) => {
+          if (err || !results || results.length === 0) {
+            console.log("[IMAP] No recent emails found on startup.");
+            resolve();
           }
-        });
-        console.log("[IMAP] Finished processing emails.");
-      });
 
-      fetch.once("error", (fetchErr) => {
-        console.error("[IMAP] Startup fetch error:", fetchErr);
-      });
+          const recentUids = results
+            .sort((a: number, b: number) => a - b)
+            .slice(-10);
+          const fetch = this.imap.fetch(recentUids, {
+            bodies: [""],
+            struct: true,
+          });
+          const tasks: Promise<Email>[] = [];
+
+          fetch.on("message", (msg, seqno) => {
+            const chunks: Buffer[] = [];
+            msg.on("body", (stream) => {
+              stream.on("data", (chunk: Buffer | string) => {
+                if (typeof chunk === "string") {
+                  chunks.push(Buffer.from(chunk, "utf-8"));
+                } else {
+                  chunks.push(chunk);
+                }
+              });
+            });
+
+            const task = new Promise<Email>((resolveTask, rejectTask) => {
+              msg.once("end", async () => {
+                try {
+                  const raw = Buffer.concat(chunks);
+                  const parsed = await simpleParser(raw);
+
+                  const subject = parsed.subject
+                    ? libmime.decodeWords(parsed.subject)
+                    : "(No Subject)";
+                  const from = parsed.from?.text
+                    ? libmime.decodeWords(parsed.from.text)
+                    : "(Unknown Sender)";
+                  const date =
+                    parsed.date?.toISOString() || new Date().toISOString();
+                  const content = parsed.text || parsed.html || "(No content)";
+                  const email: Email = {
+                    UID: seqno,
+                    subject,
+                    from,
+                    date,
+                    content,
+                  };
+                  resolveTask(email);
+                } catch (parseErr) {
+                  console.error(
+                    `[IMAP] Failed to parse message ${seqno}:`,
+                    parseErr
+                  );
+                  rejectTask(parseErr);
+                }
+              });
+            });
+            tasks.push(task);
+          });
+
+          fetch.once("end", async () => {
+            await Promise.allSettled(tasks).then((results) => {
+              const emails = results
+                .filter((result) => result.status === "fulfilled")
+                .map(
+                  (result) => (result as PromiseFulfilledResult<Email>).value
+                );
+
+              if (emails.length > 0) {
+                console.log("[IMAP] Startup emails fetched");
+                const rss = buildRSSFromEmailFolder(emails, this.config);
+
+                if (!preview) {
+                  writeFileSync(
+                    path.join(
+                      __dirname,
+                      "../public/feeds",
+                      `${configHash}.xml`
+                    ),
+                    rss
+                  );
+                  console.log("[IMAP] RSS Feed generated");
+                } else {
+                  process.stdout.write(rss);
+                  console.log("[IMAP] RSS Feed generated for preview");
+                }
+              } else {
+                console.log("[IMAP] No valid emails found.");
+              }
+            });
+            console.log("[IMAP] Finished processing emails.");
+            resolve();
+          });
+
+          fetch.once("error", (fetchErr) => {
+            console.error("[IMAP] Startup fetch error:", fetchErr);
+            reject(fetchErr);
+          });
+        }
+      );
     });
   }
 
@@ -251,7 +274,7 @@ class ImapWatcher {
             } catch (parseErr) {
               console.error(
                 `[IMAP] Failed to parse message ${seqno}:`,
-                parseErr,
+                parseErr
               );
               rejectTask(parseErr);
             }
@@ -271,7 +294,7 @@ class ImapWatcher {
             const rss = buildRSSFromEmailFolder(emails, this.config);
             writeFileSync(
               path.join(__dirname, "../public/feeds", `${configHash}.xml`),
-              rss,
+              rss
             );
             console.log("[IMAP] RSS Feed regenerated");
           } else {
@@ -323,4 +346,13 @@ export function buildRSSFromEmailFolder(emails, config) {
 
 const watcher = new ImapWatcher(imapConfig);
 
-watcher.start();
+if (preview) {
+  try {
+    await watcher.connect();
+    await watcher.openBox();
+    await watcher.fetchRecentStartupEmails();
+  } catch (err) {}
+  process.exit(0);
+} else {
+  watcher.start();
+}

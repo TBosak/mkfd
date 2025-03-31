@@ -299,7 +299,7 @@ app.post("/preview", async (ctx) => {
       feedId: "preview",
       feedName: apiConfig.title,
       feedType,
-      config: apiConfig,
+      config: feedType === "email" ? emailConfig : apiConfig,
       article:
         feedType === "webScraping"
           ? {
@@ -548,9 +548,7 @@ app.post("/delete-feed", async (c) => {
 
 app.post("/imap/folders", async (c) => {
   const config = await c.req.json<Config>();
-  console.log("IMAP config:", config);
   const folders = await listImapFolders(config);
-  console.log("IMAP folders:", folders);
   return c.json({ folders });
 });
 
@@ -609,7 +607,6 @@ async function generatePreview(feedConfig: any) {
     let rssXml;
 
     if (feedConfig.feedType === "webScraping") {
-      // If advanced is true, use Puppeteer
       if (feedConfig.config.advanced) {
         const browser = await puppeteer.launch();
         const page = await browser.newPage();
@@ -623,7 +620,6 @@ async function generatePreview(feedConfig: any) {
           feedConfig
         );
       } else {
-        // Otherwise, use axios
         const response = feedConfig.article?.headers
           ? await axios.get(feedConfig.config.baseUrl, {
               headers: feedConfig.article.headers,
@@ -653,6 +649,16 @@ async function generatePreview(feedConfig: any) {
         apiData,
         feedConfig,
       );
+    } else if (feedConfig.feedType === "email") {
+      initializeWorker(feedConfig);
+      let rawConfig = JSON.stringify(feedConfig);
+      let response = await sendMessageAndWaitForFinish(feedUpdaters.get(feedConfig.feedId), {
+        command: "start",
+        config: feedConfig,
+        encryptionKey: encryptionKey,
+        preview: rawConfig
+      })
+      console.log("IMAP worker response:", response);
     }
     return rssXml;
   } catch (error) {
@@ -727,6 +733,21 @@ async function deleteFeed(feedId: string): Promise<boolean> {
     console.error(`Failed to delete feed ${feedId}:`, error);
     return false;
   }
+}
+
+function sendMessageAndWaitForFinish(worker: Worker, msg: any) {
+  return new Promise((resolve, reject) => {
+    worker.onmessage = (event) => {
+      if (event.data?.status === "IMAP worker finished.") {
+        resolve(event.data);
+      } else {
+        // Possibly log or dispatch the "started" message
+        console.log("Worker partial message:", event.data);
+      }
+    };
+    worker.onerror = reject;
+    worker.postMessage(msg);
+  });
 }
 
 export default {
