@@ -15,14 +15,14 @@ async function fetchDataAndUpdateFeed(feedConfig) {
         ? await axios.get(feedConfig.config.baseUrl, { headers: feedConfig.article.headers })
         : await axios.get(feedConfig.config.baseUrl)
       const html = response.data
-      rssXml = await buildRSS(html, feedConfig.config, feedConfig.article, feedConfig.reverse)
+      rssXml = await buildRSS(html, feedConfig)
     } else if (feedConfig.feedType === "webScraping" && feedConfig.config.advanced) {
       const browser = await puppeteer.launch()
       const page = await browser.newPage()
       await page.goto(feedConfig.config.baseUrl, { waitUntil: "networkidle2" })
       const html = await page.content()
       await browser.close()
-      rssXml = await buildRSS(html, feedConfig.config, feedConfig.article, feedConfig.reverse)
+      rssXml = await buildRSS(html, feedConfig)
     } else if (feedConfig.feedType === "api") {
       const axiosConfig = {
         method: feedConfig.config.method || "GET",

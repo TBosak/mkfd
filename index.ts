@@ -620,9 +620,7 @@ async function generatePreview(feedConfig: any) {
         await browser.close();
         rssXml = await buildRSS(
           html,
-          feedConfig.config,
-          feedConfig.article,
-          feedConfig.reverse
+          feedConfig
         );
       } else {
         // Otherwise, use axios
@@ -634,9 +632,7 @@ async function generatePreview(feedConfig: any) {
         const html = response.data;
         rssXml = await buildRSS(
           html,
-          feedConfig.config,
-          feedConfig.article,
-          feedConfig.reverse
+          feedConfig
         );
       }
     } else if (feedConfig.feedType === "api") {

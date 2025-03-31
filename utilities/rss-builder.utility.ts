@@ -11,8 +11,10 @@ import ApiConfig from "./../models/apiconfig.model";
 
 export async function buildRSS(
   res: any,
-  apiConfig?: ApiConfig,
-  article?: {
+  feedConfig: any
+): Promise<string> {
+  const apiConfig: ApiConfig = feedConfig.config;
+  const article = feedConfig.article as {
     iterator: CSSTarget;
     title?: CSSTarget;
     description?: CSSTarget;
@@ -20,10 +22,9 @@ export async function buildRSS(
     link?: CSSTarget;
     date?: CSSTarget;
     enclosure?: CSSTarget;
-  },
-  reverse?: boolean,
-  strict?: boolean,
-): Promise<string> {
+  };
+  const reverse: boolean = feedConfig.reverse || false;
+  const strict: boolean = feedConfig.strict || false;
   const $ = cheerio.load(res);
   const elements = $(article.iterator.selector).toArray();
 
@@ -242,6 +243,7 @@ export async function buildRSS(
     );
 
     if (strict) {
+      console.log("input", input);
       input = filterStrictly(input);
     }
 
@@ -313,11 +315,10 @@ export function buildRSSFromApiData(apiData, feedConfig) {
 function getNonNullProps(item: any): Set<string> {
   const nonNull = new Set<string>()
 
-  // For enclosure, only count it if enclosure.url is defined
-  // Everything else is considered non‐null if it’s truthy
   for (const [key, val] of Object.entries(item)) {
     if (key === "enclosure") {
-      if ((val as any)?.url) {
+      const eUrl = (val as any)?.url
+      if (eUrl !== null && eUrl !== undefined && eUrl !== "") {
         nonNull.add("enclosure")
       }
     } else {
@@ -326,18 +327,15 @@ function getNonNullProps(item: any): Set<string> {
       }
     }
   }
+
   return nonNull
 }
-
 function filterStrictly(items: any[]): any[] {
   const itemPropsSets = items.map((item) => getNonNullProps(item))
-  // 1) Find maximum size among these sets
   const maxSize = Math.max(...itemPropsSets.map((s) => s.size), 0)
-  // 2) Identify “top” items that have that max size
   const topIndices = itemPropsSets
     .map((propsSet, i) => (propsSet.size === maxSize ? i : -1))
     .filter((i) => i !== -1)
-  // 3) Intersection of non‐null fields among all top items
   let intersect: Set<string> = new Set(itemPropsSets[topIndices[0]] ?? [])
   for (let i = 1; i < topIndices.length; i++) {
     const s = itemPropsSets[topIndices[i]]
@@ -349,7 +347,6 @@ function filterStrictly(items: any[]): any[] {
     }
     intersect = temp
   }
-  // 4) Exclude items missing any field in the intersection
   const requiredProps = intersect
   const filtered = items.filter((_, idx) => {
     const itemSet = itemPropsSets[idx]
