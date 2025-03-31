@@ -243,7 +243,6 @@ export async function buildRSS(
     );
 
     if (strict) {
-      console.log("input", input);
       input = filterStrictly(input);
     }
 
