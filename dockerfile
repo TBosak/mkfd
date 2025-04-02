@@ -14,4 +14,4 @@ EXPOSE 5000
 
 VOLUME ["/app/configs"]
 
-CMD ["bash", "-c", "bun run /app/index.ts"]
+CMD ["bun", "run", "index.ts"]
