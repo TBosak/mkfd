@@ -26,7 +26,7 @@ bun install
 ### 🚀 To run
 
 ```bash
-bun run index.ts --passkey=your_passkey_here --cookieSecret=your_cookie_secret_here --encryptionKey=your_encryption_key_here
+bun run index.ts --passkey=your_passkey_here --cookieSecret=your_cookie_secret_here --encryptionKey=your_encryption_key_here --ssl=true/false
 ```
 
 ➡️ Access the GUI at `http://localhost:5000/`
@@ -39,14 +39,14 @@ bun run index.ts --passkey=your_passkey_here --cookieSecret=your_cookie_secret_h
 
 ```bash
 docker build -t mkfd .
-docker run -p 5000:5000 -v /local/mount/path:/app/configs -e PASSKEY=your_passkey -e COOKIE_SECRET=your_cookie_secret -e ENCRYPTION_KEY=your_encryption_key mkfd
+docker run -p 5000:5000 -v /local/mount/path:/app/configs -e PASSKEY=your_passkey -e COOKIE_SECRET=your_cookie_secret -e ENCRYPTION_KEY=your_encryption_key -e SSL=true/false mkfd
 ```
 
 ### 📥 From Docker Hub
 
 ```bash
 docker pull tbosk/mkfd:latest
-docker run -p 5000:5000 -v /local/mount/path:/app/configs -e PASSKEY=your_passkey -e COOKIE_SECRET=your_cookie_secret -e ENCRYPTION_KEY=your_encryption_key tbosk/mkfd:latest
+docker run -p 5000:5000 -v /local/mount/path:/app/configs -e PASSKEY=your_passkey -e COOKIE_SECRET=your_cookie_secret -e ENCRYPTION_KEY=your_encryption_key -e SSL=true/false tbosk/mkfd:latest
 ```
 
 If you don't supply the keys and cookie secret, the app will prompt you for them (just make sure to run docker with "it" flag to get an interactive shell). Make sure to reuse your encryption key for email feeds.
@@ -68,6 +68,18 @@ Email feeds do not refresh on intervals. The process runs continuously and updat
 ## 🖼️ GUI
 
 ![mkfdgui](https://github.com/user-attachments/assets/620d4f1f-15a6-4120-8265-6ba07aa4aa27)
+
+---
+
+## 🌎 Environment Variables / Command Line Arguments
+
+- **Passkey**: A passkey is a unique identifier that is used to authenticate requests to the Mkfd API. It is used to ensure that only authorized users can access the API and perform actions such as creating, updating, or deleting feeds.
+
+- **Cookie secret**: A cookie secret is a random string that is used to sign cookies in the Mkfd application. It is used to ensure that cookies cannot be tampered with by malicious users. The cookie secret must be at least 32 characters long.
+
+- **Encryption key**: An encryption key is a random string that is used to encrypt sensitive data in the Mkfd application. It is used to ensure that sensitive data, such as passwords, cannot be accessed by unauthorized users. The encryption key must be at least 16 characters long.
+
+- **SSL**: A boolean value that indicates whether to use SSL for the Mkfd application. Set to true if serving over HTTPS, false if serving over HTTP.
 
 ---
 

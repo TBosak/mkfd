@@ -3,7 +3,7 @@ import { parse as parseCookie, serialize as serializeCookie } from "cookie";
 import * as cookieSignature from "cookie-signature";
 import { existsSync, mkdirSync, unlink } from "fs";
 import { readFile, readdir, writeFile } from "fs/promises";
-import { Hono } from "hono";
+import { Context, Hono } from "hono";
 import { serveStatic, getConnInfo } from "hono/bun";
 import { except } from "hono/combine";
 import * as yaml from "js-yaml";
@@ -20,9 +20,11 @@ import { Config } from "node-imap";
 import { listImapFolders } from "./utilities/imap.utility";
 import { encrypt } from "./utilities/security.utility";
 import puppeteer from "puppeteer";
+import { CookieStore, sessionMiddleware } from "hono-sessions";
 
 const app = new Hono();
-const args = minimist(process.argv.slice(3));
+const store = new CookieStore()
+const args = minimist(process.argv.slice(4));
 
 async function prompt(question: string): Promise<string> {
   const rl = createInterface({
@@ -37,6 +39,8 @@ async function prompt(question: string): Promise<string> {
     });
   });
 }
+
+const SSL = process.env.SSL === "true" || args.ssl === true;
 
 async function getSecrets() {
   const passkey =
@@ -69,68 +73,49 @@ if (!existsSync(configsDir)) {
 // Start processing immediately on startup
 processFeedsAtStart();
 //ALLOW LOCAL NETWORK TO ACCESS API
-const middleware = async (_, next) => {
-  const connInfo = await getConnInfo(_);
-  if (
-    connInfo?.remote?.address == undefined ||
-    connInfo?.remote?.address === "127.0.0.1" ||
-    connInfo?.remote?.address === "::1"
-  ) {
-    // Return after calling `await next()`
-    return await next();
-  } else {
-    const cookies = parseCookie(_.req.header("Cookie") || "");
-    const signedAuthToken = cookies["auth_token"];
-    if (signedAuthToken) {
-      const authToken = cookieSignature.unsign(signedAuthToken, cookieSecret);
-      if (authToken === "authenticated") {
-        // Return after calling `await next()`
-        return await next();
-      } else {
-        // Handle invalid auth token
-        // Clear the invalid cookie
-        _.res.headers.append(
-          "Set-Cookie",
-          serializeCookie("auth_token", "", {
-            secure: true, // Set to true if using HTTPS
-            maxAge: 0,
-            sameSite: "lax",
-          })
-        );
-        // Redirect to passkey page
-        return _.redirect("/passkey");
-      }
-    }
+const middleware = async (c: Context, next) => {
+  const connInfo = await getConnInfo(c)
+  const isLocal = !connInfo?.remote?.address || ['127.0.0.1', '::1'].includes(connInfo.remote.address)
 
-    if (_.req.method === "POST" && _.req.path === "/passkey") {
-      // Handle passkey submission
-      const data = await _.req.parseBody();
-      const passKey = data["passkey"];
-      if (passKey === passkey) {
-        const signedValue = cookieSignature.sign("authenticated", cookieSecret);
-        _.res.headers.append(
-          "Set-Cookie",
-          serializeCookie("auth_token", signedValue, {
-            secure: true, // Set to true if using HTTPS
-            maxAge: 60 * 60 * 24, // 1 day
-            sameSite: "lax",
-          })
-        );
-        return _.redirect("/");
-      } else {
-        return _.html(
-          '<p>Incorrect passkey. <a href="/passkey">Try again</a>.</p>'
-        );
-      }
-    } else if (_.req.path === "/passkey") {
-      // Return after calling `await next()`
-      return await next();
+  if (isLocal) return await next()
+
+  const session = c.get('session')
+  const authenticated = session.get('authenticated')
+
+  if (authenticated === true) {
+    return await next()
+  }
+
+  if (c.req.method === 'POST' && c.req.path === '/passkey') {
+    const body = await c.req.parseBody()
+    const inputKey = body['passkey']
+
+    if (inputKey === passkey) {
+      session.set('authenticated', true)
+      return c.redirect('/')
     } else {
-      return _.redirect("/passkey");
+      return c.html('<p>Incorrect passkey. <a href="/passkey">Try again</a>.</p>')
     }
   }
-};
 
+  if (c.req.path === '/passkey') {
+    return await next()
+  }
+
+  return c.redirect('/passkey')
+}
+
+app.use("*", sessionMiddleware({
+  store,
+  encryptionKey: cookieSecret,
+  expireAfterSeconds: 60 * 60 * 24,
+  cookieOptions: {
+    path: '/',
+    httpOnly: true,
+    secure: SSL,
+    sameSite: 'lax'
+  }
+}))
 app.use("/*", except("/public/feeds/*", middleware));
 app.use("/public/*", serveStatic({ root: "./" }));
 app.use("/configs/*", serveStatic({ root: "./" }));
