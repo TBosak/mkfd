@@ -525,8 +525,6 @@ app.get("/passkey", (c) => {
   `);
 });
 
-app.post("/passkey", async (c) => {});
-
 app.post("/delete-feed", async (c) => {
   const data = await c.req.parseBody();
   const feedId = data["feedId"];
