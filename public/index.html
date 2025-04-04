@@ -581,7 +581,7 @@
       step.style.padding = "1em";
       step.style.marginBottom = "1em";
 
-      const nestedContainerId = `${field}-nested-${crypto.randomUUID()}`;
+      const nestedContainerId = `${field}-nested-${generateUUID()}`;
 
       step.innerHTML = `
     <label>Selector:</label>
@@ -640,6 +640,14 @@
         }
       }
     });
+
+    function generateUUID() {
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+        const r = (Math.random() * 16) | 0;
+        const v = c === 'x' ? r : (r & 0x3) | 0x8;
+        return v.toString(16);
+      });
+    }
 
   </script>
 </body>
