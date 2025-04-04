@@ -1,6 +1,4 @@
 import { file } from "bun";
-import { parse as parseCookie, serialize as serializeCookie } from "cookie";
-import * as cookieSignature from "cookie-signature";
 import { existsSync, mkdirSync, unlink } from "fs";
 import { readFile, readdir, writeFile } from "fs/promises";
 import { Context, Hono } from "hono";
@@ -147,22 +145,6 @@ app.post("/", async (ctx) => {
 
   const feedType = extract("feedType", "webScraping");
   
-  const buildCSSTarget = (prefix: string) => {
-    const dateFormat = extract(`${prefix}Format`);
-    const customDateFormat =
-      dateFormat === "other" ? extract("customDateFormat") : undefined;
-
-    return new CSSTarget(
-      extract(`${prefix}Selector`),
-      extract(`${prefix}Attribute`),
-      ["on", true, "true"].includes(extract(`${prefix}StripHtml`)),
-      extract(`${prefix}BaseUrl`),
-      ["on", true, "true"].includes(extract(`${prefix}RelativeLink`)),
-      ["on", true, "true"].includes(extract(`${prefix}TitleCase`)),
-      extract(`${prefix}Iterator`),
-      dateFormat === "other" ? customDateFormat : dateFormat
-    );
-  };
   const apiConfig: ApiConfig = {
     title: extract("feedName", "RSS Feed"),
     baseUrl: extract("feedUrl"),
@@ -191,11 +173,11 @@ app.post("/", async (ctx) => {
       feedType === "webScraping"
         ? {
             iterator: new CSSTarget(extract("itemSelector")),
-            title: buildCSSTarget("title"),
-            description: buildCSSTarget("description"),
-            link: buildCSSTarget("link"),
-            enclosure: buildCSSTarget("enclosure"),
-            date: buildCSSTarget("date"),
+            title: buildCSSTarget("title", body),
+            description: buildCSSTarget("description", body),
+            link: buildCSSTarget("link", body),
+            enclosure: buildCSSTarget("enclosure", body),
+            date: buildCSSTarget("date", body),
             headers: extract("headers"),
           }
         : {},
@@ -240,24 +222,6 @@ app.post("/preview", async (ctx) => {
     const extract = (key: string, fallback: any = undefined) =>
       jsonData[key] ?? fallback;
 
-    const buildCSSTarget = (prefix: string) => {
-      const dateFormat = extract(`${prefix}Format`);
-      const customDateFormat =
-        dateFormat === "other" ? extract("customDateFormat") : undefined;
-
-      return new CSSTarget(
-        extract(`${prefix}Selector`),
-        extract(`${prefix}Attribute`),
-        ["on", true, "true"].includes(extract(`${prefix}StripHtml`)),
-        extract(`${prefix}BaseUrl`),
-        ["on", true, "true"].includes(extract(`${prefix}RelativeLink`)),
-        ["on", true, "true"].includes(extract(`${prefix}TitleCase`)),
-        extract(`${prefix}Iterator`),
-        // Pass either the standard date format or the custom format
-        dateFormat === "other" ? customDateFormat : dateFormat
-      );
-    };
-
     const feedType = extract("feedType", "webScraping");
 
     const apiConfig: ApiConfig = {
@@ -288,12 +252,12 @@ app.post("/preview", async (ctx) => {
         feedType === "webScraping"
           ? {
               iterator: new CSSTarget(extract("itemSelector")),
-              title: buildCSSTarget("title"),
-              description: buildCSSTarget("description"),
-              link: buildCSSTarget("link"),
-              author: buildCSSTarget("author"),
-              date: buildCSSTarget("date"),
-              enclosure: buildCSSTarget("enclosure"),
+              title: buildCSSTarget("title", jsonData),
+              description: buildCSSTarget("description", jsonData),
+              link: buildCSSTarget("link", jsonData),
+              author: buildCSSTarget("author", jsonData),
+              date: buildCSSTarget("date", jsonData),
+              enclosure: buildCSSTarget("enclosure", jsonData),
             }
           : {},
       apiMapping:
@@ -541,6 +505,77 @@ app.get("privacy-policy", (ctx) =>
     `We only keep the data you provide for generating RSS feeds. We do not store any personal information.`
   )
 );
+
+function buildCSSTarget(prefix: string, body: Record<string, any>): CSSTarget {
+  const extract = (k: string) => (body[k]?.toString() ?? "");
+
+  const dateFormat = extract(`${prefix}Format`);
+  const customDateFormat = dateFormat === "other" ? extract("customDateFormat") : undefined;
+
+  const target = new CSSTarget(
+    extract(`${prefix}Selector`),
+    extract(`${prefix}Attribute`),
+    ["on", "true", true].includes(extract(`${prefix}StripHtml`)),
+    extract(`${prefix}BaseUrl`),
+    ["on", "true", true].includes(extract(`${prefix}RelativeLink`)),
+    ["on", "true", true].includes(extract(`${prefix}TitleCase`)),
+    extract(`${prefix}Iterator`),
+    dateFormat === "other" ? customDateFormat : dateFormat
+  );
+
+  // Parse the chain
+  target.drillChain = parseDrillChain(prefix, body);
+  return target;
+}
+
+function parseDrillChain(
+  prefix: string,
+  body: Record<string, any>
+): Array<{
+  selector: string;
+  attribute: string;
+  isRelative: boolean;
+  baseUrl: string;
+}> {
+  const key = `${prefix}DrillChain`;
+  const rawChain = body[key];
+
+  if (Array.isArray(rawChain)) {
+    return rawChain.map((step) => ({
+      selector: step.selector ?? "",
+      attribute: step.attribute ?? "",
+      isRelative: ["on", "true", true].includes(step.isRelative),
+      baseUrl: step.baseUrl ?? "",
+    }));
+  }
+
+  const chainSteps = [];
+  const chainKeyRegex = new RegExp(`^${key}\\[(\\d+)\\]\\[(.*?)\\]$`);
+  const tempStore: Record<string, Record<string, string>> = {};
+
+  for (const key of Object.keys(body)) {
+    const match = chainKeyRegex.exec(key);
+    if (match) {
+      const index = match[1];
+      const fieldName = match[2];
+      if (!tempStore[index]) tempStore[index] = {};
+      tempStore[index][fieldName] = body[key];
+    }
+  }
+
+  const sortedKeys = Object.keys(tempStore).sort((a, b) => parseInt(a) - parseInt(b));
+  for (const idx of sortedKeys) {
+    const row = tempStore[idx];
+    chainSteps.push({
+      selector: row.selector ?? "",
+      attribute: row.attribute ?? "",
+      isRelative: ["on", "true", true].includes(row.isRelative),
+      baseUrl: row.baseUrl ?? "",
+    });
+  }
+
+  return chainSteps;
+}
 
 function initializeWorker(feedConfig: any) {
   feedUpdaters.set(

@@ -12,8 +12,6 @@
     "bun": "^1.1.33",
     "bun-types": "^0.1.0",
     "cheerio": "^1.0.0",
-    "cookie": "^1.0.1",
-    "cookie-signature": "^1.2.2",
     "dayjs": "^1.11.13",
     "hono": "^4.6.8",
     "hono-sessions": "^0.7.0",

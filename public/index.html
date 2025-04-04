@@ -7,7 +7,11 @@
   <link rel="icon" href="/public/logo.ico" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" />
   <style>
-    #playgroundBtn.hidden {
+    summary {
+      font-weight: bold;
+    }
+
+    .hidden {
       display: none;
     }
 
@@ -20,16 +24,21 @@
       z-index: 9999;
     }
 
-    #closePlaygroundBtn.hidden {
-      display: none;
-    }
-
     #closePlaygroundBtn.floating-btn {
       position: fixed;
       left: 50%;
       transform: translateX(-50%);
       bottom: 0.25rem;
       z-index: 10000;
+    }
+
+    #titleDrillContainer,
+    #descriptionDrillContainer,
+    #linkDrillContainer,
+    #enclosureDrillContainer,
+    #authorDrillContainer,
+    #dateDrillContainer {
+      margin-top: 1em;
     }
   </style>
 </head>
@@ -50,128 +59,166 @@
     <main style="padding-left: 30vw; padding-right: 30vw">
       <form action="/" method="post">
         <label for="feedName">Feed Name:</label>
-        <input type="text" name="feedName" id="feedName" required /><br /><br />
+        <input type="text" name="feedName" id="feedName" required /><br><br>
         <div id="urlDiv">
           <label for="feedUrl">Target URL:</label>
           <input type="text" name="feedUrl" id="feedUrl" />
         </div>
-        <br />
-        <br />
+        <br>
+        <br>
         <label for="feedType">Feed Type:</label>
         <select name="feedType" id="feedType" value="webScraping">
           <option value="webScraping">Web Scraping</option>
           <option value="api">REST API Call</option>
           <option value="email">Email</option>
-        </select><br /><br />
+        </select><br><br>
         <div id="emailScrapingFields" style="display: none">
           <h3>Email Configuration</h3>
           <label for="emailHost">IMAP Server:</label>
-          <input type="text" name="emailHost" id="emailHost" /><br /><br />
+          <input type="text" name="emailHost" id="emailHost" /><br><br>
           <label for="emailPort">IMAP Port:</label>
-          <input type="text" name="emailPort" id="emailPort" /><br /><br />
+          <input type="text" name="emailPort" id="emailPort" /><br><br>
           <label for="emailUsername">Username:</label>
-          <input type="text" name="emailUsername" id="emailUsername" /><br /><br />
+          <input type="text" name="emailUsername" id="emailUsername" /><br><br>
           <label for="emailPassword">Password:</label>
-          <input type="password" name="emailPassword" id="emailPassword" /><br /><br />
+          <input type="password" name="emailPassword" id="emailPassword" /><br><br>
           <label for="emailFolderFieldSet">Folder:</label>
           <fieldset name="emailFolderFieldSet" role="group">
             <select name="emailFolder" id="emailFolder"></select>
             <input type="button" id="fetchFolders" value="Load Folder Options" />
           </fieldset>
-          <br /><br />
+          <br><br>
         </div>
         <div id="webScrapingFields">
           <h3>CSS Selectors for RSS Feed Items</h3>
           <label for="itemSelector">Item Selector (Iterator):</label>
-          <input type="text" name="itemSelector" id="itemSelector" /><br /><br />
+          <input type="text" name="itemSelector" id="itemSelector" /><br><br>
           <label for="titleSelector">Title Selector:</label>
-          <input type="text" name="titleSelector" id="titleSelector" /><br /><br />
+          <input type="text" name="titleSelector" id="titleSelector" /><br><br>
           <label for="titleAttribute">Title Attribute:</label>
-          <input type="text" name="titleAttribute" id="titleAttribute" /><br /><br />
+          <input type="text" name="titleAttribute" id="titleAttribute" /><br><br>
           <label for="titleIterator">Title Parent Iterator (optional):</label>
-          <input type="text" name="titleIterator" id="titleIterator" /><br /><br />
+          <input type="text" name="titleIterator" id="titleIterator" /><br><br>
           <label>
             <input type="checkbox" name="titleStripHtml" id="titleStripHtml" />
-            Strip HTML in Title </label><br /><br />
+            Strip HTML in Title </label><br><br>
           <label>
             <input type="checkbox" name="titleTitleCase" id="titleTitleCase" />
-            Convert Title to Title Case </label><br /><br />
+            Convert Title to Title Case </label><br><br>
+          Title Drill Chain (Optional)
+          <span class="tooltip"
+                data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
+          <div id="titleDrillContainer"></div>
+          <button type="button" class="outline" id="titleAddButton" onclick="addDrillStep('title')">
+            + Add Chain
+          </button>
+          <br><br>
           <details>
             <summary>Description</summary>
             <label for="descriptionSelector">Description Selector:</label>
-            <input type="text" name="descriptionSelector" id="descriptionSelector" /><br /><br />
+            <input type="text" name="descriptionSelector" id="descriptionSelector" /><br><br>
             <label for="descriptionAttribute">Description Attribute:</label>
-            <input type="text" name="descriptionAttribute" id="descriptionAttribute" /><br /><br />
+            <input type="text" name="descriptionAttribute" id="descriptionAttribute" /><br><br>
             <label for="descriptionIterator">Description Parent Iterator (optional):</label>
-            <input type="text" name="descriptionIterator" id="descriptionIterator" /><br /><br />
+            <input type="text" name="descriptionIterator" id="descriptionIterator" /><br><br>
             <label>
               <input type="checkbox" name="descriptionStripHtml" id="descriptionStripHtml" />
-              Strip HTML in Description </label><br /><br />
+              Strip HTML in Description </label><br><br>
             <label>
               <input type="checkbox" name="descriptionTitleCase" id="descriptionTitleCase" />
               Convert Description to Title Case
-            </label>
+            </label><br><br>
+            Description Drill Chain (Optional)
+            <span class="tooltip"
+                data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
+            <div id="descriptionDrillContainer"></div>
+            <button type="button" class="outline" id="descriptionAddButton" onclick="addDrillStep('description')">
+              + Add Chain
+            </button>
           </details>
-          <br /><br />
+          <br><br>
           <details>
             <summary>Link</summary>
             <label for="linkSelector">Link Selector:</label>
-            <input type="text" name="linkSelector" id="linkSelector" /><br /><br />
+            <input type="text" name="linkSelector" id="linkSelector" /><br><br>
             <label for="linkAttribute">Link Attribute:</label>
-            <input type="text" name="linkAttribute" id="linkAttribute" /><br /><br />
+            <input type="text" name="linkAttribute" id="linkAttribute" /><br><br>
             <label for="linkIterator">Link Parent Iterator (optional):</label>
-            <input type="text" name="linkIterator" id="linkIterator" /><br /><br />
+            <input type="text" name="linkIterator" id="linkIterator" /><br><br>
             <label>
               <input type="checkbox" name="linkRelativeLink" id="linkRelativeLink" />
-              Relative Link? </label><br /><br />
+              Relative Link? </label><br><br>
             <label style="display: none" id="linkBaseUrlLabel" for="linkBaseUrl">Base URL:</label>
-            <input style="display: none" type="text" name="linkBaseUrl" id="linkBaseUrl" />
+            <input style="display: none; margin-bottom: 1em;" type="text" name="linkBaseUrl" id="linkBaseUrl" />
+            Link Drill Chain (Optional)
+            <span class="tooltip"
+                data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
+            <div id="linkDrillContainer"></div>
+            <button type="button" class="outline" id="linkAddButton" onclick="addDrillStep('link')">
+              + Add Chain
+            </button>
           </details>
-          <br /><br />
+          <br><br>
           <details>
             <summary>Enclosure (Image, Video, Etc.)</summary>
             <label for="enclosureSelector">Enclosure Selector:</label>
-            <input type="text" name="enclosureSelector" id="enclosureSelector" /><br /><br />
+            <input type="text" name="enclosureSelector" id="enclosureSelector" /><br><br>
             <label for="enclosureAttribute">Enclosure Attribute:</label>
-            <input type="text" name="enclosureAttribute" id="enclosureAttribute" /><br /><br />
+            <input type="text" name="enclosureAttribute" id="enclosureAttribute" /><br><br>
             <label for="enclosureIterator">Enclosure Parent Iterator (optional):</label>
-            <input type="text" name="enclosureIterator" id="enclosureIterator" /><br /><br />
+            <input type="text" name="enclosureIterator" id="enclosureIterator" /><br><br>
             <label>
               <input type="checkbox" name="enclosureRelativeLink" id="enclosureRelativeLink" />
-              Relative Link? </label><br /><br />
+              Relative Link? </label><br><br>
             <label style="display: none" id="enclosureBaseUrlLabel" for="enclosureBaseUrl">Base URL:</label>
-            <input style="display: none" type="text" name="enclosureBaseUrl" id="enclosureBaseUrl" />
+            <input style="display: none; margin-bottom: 1em;" type="text" name="enclosureBaseUrl"
+              id="enclosureBaseUrl" />
+            Enclosure Drill Chain (Optional)
+            <span class="tooltip"
+                data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
+            <div id="enclosureDrillContainer"></div>
+            <button type="button" class="outline" id="enclosureAddButton" onclick="addDrillStep('enclosure')">
+              + Add Chain
+            </button>
           </details>
-          <br /><br />
+          <br><br>
           <details>
             <summary>Author</summary>
             <label for="authorSelector">Author Selector:</label>
-            <input type="text" name="authorSelector" id="authorSelector" /><br /><br />
+            <input type="text" name="authorSelector" id="authorSelector" /><br><br>
             <label for="authorAttribute">Author Attribute:</label>
-            <input type="text" name="authorAttribute" id="authorAttribute" /><br /><br />
+            <input type="text" name="authorAttribute" id="authorAttribute" /><br><br>
             <label for="authorIterator">
               Author Parent Iterator (optional):
             </label>
-            <input type="text" name="authorIterator" id="authorIterator" /><br /><br />
+            <input type="text" name="authorIterator" id="authorIterator" /><br><br>
             <label>
               <input type="checkbox" name="authorStripHtml" id="authorStripHtml" />
-              Strip HTML in Author </label><br /><br />
+              Strip HTML in Author </label><br><br>
             <label>
               <input type="checkbox" name="authorTitleCase" id="authorTitleCase" />
               Convert Author to Title Case
             </label>
+            <br><br>
+            Author Drill Chain (Optional)
+            <span class="tooltip"
+                data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
+            <div id="authorDrillContainer"></div>
+            <button type="button" class="outline" id="authorAddButton" onclick="addDrillStep('author')">
+              + Add Chain
+            </button>
           </details>
-          <br /><br />
+          <br><br>
           <details>
             <summary>Date</summary>
             <label for="dateSelector">Date Selector:</label>
-            <input type="text" name="dateSelector" id="dateSelector" /><br /><br />
+            <input type="text" name="dateSelector" id="dateSelector" /><br><br>
             <label for="dateAttribute">Date Attribute:</label>
-            <input type="text" name="dateAttribute" id="dateAttribute" /><br /><br />
+            <input type="text" name="dateAttribute" id="dateAttribute" /><br><br>
             <label for="dateIterator">
               Date Parent Iterator (optional):
             </label>
-            <input type="text" name="dateIterator" id="dateIterator" /><br /><br />
+            <input type="text" name="dateIterator" id="dateIterator" /><br><br>
             <label for="dateFormat">
               Date Format (optional):
               <span class="tooltip"
@@ -184,50 +231,57 @@
               <option value="MM/DD/YYYY">MM/DD/YYYY</option>
               <option value="MM.DD.YYYY">MM.DD.YYYY</option>
               <option value="other">Other (specify)</option>
-            </select><br /><br />
-            <label for="customDateFormat" id="customDateFormatLabel" style="display: none">Custom Date Format:</label>
+            </select><br><br>
+            <label for="customDateFormat" id="customDateFormatLabel" style="display: none;">Custom Date Format:</label>
             <input type="text" name="customDateFormat" id="customDateFormat" placeholder="e.g. YYYY/MM/DD HH:mm"
-              style="display: none" /><br /><br />
+              style="display: none; margin-bottom: 1em;" />
+            Date Drill Chain (Optional)
+            <span class="tooltip"
+                data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
+            <div id="dateDrillContainer"></div>
+            <button type="button" class="outline" id="dateAddButton" onclick="addDrillStep('date')">
+              + Add Chain
+            </button>
           </details>
         </div>
         <!-- API Fields -->
         <div id="apiFields" style="display: none">
           <h3>API Configuration</h3>
           <label for="apiRoute">API Route (Ex: "/dog/breeds"):</label>
-          <input type="text" name="apiRoute" id="apiRoute" /><br /><br />
+          <input type="text" name="apiRoute" id="apiRoute" /><br><br>
 
           <label for="apiMethod">HTTP Method:</label>
           <select name="apiMethod" id="apiMethod">
             <option value="GET">GET</option>
             <option value="POST">POST</option>
-          </select><br /><br />
+          </select><br><br>
 
-          <label for="apiParams">Query Parameters (JSON format):</label><br />
-          <textarea name="apiParams" id="apiParams" rows="5" cols="50">{}</textarea><br /><br />
+          <label for="apiParams">Query Parameters (JSON format):</label><br>
+          <textarea name="apiParams" id="apiParams" rows="5" cols="50">{}</textarea><br><br>
 
-          <label for="apiHeaders">HTTP Headers (JSON format):</label><br />
-          <textarea name="apiHeaders" id="apiHeaders" rows="5" cols="50">{}</textarea><br /><br />
+          <label for="apiHeaders">HTTP Headers (JSON format):</label><br>
+          <textarea name="apiHeaders" id="apiHeaders" rows="5" cols="50">{}</textarea><br><br>
 
-          <label for="apiBody">Request Body (JSON format):</label><br />
-          <textarea name="apiBody" id="apiBody" rows="5" cols="50">{}</textarea><br /><br />
+          <label for="apiBody">Request Body (JSON format):</label><br>
+          <textarea name="apiBody" id="apiBody" rows="5" cols="50">{}</textarea><br><br>
 
           <h3>API Response Mapping</h3>
           <label for="apiItemsPath">Items Path (e.g., 'data.items'):</label>
-          <input type="text" name="apiItemsPath" id="apiItemsPath" /><br /><br />
+          <input type="text" name="apiItemsPath" id="apiItemsPath" /><br><br>
 
           <label for="apiTitleField">Title Field:</label>
-          <input type="text" name="apiTitleField" id="apiTitleField" /><br /><br />
+          <input type="text" name="apiTitleField" id="apiTitleField" /><br><br>
 
           <label for="apiDescriptionField">Description Field:</label>
-          <input type="text" name="apiDescriptionField" id="apiDescriptionField" /><br /><br />
+          <input type="text" name="apiDescriptionField" id="apiDescriptionField" /><br><br>
 
           <label for="apiLinkField">Link Field:</label>
-          <input type="text" name="apiLinkField" id="apiLinkField" /><br /><br />
+          <input type="text" name="apiLinkField" id="apiLinkField" /><br><br>
 
           <label for="apiDateField">Date Field:</label>
-          <input type="text" name="apiDateField" id="apiDateField" /><br /><br />
+          <input type="text" name="apiDateField" id="apiDateField" /><br><br>
         </div>
-        <br /><br />
+        <br><br>
         <details>
           <summary>Additional Options</summary>
           <label for="headers">HTTP Headers (JSON format):</label>
@@ -241,15 +295,15 @@
           <label>
             <input type="checkbox" name="advanced" id="advanced" />
             Use Advanced Scraping <span class="tooltip"
-            data-tooltip="Use for websites that have lazily loaded content. This option launches a headless browser that waits for content to load before scraping.">ℹ️</span>
+              data-tooltip="Use for websites that have lazily loaded content. This option launches a headless browser that waits for content to load before scraping.">ℹ️</span>
           </label>
           <label>
             <input type="checkbox" name="strict" id="strict" />
             Strict Mode <span class="tooltip"
-            data-tooltip="Rejects feed items that do not have all of the expected fields/properties.">ℹ️</span>
+              data-tooltip="Rejects feed items that do not have all of the expected fields/properties.">ℹ️</span>
           </label>
         </details>
-        <br /><br />
+        <br><br>
         <div role="group">
           <button type="button" id="previewButton" class="outline contrast">
             Preview
@@ -505,6 +559,88 @@
       closePlaygroundBtn.classList.add("hidden");
       closePlaygroundBtn.classList.remove("floating-btn");
     });
+
+    const drillStepIndices = {};
+
+    function addDrillStep(field) {
+      if (!drillStepIndices[field]) drillStepIndices[field] = 0;
+
+      const container = document.getElementById(`${field}DrillContainer`);
+      const index = drillStepIndices[field]++;
+      const step = drillTemplates(field, index);
+      container.appendChild(step);
+
+      const button = document.getElementById(`${field}AddButton`);
+      if (button) button.remove();
+    }
+
+    function drillTemplates(field, index) {
+      const step = document.createElement("div");
+      step.className = "drill-step";
+      step.style.border = "1px solid #ccc";
+      step.style.padding = "1em";
+      step.style.marginBottom = "1em";
+
+      const nestedContainerId = `${field}-nested-${crypto.randomUUID()}`;
+
+      step.innerHTML = `
+    <label>Selector:</label>
+    <input type="text" name="${field}DrillChain[${index}][selector]" />
+
+    <label>Attribute:</label>
+    <input type="text" name="${field}DrillChain[${index}][attribute]" />
+
+    <label>
+      <input type="checkbox"
+             name="${field}DrillChain[${index}][isRelative]"
+             class="relative-toggle"
+             data-field="${field}"
+             data-nested="${nestedContainerId}" />
+      Relative?
+    </label>
+
+    <div class="relative-base-url hidden" style="margin-top: 0.5em;">
+      <label>Base URL:</label>
+      <input type="text" name="${field}DrillChain[${index}][baseUrl]" />
+    </div>
+
+    <div class="drill-nested" id="${nestedContainerId}">
+      <button type="button"
+              class="outline small add-nested"
+              data-field="${field}"
+              data-target="${nestedContainerId}">
+        + Add Nested Step
+      </button>
+    </div>
+  `;
+
+      return step;
+    }
+
+    document.addEventListener("click", function (e) {
+      if (e.target.matches(".add-nested")) {
+        const field = e.target.dataset.field;
+        const targetId = e.target.dataset.target;
+        const target = document.getElementById(targetId);
+
+        if (!drillStepIndices[field]) drillStepIndices[field] = 0;
+        const index = drillStepIndices[field]++;
+        const newStep = drillTemplates(field, index);
+        target.insertBefore(newStep, e.target);
+        e.target.remove(); // remove +Add Nested Step button
+      }
+    });
+
+    document.addEventListener("change", function (e) {
+      if (e.target.matches(".relative-toggle")) {
+        const wrapper = e.target.closest(".drill-step");
+        const baseUrlDiv = wrapper.querySelector(".relative-base-url");
+        if (baseUrlDiv) {
+          baseUrlDiv.classList.toggle("hidden", !e.target.checked);
+        }
+      }
+    });
+
   </script>
 </body>
 

@@ -83,6 +83,19 @@ Email feeds do not refresh on intervals. The process runs continuously and updat
 
 ---
 
+## 🪜 What is a Drill Chain?
+
+A drill chain is a sequence of CSS selector steps used to navigate through multiple HTML pages to extract a final value (e.g., a link, image, or text). This is useful when data cannot be accessed from a single page or selector alone—such as when a link leads to another page that contains the actual data of interest.
+
+### 🔍 Why Use Drill Chains?
+
+Some websites structure content across multiple layers:
+ - The first page contains a list of links.
+ - The second page (linked from the first) contains the actual title, image, or description.
+ - Drill chains automate that navigation process.
+
+---
+
 ## 🔧 To Do
 
 - [ ] Add ALL possible RSS fields to models

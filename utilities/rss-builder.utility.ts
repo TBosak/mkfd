@@ -6,6 +6,7 @@ import {
   processLinks,
   processWords,
   get,
+  resolveDrillChain,
 } from "./data-handler.utility";
 import ApiConfig from "./../models/apiconfig.model";
 
@@ -25,6 +26,7 @@ export async function buildRSS(
   };
   const reverse: boolean = feedConfig.reverse || false;
   const strict: boolean = feedConfig.strict || false;
+  const advanced: boolean = apiConfig.advanced || false;
   const $ = cheerio.load(res);
   const elements = $(article.iterator.selector).toArray();
 
@@ -32,189 +34,39 @@ export async function buildRSS(
     var input = await Promise.all(
       elements.map(async (el, i) => {
         const itemData = {
-          title: !article.title?.iterator
-            ? !!article.title?.attribute
-              ? processWords(
-                  $(el)
-                    .find(article.title?.selector)
-                    ?.attr(article.title?.attribute),
-                  article.title?.titleCase,
-                  article.title?.stripHtml,
-                )
-              : processWords(
-                  $(el).find(article.title?.selector)?.text(),
-                  article.title?.titleCase,
-                  article.title?.stripHtml,
-                )
-            : !!article.title?.attribute
-              ? processWords(
-                  $($(article.title.iterator).toArray()[i])
-                    .find(article.title.selector)
-                    ?.attr(article.title?.attribute),
-                  article.title.titleCase,
-                  article.title.stripHtml,
-                )
-              : processWords(
-                  $($(article.title.iterator).toArray()[i])
-                    .find(article.title.selector)
-                    .text(),
-                  article.title.titleCase,
-                  article.title.stripHtml,
-                ),
-          description: !article.description?.iterator
-            ? !!article.description?.attribute
-              ? processWords(
-                  $(el)
-                    .find(article.description?.selector)
-                    ?.attr(article.description?.attribute),
-                  article.description?.titleCase,
-                  article.description?.stripHtml,
-                )
-              : processWords(
-                  $(el).find(article.description?.selector)?.text(),
-                  article.description?.titleCase,
-                  article.description?.stripHtml,
-                )
-            : !!article.description?.attribute
-              ? processWords(
-                  $($(article.description.iterator).toArray()[i])
-                    .find(article.description.selector)
-                    ?.attr(article.description?.attribute),
-                  article.description.titleCase,
-                  article.description.stripHtml,
-                )
-              : processWords(
-                  $($(article.description.iterator).toArray()[i])
-                    .find(article.description.selector)
-                    .text(),
-                  article.description.titleCase,
-                  article.description.stripHtml,
-                ),
-          url: !article.link?.iterator
-            ? !!article.link?.attribute
-              ? processLinks(
-                  $(el)
-                    .find(article.link?.selector)
-                    ?.attr(article.link?.attribute),
-                  article.link?.stripHtml,
-                  article.link?.relativeLink,
-                  article.link?.rootUrl,
-                )
-              : processLinks(
-                  $(el).find(article.link?.selector)?.text(),
-                  article.link?.stripHtml,
-                  article.link?.relativeLink,
-                  article.link?.rootUrl,
-                )
-            : !!article.link?.attribute
-              ? processLinks(
-                  $($(article.link.iterator).toArray()[i])
-                    .find(article.link.selector)
-                    ?.attr(article.link?.attribute),
-                  article.link.stripHtml,
-                  article.link.relativeLink,
-                  article.link.rootUrl,
-                )
-              : processLinks(
-                  $($(article.link.iterator).toArray()[i])
-                    .find(article.link.selector)
-                    .text(),
-                  article.link.stripHtml,
-                  article.link.relativeLink,
-                  article.link.rootUrl,
-                ),
-          author: !article.author?.iterator
-            ? !!article.author?.attribute
-              ? processWords(
-                  $(el)
-                    .find(article.author?.selector)
-                    ?.attr(article.author?.attribute),
-                  article.author?.titleCase,
-                  article.author?.stripHtml,
-                )
-              : processWords(
-                  $(el).find(article.author?.selector)?.text(),
-                  article.author?.titleCase,
-                  article.author?.stripHtml,
-                )
-            : !!article.author?.attribute
-              ? processWords(
-                  $($(article.author.iterator).toArray()[i])
-                    .find(article.author.selector)
-                    ?.attr(article.author?.attribute),
-                  article.author.titleCase,
-                  article.author.stripHtml,
-                )
-              : processWords(
-                  $($(article.author.iterator).toArray()[i])
-                    .find(article.author.selector)
-                    .text(),
-                  article.author.titleCase,
-                  article.author.stripHtml,
-                ),
-          date: !article.date?.iterator
-            ? !!article.date?.attribute
-              ? processDates(
-                  $(el)
-                    .find(article.date?.selector)
-                    ?.attr(article.date?.attribute),
-                  article.date?.stripHtml,
-                  article.date?.dateFormat,
-                )
-              : processDates(
-                  $(el).find(article.date?.selector)?.text(),
-                  article.date?.stripHtml,
-                  article.date?.dateFormat,
-                )
-            : !!article.date?.attribute
-              ? processDates(
-                  $($(article.date.iterator).toArray()[i])
-                    .find(article.date.selector)
-                    ?.attr(article.date?.attribute),
-                  article.date?.stripHtml,
-                  article.date?.dateFormat,
-                )
-              : processDates(
-                  $($(article.date.iterator).toArray()[i])
-                    .find(article.date.selector)
-                    .text(),
-                  article.date?.stripHtml,
-                  article.date?.dateFormat,
-                ),
+          title: processWords(
+            await extractField($, el, article.title, advanced),
+            article.title?.titleCase,
+            article.title?.stripHtml
+          ),
+          description: processWords(
+            await extractField($, el, article.description, advanced),
+            article.description?.titleCase,
+            article.description?.stripHtml
+          ),
+          url:processLinks(
+            await extractField($, el, article.link, advanced),
+            article.link?.stripHtml,
+            article.link?.relativeLink,
+            article.link?.rootUrl
+          ),
+          author: processWords(
+            await extractField($, el, article.author, advanced),
+            article.author?.titleCase,
+            article.author?.stripHtml
+          ),
+          date: processDates(
+            await extractField($, el, article.date, advanced),
+            article.date?.stripHtml,
+            article.date?.dateFormat
+          ),
           enclosure: {
-            url: !article.enclosure?.iterator
-              ? !!article.enclosure?.attribute
-                ? processLinks(
-                    $(el)
-                      .find(article.enclosure?.selector)
-                      ?.attr(article.enclosure?.attribute),
-                    article.enclosure?.stripHtml,
-                    article.enclosure?.relativeLink,
-                    article.enclosure?.rootUrl,
-                  )
-                : processLinks(
-                    $(el).find(article.enclosure?.selector)?.text(),
-                    article.enclosure?.stripHtml,
-                    article.enclosure?.relativeLink,
-                    article.enclosure?.rootUrl,
-                  )
-              : !!article.enclosure?.attribute
-                ? processLinks(
-                    $($(article.enclosure.iterator).toArray()[i])
-                      .find(article.enclosure.selector)
-                      ?.attr(article.enclosure?.attribute),
-                    article.enclosure.stripHtml,
-                    article.enclosure.relativeLink,
-                    article.enclosure.rootUrl,
-                  )
-                : processLinks(
-                    $($(article.enclosure.iterator).toArray()[i])
-                      .find(article.enclosure.selector)
-                      .text(),
-                    article.enclosure.stripHtml,
-                    article.enclosure.relativeLink,
-                    article.enclosure.rootUrl,
-                  ),
+            url: processLinks(
+              await extractField($, el, article.enclosure, advanced),
+              article.enclosure?.stripHtml,
+              article.enclosure?.relativeLink,
+              article.enclosure?.rootUrl
+            ),
             size: 0,
             type: "application/octet-stream",
           },
@@ -357,4 +209,27 @@ function filterStrictly(items: any[]): any[] {
     return true
   })
   return filtered
+}
+
+async function extractField(
+  $: cheerio.Root,
+  el: cheerio.Element,
+  field: CSSTarget,
+  advanced: boolean = false
+) {
+  if (!field) return "";
+
+  // If we have a chain, do that
+  if (field.drillChain && field.drillChain.length > 0) {
+    // Option 1: pass the entire item HTML
+    const itemHtml = $.html(el);
+    return await resolveDrillChain(itemHtml, field.drillChain, advanced);
+  }
+
+  // Otherwise, do your existing single-step approach:
+  if (field.attribute) {
+    return $(el).find(field.selector).attr(field.attribute) ?? "";
+  } else {
+    return $(el).find(field.selector).text() ?? "";
+  }
 }
