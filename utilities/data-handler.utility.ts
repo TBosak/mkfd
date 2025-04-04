@@ -1,5 +1,9 @@
+import axios from "axios";
 import dayjs from "dayjs";
+import * as cheerio from "cheerio";
 import customParseFormat from "dayjs/plugin/customParseFormat";
+import puppeteer, { Browser, Page } from "puppeteer";
+
 dayjs.extend(customParseFormat);
 
 export function stripHtml(html: string) {
@@ -119,4 +123,96 @@ export function get(obj, path, defaultValue) {
     result = result[key];
   }
   return result;
+}
+
+export async function resolveDrillChain(
+  startingHtmlOrUrl: string,
+  chain: Array<{
+    selector: string;
+    attribute: string;
+    isRelative: boolean;
+    baseUrl: string;
+  }>,
+  useAdvanced: boolean = false
+): Promise<string> {
+  if (!chain || chain.length === 0) return "";
+
+  let currentUrl = "";
+  let currentHtml = "";
+  let browser: Browser | null = null;
+  let page: Page | null = null;
+
+  try {
+    if (
+      startingHtmlOrUrl.startsWith("http://") ||
+      startingHtmlOrUrl.startsWith("https://")
+    ) {
+      if (useAdvanced) {
+        browser = await puppeteer.launch();
+        page = await browser.newPage();
+        await page.goto(startingHtmlOrUrl, { waitUntil: "networkidle0" });
+        currentHtml = await page.content();
+        currentUrl = startingHtmlOrUrl;
+      } else {
+        const resp = await axios.get(startingHtmlOrUrl);
+        currentHtml = resp.data;
+        currentUrl = startingHtmlOrUrl;
+      }
+    } else {
+      currentHtml = startingHtmlOrUrl;
+    }
+
+    let finalValue = "";
+
+    for (let i = 0; i < chain.length; i++) {
+      const step = chain[i];
+      const { selector, attribute, isRelative, baseUrl } = step;
+
+      const $ = cheerio.load(currentHtml);
+      const el = $(selector).first();
+      if (!el || el.length === 0) {
+        finalValue = "";
+        break;
+      }
+
+      const rawValue = attribute ? el.attr(attribute) ?? "" : el.text() ?? "";
+
+      if (i === chain.length - 1) {
+        finalValue = rawValue;
+      } else {
+        let absoluteUrl = rawValue;
+        if (isRelative && baseUrl) {
+          if (!baseUrl.endsWith("/") && !rawValue.startsWith("/")) {
+            absoluteUrl = baseUrl + "/" + rawValue;
+          } else {
+            absoluteUrl = baseUrl + rawValue;
+          }
+        }
+
+        if (useAdvanced && browser && page) {
+          try {
+            await page.goto(absoluteUrl, { waitUntil: "networkidle0" });
+            currentHtml = await page.content();
+            currentUrl = absoluteUrl;
+          } catch (err) {
+            finalValue = "";
+            break;
+          }
+        } else {
+          try {
+            const resp = await axios.get(absoluteUrl);
+            currentHtml = resp.data;
+            currentUrl = absoluteUrl;
+          } catch (err) {
+            finalValue = "";
+            break;
+          }
+        }
+      }
+    }
+
+    return finalValue;
+  } finally {
+    if (browser) await browser.close();
+  }
 }

@@ -8,5 +8,10 @@ export default class CSSTarget {
     public titleCase?: boolean,
     public iterator?: string,
     public dateFormat?: string,
-  ) {}
+    public drillChain?: Array<{
+      selector: string;
+      attribute: string;
+      isRelative: boolean;
+      baseUrl: string;
+    }>) {}
 }
