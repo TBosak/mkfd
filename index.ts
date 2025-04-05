@@ -19,10 +19,11 @@ import { listImapFolders } from "./utilities/imap.utility";
 import { encrypt } from "./utilities/security.utility";
 import puppeteer from "puppeteer";
 import { CookieStore, sessionMiddleware } from "hono-sessions";
+import { suggestSelectors } from "./utilities/suggestion-engine.utility";
 
 const app = new Hono();
 const store = new CookieStore()
-const args = minimist(process.argv.slice(4));
+const args = minimist(process.argv.slice(3));
 
 async function prompt(question: string): Promise<string> {
   const rl = createInterface({
@@ -42,7 +43,9 @@ const SSL = process.env.SSL === "true" || args.ssl === true;
 
 async function getSecrets() {
   const passkey =
-    process.env.PASSKEY ?? args.passkey ?? (await prompt("Enter passkey: "));
+    process.env.PASSKEY 
+    ?? args.passkey 
+    ?? (await prompt("Enter passkey: "));
   const cookieSecret =
     process.env.COOKIE_SECRET ??
     args.cookieSecret ??
@@ -500,11 +503,25 @@ app.post("/imap/folders", async (c) => {
   return c.json({ folders });
 });
 
-app.get("privacy-policy", (ctx) =>
-  ctx.html(
-    `We only keep the data you provide for generating RSS feeds. We do not store any personal information.`
-  )
-);
+app.post('/utils/suggest-selectors', async (c) => {
+  const { url } = await c.req.json();
+  try {
+    const selectors = await suggestSelectors(url);
+    return c.json(selectors);
+  } catch (err) {
+    return c.json({ error: err.message }, 500);
+  }
+});
+
+app.post("/utils/root-url", async (c) => {
+  const { url } = await c.req.json();
+  try {
+    const parsed = new URL(url);
+    return c.json({ origin: parsed.origin });
+  } catch {
+    return c.json({ origin: "" }, 400);
+  }
+});
 
 function buildCSSTarget(prefix: string, body: Record<string, any>): CSSTarget {
   const extract = (k: string) => (body[k]?.toString() ?? "");
