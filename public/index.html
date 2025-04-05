@@ -721,20 +721,36 @@
 
         document.getElementById("linkSelector").value = selectors.link.selector || '';
         document.getElementById("linkAttribute").value = selectors.link.attribute || '';
-        document.getElementById("linkBaseUrl").value = selectors.link.baseUrl || '';
-        document.getElementById("linkRelativeLink").checked = selectors.link.isRelative || false;
+        document.getElementById("linkBaseUrl").value = selectors.link.rootUrl || '';
+        document.getElementById("linkRelativeLink").checked = selectors.link.relativeLink || false;
+
+        if (document.getElementById("linkRelativeLink").checked) {
+          document.getElementById("linkBaseUrl").style.display = "block";
+          document.getElementById("linkBaseUrlLabel").style.display = "block";
+        } else {
+          document.getElementById("linkBaseUrl").style.display = "none";
+          document.getElementById("linkBaseUrlLabel").style.display = "none";
+        }
 
         document.getElementById("enclosureSelector").value = selectors.enclosure.selector || '';
         document.getElementById("enclosureAttribute").value = selectors.enclosure.attribute || '';
-        document.getElementById("enclosureBaseUrl").value = selectors.enclosure.baseUrl || '';
-        document.getElementById("enclosureRelativeLink").checked = selectors.enclosure.isRelative || false;
+        document.getElementById("enclosureBaseUrl").value = selectors.enclosure.rootUrl || '';
+        document.getElementById("enclosureRelativeLink").checked = selectors.enclosure.relativeLink || false;
         
+        if(document.getElementById("enclosureRelativeLink").checked){
+          document.getElementById("enclosureBaseUrl").style.display = "block";
+          document.getElementById("enclosureBaseUrlLabel").style.display = "block";
+        } else {
+          document.getElementById("enclosureBaseUrl").style.display = "none";
+          document.getElementById("enclosureBaseUrlLabel").style.display = "none";
+        }
+
         document.getElementById("dateSelector").value = selectors.date.selector || '';
         document.getElementById("dateAttribute").value = selectors.date.attribute || '';
         document.getElementById("customDateFormat").value = selectors.date.dateFormat || '';
 
-        document.getElementById("authorSelector").value = selectors.author.selector || '';
-        document.getElementById("authorAttribute").value = selectors.author.attribute || '';
+        // document.getElementById("authorSelector").value = selectors.author.selector || '';
+        // document.getElementById("authorAttribute").value = selectors.author.attribute || '';
         
         if (selectors.date?.dateFormat) {
           const format = selectors.date.dateFormat;

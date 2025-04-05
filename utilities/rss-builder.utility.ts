@@ -10,10 +10,7 @@ import {
 } from "./data-handler.utility";
 import ApiConfig from "./../models/apiconfig.model";
 
-export async function buildRSS(
-  res: any,
-  feedConfig: any
-): Promise<string> {
+export async function buildRSS(res: any, feedConfig: any): Promise<string> {
   const apiConfig: ApiConfig = feedConfig.config;
   const article = feedConfig.article as {
     iterator: CSSTarget;
@@ -44,7 +41,7 @@ export async function buildRSS(
             article.description?.titleCase,
             article.description?.stripHtml
           ),
-          url:processLinks(
+          url: processLinks(
             await extractField($, el, article.link, advanced),
             article.link?.stripHtml,
             article.link?.relativeLink,
@@ -73,7 +70,10 @@ export async function buildRSS(
         };
         if (itemData.enclosure.url) {
           try {
-            const response = await fetch(itemData.enclosure.url);
+            const url = itemData.enclosure.url.startsWith("//")
+              ? `https:${itemData.enclosure.url}`
+              : itemData.enclosure.url;
+            const response = await fetch(url);
             if (response.ok) {
               const contentLength = response.headers.get("content-length");
               const contentType = response.headers.get("content-type");
@@ -85,13 +85,13 @@ export async function buildRSS(
             console.error(
               "Failed to fetch enclosure:",
               itemData.enclosure.url,
-              err,
+              err
             );
           }
         }
 
         return itemData; // This is the resolved value of the Promise
-      }),
+      })
     );
 
     if (strict) {
@@ -142,7 +142,7 @@ export function buildRSSFromApiData(apiData, feedConfig) {
   const itemsPath = feedConfig.apiMapping.items || "";
   var items = get(apiData, itemsPath, []);
 
-  if (feedConfig.strict){
+  if (feedConfig.strict) {
     items = filterStrictly(items);
   }
 
@@ -164,51 +164,51 @@ export function buildRSSFromApiData(apiData, feedConfig) {
 }
 
 function getNonNullProps(item: any): Set<string> {
-  const nonNull = new Set<string>()
+  const nonNull = new Set<string>();
 
   for (const [key, val] of Object.entries(item)) {
     if (key === "enclosure") {
-      const eUrl = (val as any)?.url
+      const eUrl = (val as any)?.url;
       if (eUrl !== null && eUrl !== undefined && eUrl !== "") {
-        nonNull.add("enclosure")
+        nonNull.add("enclosure");
       }
     } else {
       if (val !== null && val !== undefined && val !== "") {
-        nonNull.add(key)
+        nonNull.add(key);
       }
     }
   }
 
-  return nonNull
+  return nonNull;
 }
 function filterStrictly(items: any[]): any[] {
-  const itemPropsSets = items.map((item) => getNonNullProps(item))
-  const maxSize = Math.max(...itemPropsSets.map((s) => s.size), 0)
+  const itemPropsSets = items.map((item) => getNonNullProps(item));
+  const maxSize = Math.max(...itemPropsSets.map((s) => s.size), 0);
   const topIndices = itemPropsSets
     .map((propsSet, i) => (propsSet.size === maxSize ? i : -1))
-    .filter((i) => i !== -1)
-  let intersect: Set<string> = new Set(itemPropsSets[topIndices[0]] ?? [])
+    .filter((i) => i !== -1);
+  let intersect: Set<string> = new Set(itemPropsSets[topIndices[0]] ?? []);
   for (let i = 1; i < topIndices.length; i++) {
-    const s = itemPropsSets[topIndices[i]]
-    const temp = new Set<string>()
+    const s = itemPropsSets[topIndices[i]];
+    const temp = new Set<string>();
     for (const prop of intersect) {
       if (s.has(prop)) {
-        temp.add(prop)
+        temp.add(prop);
       }
     }
-    intersect = temp
+    intersect = temp;
   }
-  const requiredProps = intersect
+  const requiredProps = intersect;
   const filtered = items.filter((_, idx) => {
-    const itemSet = itemPropsSets[idx]
+    const itemSet = itemPropsSets[idx];
     for (const prop of requiredProps) {
       if (!itemSet.has(prop)) {
-        return false
+        return false;
       }
     }
-    return true
-  })
-  return filtered
+    return true;
+  });
+  return filtered;
 }
 
 async function extractField(

@@ -71,7 +71,10 @@ import CSSTarget from "../models/csstarget.model";
   
     const iteratorSelector = commonParents[0];
     const firstItem = $(iteratorSelector).first();
-    const childSelectors = suggestChildSelectors($, iteratorSelector, fieldCandidates);
+
+    const baseUrl = extractRootUrl(url);
+    const childSelectors = suggestChildSelectors($, iteratorSelector, fieldCandidates, baseUrl);
+
     const rawDateText = $(iteratorSelector).find(childSelectors.date.selector).first().text().trim();
     const inferredDateFormat = detectDateFormat(rawDateText);
 
@@ -82,9 +85,6 @@ import CSSTarget from "../models/csstarget.model";
     const enclosureElem = firstItem.find(childSelectors.enclosure.selector ?? '').first();
     const src = enclosureElem.attr('src');
     const isEnclosureRelative = isRelativeUrl(src);
-    
-    const baseUrl = extractRootUrl(url);
-    
     
     return {
       iterator: iteratorSelector,
@@ -157,7 +157,12 @@ import CSSTarget from "../models/csstarget.model";
     return candidateSelectors;
   }  
   
-  function suggestChildSelectors($: cheerio.Root, parentSelector: string, fieldCandidates: Record<string, string[]>): Record<string, CSSTarget> {
+  function suggestChildSelectors(
+    $: cheerio.Root,
+    parentSelector: string,
+    fieldCandidates: Record<string, string[]>,
+    baseUrl: string
+  ): Record<string, CSSTarget> {
     const results: Record<string, CSSTarget> = {};
   
     for (const field of Object.keys(fieldCandidates)) {
@@ -170,13 +175,11 @@ import CSSTarget from "../models/csstarget.model";
           const score = scoreElementByField(field, el, $);
           if (score > bestScore) {
             bestScore = score;
-      
-            // Compute selector *relative* to parent
+  
             const pathFromParent = $(el).parentsUntil(parentSelector).toArray().reverse();
-            pathFromParent.push(el); // include the element itself
+            pathFromParent.push(el);
             const relSelector = pathFromParent.map(e => {
-              const tag = e.tagName?.toLowerCase() || '*';
-              if (!tag) return '*';
+              const tag = e.type === "tag" ? e.tagName.toLowerCase() : '*';
               const classes = ($(e).attr("class") || "")
                 .split(/\s+/)
                 .filter(Boolean)
@@ -184,25 +187,40 @@ import CSSTarget from "../models/csstarget.model";
                 .join('');
               return tag + classes;
             }).join(' > ');
-      
-            const attr = field === 'link' || field === 'enclosure' ? $(el).attr('href') || $(el).attr('src') : undefined;
-            const attribute = attr ? Object.keys($(el).attr() || {}).find(k => $(el).attr(k) === attr) : undefined;
-            const isRelative = attr && !/^https?:\/\//i.test(attr);
-            bestTarget = new CSSTarget(relSelector, attribute, false, isRelative ? '' : undefined, isRelative);
-      
+  
+            const attrValue = field === 'link' || field === 'enclosure'
+              ? $(el).attr("href") || $(el).attr("src")
+              : undefined;
+  
+            const attribute = attrValue
+              ? Object.entries($(el).attr() || {}).find(([_, val]) => val === attrValue)?.[0]
+              : undefined;
+  
+            const isRelative = attrValue && isRelativeUrl(attrValue);
+            const resolvedBase = isRelative ? baseUrl : undefined;
+  
+            bestTarget = new CSSTarget(
+              relSelector,
+              attribute,
+              false,
+              resolvedBase,
+              isRelative
+            );
+  
             if (field === 'date') {
               const format = detectDateFormat($(el).text());
               if (format) bestTarget.dateFormat = format;
             }
           }
         });
-      }     
+      }
   
       results[field] = bestTarget;
     }
   
     return results;
   }
+  
 
   function detectDateFormat(dateStr: string): string | null {
     const patterns: { regex: RegExp; format: string }[] = [
