@@ -22,7 +22,7 @@ import { CookieStore, sessionMiddleware } from "hono-sessions";
 
 const app = new Hono();
 const store = new CookieStore()
-const args = minimist(process.argv.slice(4));
+const args = minimist(process.argv.slice(3));
 
 async function prompt(question: string): Promise<string> {
   const rl = createInterface({
