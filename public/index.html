@@ -370,6 +370,7 @@
     const customDateFormatLabel = document.getElementById(
       "customDateFormatLabel",
     );
+    const feedUrlDiv = document.getElementById("urlDiv");
 
     function getFeedRootUrl() {
       try {
@@ -765,8 +766,6 @@
             document.getElementById("customDateFormatLabel").style.display = "block";
           }
         }
-
-        document.getElementById("strict").checked = true;
         
         alert("Selectors have been auto-filled successfully!");
       } catch (error) {

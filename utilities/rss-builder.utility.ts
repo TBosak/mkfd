@@ -69,10 +69,11 @@ export async function buildRSS(res: any, feedConfig: any): Promise<string> {
           },
         };
         if (itemData.enclosure.url) {
+           if (itemData.enclosure.url.startsWith("//")) {
+               itemData.enclosure.url = "http:" + itemData.enclosure.url;
+             }
           try {
-            const url = itemData.enclosure.url.startsWith("//")
-              ? `https:${itemData.enclosure.url}`
-              : itemData.enclosure.url;
+            const url = itemData.enclosure.url;
             const response = await fetch(url);
             if (response.ok) {
               const contentLength = response.headers.get("content-length");
