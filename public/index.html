@@ -414,30 +414,40 @@
       document
         .getElementById("linkRelativeLink")
         .addEventListener("change", function () {
+          const linkBaseUrl = document.getElementById("linkBaseUrl")
           if (this.checked) {
-            document.getElementById("linkBaseUrl").style.display = "block";
+            linkBaseUrl.style.display = "block";
             document.getElementById("linkBaseUrlLabel").style.display =
               "block";
+            const baseUrlInput = document.getElementById("linkBaseUrl");
+            const baseUrl = getFeedRootUrl();
+            linkBaseUrl.value = baseUrl;
+            
           } else {
             document.getElementById("linkBaseUrl").style.display = "none";
             document.getElementById("linkBaseUrlLabel").style.display =
               "none";
+            linkBaseUrl.value = "";
           }
         });
 
       document
         .getElementById("enclosureRelativeLink")
         .addEventListener("change", function () {
+          const enclosureBaseUrl = document.getElementById("enclosureBaseUrl")
           if (this.checked) {
-            document.getElementById("enclosureBaseUrl").style.display =
+            enclosureBaseUrl.style.display =
               "block";
             document.getElementById("enclosureBaseUrlLabel").style.display =
               "block";
+            const baseUrl = getFeedRootUrl();
+            enclosureBaseUrl.value = baseUrl;
           } else {
             document.getElementById("enclosureBaseUrl").style.display =
               "none";
             document.getElementById("enclosureBaseUrlLabel").style.display =
               "none";
+            enclosureBaseUrl.value = "";
           }
         });
 
