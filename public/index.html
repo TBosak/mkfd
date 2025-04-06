@@ -19,13 +19,13 @@
       display: none;
     }
 
-    /* Floating in the top-right corner */
     #playgroundBtn.floating-btn {
       transform: scale(0.8);
       position: fixed;
       top: 1rem;
       right: 1rem;
       z-index: 9999;
+      background: #fff;
     }
 
     #closePlaygroundBtn.floating-btn {
@@ -749,8 +749,8 @@
         document.getElementById("dateAttribute").value = selectors.date.attribute || '';
         document.getElementById("customDateFormat").value = selectors.date.dateFormat || '';
 
-        // document.getElementById("authorSelector").value = selectors.author.selector || '';
-        // document.getElementById("authorAttribute").value = selectors.author.attribute || '';
+        document.getElementById("authorSelector").value = selectors.author.selector || '';
+        document.getElementById("authorAttribute").value = selectors.author.attribute || '';
         
         if (selectors.date?.dateFormat) {
           const format = selectors.date.dateFormat;
@@ -766,6 +766,8 @@
           }
         }
 
+        document.getElementById("strict").checked = true;
+        
         alert("Selectors have been auto-filled successfully!");
       } catch (error) {
         console.error('Error:', error);

@@ -645,7 +645,12 @@ async function generatePreview(feedConfig: any) {
     if (feedConfig.feedType === "webScraping") {
       // If advanced is true, use Puppeteer
       if (feedConfig.config.advanced) {
-        const browser = await puppeteer.launch();
+        const browser = await puppeteer.launch(
+          {
+            headless: true,
+            args: ["--no-sandbox", "--disable-setuid-sandbox"],
+          }
+        );
         const page = await browser.newPage();
         await page.goto(feedConfig.config.baseUrl, {
           waitUntil: "networkidle2",

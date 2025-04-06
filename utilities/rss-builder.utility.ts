@@ -42,7 +42,7 @@ export async function buildRSS(res: any, feedConfig: any): Promise<string> {
             article.description?.stripHtml
           ),
           url: processLinks(
-            await extractField($, el, article.link, advanced),
+            await extractField($, el, article.link, advanced, false, true),
             article.link?.stripHtml,
             article.link?.relativeLink,
             article.link?.rootUrl
@@ -59,7 +59,7 @@ export async function buildRSS(res: any, feedConfig: any): Promise<string> {
           ),
           enclosure: {
             url: processLinks(
-              await extractField($, el, article.enclosure, advanced),
+              await extractField($, el, article.enclosure, advanced, true),
               article.enclosure?.stripHtml,
               article.enclosure?.relativeLink,
               article.enclosure?.rootUrl
@@ -215,21 +215,68 @@ async function extractField(
   $: cheerio.Root,
   el: cheerio.Element,
   field: CSSTarget,
-  advanced: boolean = false
-) {
+  advanced: boolean = false,
+  forEnclosure: boolean = false,
+  forLink: boolean = false
+): Promise<string> {
   if (!field) return "";
 
-  // If we have a chain, do that
-  if (field.drillChain && field.drillChain.length > 0) {
-    // Option 1: pass the entire item HTML
+  if (field.drillChain?.length) {
     const itemHtml = $.html(el);
     return await resolveDrillChain(itemHtml, field.drillChain, advanced);
   }
 
-  // Otherwise, do your existing single-step approach:
+  const target = $(el).find(field.selector);
+
   if (field.attribute) {
-    return $(el).find(field.selector).attr(field.attribute) ?? "";
-  } else {
-    return $(el).find(field.selector).text() ?? "";
+    const rawAttr = target.attr(field.attribute);
+    if (rawAttr) return rawAttr;
   }
+
+  const rawText = target.text()?.trim();
+
+  if (rawText && /^https?:\/\//i.test(rawText)) {
+    return rawText;
+  }
+
+  if (rawText) {
+    return rawText;
+  }
+
+  if (forLink) {
+    const directHref = target.attr("href");
+    if (directHref) return directHref;
+
+    const nestedHref = target
+      .find("*")
+      .toArray()
+      .map((child) => $(child).attr("href"))
+      .find((url) => url && /^https?:\/\//i.test(url));
+    if (nestedHref) return nestedHref;
+  }
+
+  if (forEnclosure) {
+    const inlineStyle = target.attr("style");
+    let bgMatch = inlineStyle?.match(
+      /background(?:-image)?:.*url\(["']?(.*?)["']?\)/i
+    );
+    if (bgMatch?.[1]) return bgMatch[1];
+
+    let parent = target.parent();
+    while (parent.length) {
+      const parentStyle = parent.attr("style");
+      bgMatch = parentStyle?.match(/background(?:-image)?:.*url\(["']?(.*?)["']?\)/i);
+      if (bgMatch?.[1]) return bgMatch[1];
+      parent = parent.parent();
+    }
+
+    const nestedSrc = target
+      .find("img, video, audio")
+      .toArray()
+      .map((child) => $(child).attr("src"))
+      .find((url) => url && /^https?:\/\//i.test(url));
+    if (nestedSrc) return nestedSrc;
+  }
+
+  return "";
 }
