@@ -148,7 +148,10 @@ export async function resolveDrillChain(
       startingHtmlOrUrl.startsWith("https://")
     ) {
       if (useAdvanced) {
-        browser = await puppeteer.launch();
+        browser = await puppeteer.launch({
+          headless: true,
+          args: ["--no-sandbox", "--disable-setuid-sandbox"],
+        });
         page = await browser.newPage();
         await page.goto(startingHtmlOrUrl, { waitUntil: "networkidle0" });
         currentHtml = await page.content();

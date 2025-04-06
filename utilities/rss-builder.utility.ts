@@ -10,10 +10,7 @@ import {
 } from "./data-handler.utility";
 import ApiConfig from "./../models/apiconfig.model";
 
-export async function buildRSS(
-  res: any,
-  feedConfig: any
-): Promise<string> {
+export async function buildRSS(res: any, feedConfig: any): Promise<string> {
   const apiConfig: ApiConfig = feedConfig.config;
   const article = feedConfig.article as {
     iterator: CSSTarget;
@@ -44,8 +41,8 @@ export async function buildRSS(
             article.description?.titleCase,
             article.description?.stripHtml
           ),
-          url:processLinks(
-            await extractField($, el, article.link, advanced),
+          url: processLinks(
+            await extractField($, el, article.link, advanced, false, true),
             article.link?.stripHtml,
             article.link?.relativeLink,
             article.link?.rootUrl
@@ -62,7 +59,7 @@ export async function buildRSS(
           ),
           enclosure: {
             url: processLinks(
-              await extractField($, el, article.enclosure, advanced),
+              await extractField($, el, article.enclosure, advanced, true),
               article.enclosure?.stripHtml,
               article.enclosure?.relativeLink,
               article.enclosure?.rootUrl
@@ -72,8 +69,12 @@ export async function buildRSS(
           },
         };
         if (itemData.enclosure.url) {
+           if (itemData.enclosure.url.startsWith("//")) {
+               itemData.enclosure.url = "http:" + itemData.enclosure.url;
+             }
           try {
-            const response = await fetch(itemData.enclosure.url);
+            const url = itemData.enclosure.url;
+            const response = await fetch(url);
             if (response.ok) {
               const contentLength = response.headers.get("content-length");
               const contentType = response.headers.get("content-type");
@@ -85,13 +86,13 @@ export async function buildRSS(
             console.error(
               "Failed to fetch enclosure:",
               itemData.enclosure.url,
-              err,
+              err
             );
           }
         }
 
         return itemData; // This is the resolved value of the Promise
-      }),
+      })
     );
 
     if (strict) {
@@ -142,7 +143,7 @@ export function buildRSSFromApiData(apiData, feedConfig) {
   const itemsPath = feedConfig.apiMapping.items || "";
   var items = get(apiData, itemsPath, []);
 
-  if (feedConfig.strict){
+  if (feedConfig.strict) {
     items = filterStrictly(items);
   }
 
@@ -164,72 +165,119 @@ export function buildRSSFromApiData(apiData, feedConfig) {
 }
 
 function getNonNullProps(item: any): Set<string> {
-  const nonNull = new Set<string>()
+  const nonNull = new Set<string>();
 
   for (const [key, val] of Object.entries(item)) {
     if (key === "enclosure") {
-      const eUrl = (val as any)?.url
+      const eUrl = (val as any)?.url;
       if (eUrl !== null && eUrl !== undefined && eUrl !== "") {
-        nonNull.add("enclosure")
+        nonNull.add("enclosure");
       }
     } else {
       if (val !== null && val !== undefined && val !== "") {
-        nonNull.add(key)
+        nonNull.add(key);
       }
     }
   }
 
-  return nonNull
+  return nonNull;
 }
 function filterStrictly(items: any[]): any[] {
-  const itemPropsSets = items.map((item) => getNonNullProps(item))
-  const maxSize = Math.max(...itemPropsSets.map((s) => s.size), 0)
+  const itemPropsSets = items.map((item) => getNonNullProps(item));
+  const maxSize = Math.max(...itemPropsSets.map((s) => s.size), 0);
   const topIndices = itemPropsSets
     .map((propsSet, i) => (propsSet.size === maxSize ? i : -1))
-    .filter((i) => i !== -1)
-  let intersect: Set<string> = new Set(itemPropsSets[topIndices[0]] ?? [])
+    .filter((i) => i !== -1);
+  let intersect: Set<string> = new Set(itemPropsSets[topIndices[0]] ?? []);
   for (let i = 1; i < topIndices.length; i++) {
-    const s = itemPropsSets[topIndices[i]]
-    const temp = new Set<string>()
+    const s = itemPropsSets[topIndices[i]];
+    const temp = new Set<string>();
     for (const prop of intersect) {
       if (s.has(prop)) {
-        temp.add(prop)
+        temp.add(prop);
       }
     }
-    intersect = temp
+    intersect = temp;
   }
-  const requiredProps = intersect
+  const requiredProps = intersect;
   const filtered = items.filter((_, idx) => {
-    const itemSet = itemPropsSets[idx]
+    const itemSet = itemPropsSets[idx];
     for (const prop of requiredProps) {
       if (!itemSet.has(prop)) {
-        return false
+        return false;
       }
     }
-    return true
-  })
-  return filtered
+    return true;
+  });
+  return filtered;
 }
 
 async function extractField(
   $: cheerio.Root,
   el: cheerio.Element,
   field: CSSTarget,
-  advanced: boolean = false
-) {
+  advanced: boolean = false,
+  forEnclosure: boolean = false,
+  forLink: boolean = false
+): Promise<string> {
   if (!field) return "";
 
-  // If we have a chain, do that
-  if (field.drillChain && field.drillChain.length > 0) {
-    // Option 1: pass the entire item HTML
+  if (field.drillChain?.length) {
     const itemHtml = $.html(el);
     return await resolveDrillChain(itemHtml, field.drillChain, advanced);
   }
 
-  // Otherwise, do your existing single-step approach:
+  const target = $(el).find(field.selector);
+
   if (field.attribute) {
-    return $(el).find(field.selector).attr(field.attribute) ?? "";
-  } else {
-    return $(el).find(field.selector).text() ?? "";
+    const rawAttr = target.attr(field.attribute);
+    if (rawAttr) return rawAttr;
   }
+
+  const rawText = target.text()?.trim();
+
+  if (rawText && /^https?:\/\//i.test(rawText)) {
+    return rawText;
+  }
+
+  if (rawText) {
+    return rawText;
+  }
+
+  if (forLink) {
+    const directHref = target.attr("href");
+    if (directHref) return directHref;
+
+    const nestedHref = target
+      .find("*")
+      .toArray()
+      .map((child) => $(child).attr("href"))
+      .find((url) => url && /^https?:\/\//i.test(url));
+    if (nestedHref) return nestedHref;
+  }
+
+  if (forEnclosure) {
+    const inlineStyle = target.attr("style");
+    let bgMatch = inlineStyle?.match(
+      /background(?:-image)?:.*url\(["']?(.*?)["']?\)/i
+    );
+    if (bgMatch?.[1]) return bgMatch[1];
+
+    let parent = target.parent();
+    while (parent.length) {
+      const parentStyle = parent.attr("style");
+      bgMatch = parentStyle?.match(/background(?:-image)?:.*url\(["']?(.*?)["']?\)/i);
+      if (bgMatch?.[1]) return bgMatch[1];
+      parent = parent.parent();
+    }
+
+    const nestedSrc = target
+      .find("img, video, audio")
+      .toArray()
+      .map((child) => $(child).attr("src"))
+      .find((url) => url && /^https?:\/\//i.test(url));
+    if (nestedSrc) return nestedSrc;
+  }
+
+  return "";
 }

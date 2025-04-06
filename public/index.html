@@ -7,6 +7,10 @@
   <link rel="icon" href="/public/logo.ico" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" />
   <style>
+    #autoFillSelectorsBtn {
+      width: 100%;
+    }
+
     summary {
       font-weight: bold;
     }
@@ -15,13 +19,13 @@
       display: none;
     }
 
-    /* Floating in the top-right corner */
     #playgroundBtn.floating-btn {
       transform: scale(0.8);
       position: fixed;
       top: 1rem;
       right: 1rem;
       z-index: 9999;
+      background: #fff;
     }
 
     #closePlaygroundBtn.floating-btn {
@@ -63,6 +67,9 @@
         <div id="urlDiv">
           <label for="feedUrl">Target URL:</label>
           <input type="text" name="feedUrl" id="feedUrl" />
+          <button type="button" id="autoFillSelectorsBtn" class="outline contrast">
+            Suggest Selectors
+          </button>
         </div>
         <br>
         <br>
@@ -107,7 +114,7 @@
             Convert Title to Title Case </label><br><br>
           Title Drill Chain (Optional)
           <span class="tooltip"
-                data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
+            data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
           <div id="titleDrillContainer"></div>
           <button type="button" class="outline" id="titleAddButton" onclick="addDrillStep('title')">
             + Add Chain
@@ -130,7 +137,7 @@
             </label><br><br>
             Description Drill Chain (Optional)
             <span class="tooltip"
-                data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
+              data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
             <div id="descriptionDrillContainer"></div>
             <button type="button" class="outline" id="descriptionAddButton" onclick="addDrillStep('description')">
               + Add Chain
@@ -152,7 +159,7 @@
             <input style="display: none; margin-bottom: 1em;" type="text" name="linkBaseUrl" id="linkBaseUrl" />
             Link Drill Chain (Optional)
             <span class="tooltip"
-                data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
+              data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
             <div id="linkDrillContainer"></div>
             <button type="button" class="outline" id="linkAddButton" onclick="addDrillStep('link')">
               + Add Chain
@@ -175,7 +182,7 @@
               id="enclosureBaseUrl" />
             Enclosure Drill Chain (Optional)
             <span class="tooltip"
-                data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
+              data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
             <div id="enclosureDrillContainer"></div>
             <button type="button" class="outline" id="enclosureAddButton" onclick="addDrillStep('enclosure')">
               + Add Chain
@@ -202,7 +209,7 @@
             <br><br>
             Author Drill Chain (Optional)
             <span class="tooltip"
-                data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
+              data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
             <div id="authorDrillContainer"></div>
             <button type="button" class="outline" id="authorAddButton" onclick="addDrillStep('author')">
               + Add Chain
@@ -237,7 +244,7 @@
               style="display: none; margin-bottom: 1em;" />
             Date Drill Chain (Optional)
             <span class="tooltip"
-                data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
+              data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
             <div id="dateDrillContainer"></div>
             <button type="button" class="outline" id="dateAddButton" onclick="addDrillStep('date')">
               + Add Chain
@@ -363,6 +370,20 @@
     const customDateFormatLabel = document.getElementById(
       "customDateFormatLabel",
     );
+    const feedUrlDiv = document.getElementById("urlDiv");
+
+    function getFeedRootUrl() {
+      try {
+        const url = new URL(document.getElementById("feedUrl").value.trim());
+        return url.origin;
+      } catch {
+        return "";
+      }
+    }
+
+    function isRelativeUrl(value) {
+      return value && (value.startsWith("/") || !/^https?:\/\//i.test(value));
+    }
 
     document.addEventListener("DOMContentLoaded", function () {
       dateFormatSelect.addEventListener("change", function () {
@@ -393,30 +414,40 @@
       document
         .getElementById("linkRelativeLink")
         .addEventListener("change", function () {
+          const linkBaseUrl = document.getElementById("linkBaseUrl")
           if (this.checked) {
-            document.getElementById("linkBaseUrl").style.display = "block";
+            linkBaseUrl.style.display = "block";
             document.getElementById("linkBaseUrlLabel").style.display =
               "block";
+            const baseUrlInput = document.getElementById("linkBaseUrl");
+            const baseUrl = getFeedRootUrl();
+            linkBaseUrl.value = baseUrl;
+            
           } else {
             document.getElementById("linkBaseUrl").style.display = "none";
             document.getElementById("linkBaseUrlLabel").style.display =
               "none";
+            linkBaseUrl.value = "";
           }
         });
 
       document
         .getElementById("enclosureRelativeLink")
         .addEventListener("change", function () {
+          const enclosureBaseUrl = document.getElementById("enclosureBaseUrl")
           if (this.checked) {
-            document.getElementById("enclosureBaseUrl").style.display =
+            enclosureBaseUrl.style.display =
               "block";
             document.getElementById("enclosureBaseUrlLabel").style.display =
               "block";
+            const baseUrl = getFeedRootUrl();
+            enclosureBaseUrl.value = baseUrl;
           } else {
             document.getElementById("enclosureBaseUrl").style.display =
               "none";
             document.getElementById("enclosureBaseUrlLabel").style.display =
               "none";
+            enclosureBaseUrl.value = "";
           }
         });
 
@@ -631,24 +662,127 @@
       }
     });
 
-    document.addEventListener("change", function (e) {
-      if (e.target.matches(".relative-toggle")) {
-        const wrapper = e.target.closest(".drill-step");
-        const baseUrlDiv = wrapper.querySelector(".relative-base-url");
-        if (baseUrlDiv) {
-          baseUrlDiv.classList.toggle("hidden", !e.target.checked);
+    document.addEventListener("change", async function (e) {
+      if (!e.target.matches(".relative-toggle")) return;
+
+      const checkbox = e.target;
+      const wrapper = checkbox.closest(".drill-step");
+      const baseUrlDiv = wrapper.querySelector(".relative-base-url");
+      const baseUrlInput = baseUrlDiv?.querySelector("input");
+
+      const isChecked = checkbox.checked;
+
+      if (!baseUrlDiv || !baseUrlInput) return;
+
+      baseUrlDiv.classList.toggle("hidden", !isChecked);
+
+      if (isChecked && !baseUrlInput.value) {
+        const feedUrl = document.getElementById("feedUrl")?.value.trim();
+        if (!feedUrl) return;
+
+        try {
+          const res = await fetch("/utils/root-url", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url: feedUrl }),
+          });
+
+          const data = await res.json();
+          if (data.origin) {
+            baseUrlInput.value = data.origin;
+          }
+        } catch (err) {
+          console.warn("Failed to fetch root URL from backend", err);
         }
       }
     });
-
     function generateUUID() {
-      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
         const r = (Math.random() * 16) | 0;
         const v = c === 'x' ? r : (r & 0x3) | 0x8;
         return v.toString(16);
       });
     }
 
+    document.getElementById("autoFillSelectorsBtn").addEventListener("click", async () => {
+      const feedUrl = document.getElementById("feedUrl").value.trim();
+      if (!feedUrl) {
+        alert("Please enter a feed URL first.");
+        return;
+      }
+
+      try {
+        const response = await fetch('/utils/suggest-selectors', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: feedUrl })
+        });
+
+        if (!response.ok) throw new Error('Failed to fetch selectors.');
+
+        const selectors = await response.json();
+
+        document.getElementById("itemSelector").value = selectors.iterator || '';
+
+        document.getElementById("titleSelector").value = selectors.title.selector || '';
+        document.getElementById("titleAttribute").value = selectors.title.attribute || '';
+
+        document.getElementById("descriptionSelector").value = selectors.description.selector || '';
+        document.getElementById("descriptionAttribute").value = selectors.description.attribute || '';
+
+        document.getElementById("linkSelector").value = selectors.link.selector || '';
+        document.getElementById("linkAttribute").value = selectors.link.attribute || '';
+        document.getElementById("linkBaseUrl").value = selectors.link.rootUrl || '';
+        document.getElementById("linkRelativeLink").checked = selectors.link.relativeLink || false;
+
+        if (document.getElementById("linkRelativeLink").checked) {
+          document.getElementById("linkBaseUrl").style.display = "block";
+          document.getElementById("linkBaseUrlLabel").style.display = "block";
+        } else {
+          document.getElementById("linkBaseUrl").style.display = "none";
+          document.getElementById("linkBaseUrlLabel").style.display = "none";
+        }
+
+        document.getElementById("enclosureSelector").value = selectors.enclosure.selector || '';
+        document.getElementById("enclosureAttribute").value = selectors.enclosure.attribute || '';
+        document.getElementById("enclosureBaseUrl").value = selectors.enclosure.rootUrl || '';
+        document.getElementById("enclosureRelativeLink").checked = selectors.enclosure.relativeLink || false;
+        
+        if(document.getElementById("enclosureRelativeLink").checked){
+          document.getElementById("enclosureBaseUrl").style.display = "block";
+          document.getElementById("enclosureBaseUrlLabel").style.display = "block";
+        } else {
+          document.getElementById("enclosureBaseUrl").style.display = "none";
+          document.getElementById("enclosureBaseUrlLabel").style.display = "none";
+        }
+
+        document.getElementById("dateSelector").value = selectors.date.selector || '';
+        document.getElementById("dateAttribute").value = selectors.date.attribute || '';
+        document.getElementById("customDateFormat").value = selectors.date.dateFormat || '';
+
+        document.getElementById("authorSelector").value = selectors.author.selector || '';
+        document.getElementById("authorAttribute").value = selectors.author.attribute || '';
+        
+        if (selectors.date?.dateFormat) {
+          const format = selectors.date.dateFormat;
+          const knownFormats = ['DD/MM/YYYY', 'MM/DD/YYYY', 'DD.MM.YYYY', 'MM.DD.YYYY'];
+
+          if (knownFormats.includes(format)) {
+            document.getElementById("dateFormat").value = format;
+          } else {
+            document.getElementById("dateFormat").value = "other";
+            document.getElementById("customDateFormat").value = format;
+            document.getElementById("customDateFormat").style.display = "block";
+            document.getElementById("customDateFormatLabel").style.display = "block";
+          }
+        }
+        
+        alert("Selectors have been auto-filled successfully!");
+      } catch (error) {
+        console.error('Error:', error);
+        alert('An error occurred while auto-filling selectors.');
+      }
+    });
   </script>
 </body>
 

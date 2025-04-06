@@ -1,14 +1,15 @@
 {
   "compilerOptions": {
-    "lib": ["ESNext"],
+    "lib": ["dom","ESNext"],
     "module": "esnext",
     "target": "esnext",
     "moduleResolution": "node",
     "typeRoots": ["node_modules/@types"],
     "allowSyntheticDefaultImports": true,
     "allowImportingTsExtensions": true,
+    "resolveJsonModule": true,
     "noEmit": true,
     "allowJs": true,
-    "types": ["bun-types", "cheerio", "express"]
+    "types": ["bun-types", "cheerio"]
   }
 }

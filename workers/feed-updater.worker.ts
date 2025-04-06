@@ -17,7 +17,10 @@ async function fetchDataAndUpdateFeed(feedConfig) {
       const html = response.data
       rssXml = await buildRSS(html, feedConfig)
     } else if (feedConfig.feedType === "webScraping" && feedConfig.config.advanced) {
-      const browser = await puppeteer.launch()
+      const browser = await puppeteer.launch({
+        headless: true,
+        args: ["--no-sandbox", "--disable-setuid-sandbox"]
+      })
       const page = await browser.newPage()
       await page.goto(feedConfig.config.baseUrl, { waitUntil: "networkidle2" })
       const html = await page.content()
