@@ -22,7 +22,7 @@ import { CookieStore, sessionMiddleware } from "hono-sessions";
 import { suggestSelectors } from "./utilities/suggestion-engine.utility";
 
 const app = new Hono();
-const store = new CookieStore()
+const store = new CookieStore();
 const args = minimist(process.argv.slice(3));
 
 async function prompt(question: string): Promise<string> {
@@ -43,9 +43,7 @@ const SSL = process.env.SSL === "true" || args.ssl === true;
 
 async function getSecrets() {
   const passkey =
-    process.env.PASSKEY 
-    ?? args.passkey 
-    ?? (await prompt("Enter passkey: "));
+    process.env.PASSKEY ?? args.passkey ?? (await prompt("Enter passkey: "));
   const cookieSecret =
     process.env.COOKIE_SECRET ??
     args.cookieSecret ??
@@ -75,48 +73,55 @@ if (!existsSync(configsDir)) {
 processFeedsAtStart();
 //ALLOW LOCAL NETWORK TO ACCESS API
 const middleware = async (c: Context, next) => {
-  const connInfo = await getConnInfo(c)
-  const isLocal = !connInfo?.remote?.address || ['127.0.0.1', '::1'].includes(connInfo.remote.address)
+  const connInfo = await getConnInfo(c);
+  const isLocal =
+    !connInfo?.remote?.address ||
+    ["127.0.0.1", "::1"].includes(connInfo.remote.address);
 
-  if (isLocal) return await next()
+  if (isLocal) return await next();
 
-  const session = c.get('session')
-  const authenticated = session.get('authenticated')
+  const session = c.get("session");
+  const authenticated = session.get("authenticated");
 
   if (authenticated === true) {
-    return await next()
+    return await next();
   }
 
-  if (c.req.method === 'POST' && c.req.path === '/passkey') {
-    const body = await c.req.parseBody()
-    const inputKey = body['passkey']
+  if (c.req.method === "POST" && c.req.path === "/passkey") {
+    const body = await c.req.parseBody();
+    const inputKey = body["passkey"];
 
     if (inputKey === passkey) {
-      session.set('authenticated', true)
-      return c.redirect('/')
+      session.set("authenticated", true);
+      return c.redirect("/");
     } else {
-      return c.html('<p>Incorrect passkey. <a href="/passkey">Try again</a>.</p>')
+      return c.html(
+        '<p>Incorrect passkey. <a href="/passkey">Try again</a>.</p>'
+      );
     }
   }
 
-  if (c.req.path === '/passkey') {
-    return await next()
+  if (c.req.path === "/passkey") {
+    return await next();
   }
 
-  return c.redirect('/passkey')
-}
+  return c.redirect("/passkey");
+};
 
-app.use("*", sessionMiddleware({
-  store,
-  encryptionKey: cookieSecret,
-  expireAfterSeconds: 60 * 60 * 24,
-  cookieOptions: {
-    path: '/',
-    httpOnly: true,
-    secure: SSL,
-    sameSite: 'lax'
-  }
-}))
+app.use(
+  "*",
+  sessionMiddleware({
+    store,
+    encryptionKey: cookieSecret,
+    expireAfterSeconds: 60 * 60 * 24,
+    cookieOptions: {
+      path: "/",
+      httpOnly: true,
+      secure: SSL,
+      sameSite: "lax",
+    },
+  })
+);
 app.use("/*", except("/public/feeds/*", middleware));
 app.use("/public/*", serveStatic({ root: "./" }));
 app.use("/configs/*", serveStatic({ root: "./" }));
@@ -147,7 +152,7 @@ app.post("/", async (ctx) => {
     body[key]?.toString() || fallback;
 
   const feedType = extract("feedType", "webScraping");
-  
+
   const apiConfig: ApiConfig = {
     title: extract("feedName", "RSS Feed"),
     baseUrl: extract("feedUrl"),
@@ -396,33 +401,53 @@ app.get("/feeds", async (ctx) => {
   return ctx.html(response);
 });
 
-function injectSelectorGadget(html: string): string {
+function injectSelectorGadget(html) {
   const SG_SCRIPT = `
-  <script>
-    (function() {
-        let s = document.createElement("div");
-        s.innerHTML = "Loading...";
-        s.style.color = "black";
-        s.style.padding = "20px";
-        s.style.position = "fixed";
-        s.style.zIndex = "9999";
-        s.style.fontSize = "3.0em";
-        s.style.border = "2px%20solid%20black";
-        s.style.right = "40px";
-        s.style.top = "40px";
-        s.setAttribute("class", "selector_gadget_loading");
-        s.style.background = "white";
-        document.body.appendChild(s);
-        s = document.createElement("script");
-        s.setAttribute("type", "text/javascript");
-        s.setAttribute(
-          "src",
-          "https://dv0akt2986vzh.cloudfront.net/unstable/lib/selectorgadget.js"
-        );
-        document.body.appendChild(s);
-    })();
-  </script>
-`;
+    <script>
+      (function() {
+        let loadingDiv = document.createElement("div");
+        loadingDiv.innerHTML = "Loading SelectorGadget...";
+        loadingDiv.style.color = "black";
+        loadingDiv.style.padding = "20px";
+        loadingDiv.style.position = "fixed";
+        loadingDiv.style.zIndex = "9999";
+        loadingDiv.style.fontSize = "1.5em";
+        loadingDiv.style.border = "2px solid black";
+        loadingDiv.style.right = "40px";
+        loadingDiv.style.top = "40px";
+        loadingDiv.style.background = "white";
+        document.body.appendChild(loadingDiv);
+
+        let sgScript = document.createElement("script");
+        sgScript.type = "text/javascript";
+        sgScript.src = "https://dv0akt2986vzh.cloudfront.net/stable/lib/selectorgadget.js";
+        document.body.appendChild(sgScript);
+
+        let gadgetInterval = setInterval(() => {
+          if (
+            window.SelectorGadget &&
+            window.SelectorGadget.prototype &&
+            window.SelectorGadget.prototype.setPath
+          ) {
+            clearInterval(gadgetInterval);
+            loadingDiv.remove();
+            
+            const original = window.SelectorGadget.prototype.setPath;
+            window.SelectorGadget.prototype.setPath = function(prediction) {
+              console.log("Intercepted setPath:", prediction);
+              window.parent.postMessage({ type: "selectorUpdated", selector: prediction }, "*");
+              return original.call(this, prediction);
+            };
+
+            let sg = new window.SelectorGadget();
+            sg.makeInterface();
+            sg.setMode('interactive');
+            console.log("SelectorGadget loaded and patched!");
+          }
+        }, 1000);
+      })();
+    </script>
+  `;
 
   let modified = html;
   if (modified.includes("</body>")) {
@@ -430,7 +455,6 @@ function injectSelectorGadget(html: string): string {
   } else {
     modified += SG_SCRIPT;
   }
-
   return modified;
 }
 
@@ -503,7 +527,7 @@ app.post("/imap/folders", async (c) => {
   return c.json({ folders });
 });
 
-app.post('/utils/suggest-selectors', async (c) => {
+app.post("/utils/suggest-selectors", async (c) => {
   const { url } = await c.req.json();
   try {
     const selectors = await suggestSelectors(url);
@@ -524,10 +548,11 @@ app.post("/utils/root-url", async (c) => {
 });
 
 function buildCSSTarget(prefix: string, body: Record<string, any>): CSSTarget {
-  const extract = (k: string) => (body[k]?.toString() ?? "");
+  const extract = (k: string) => body[k]?.toString() ?? "";
 
   const dateFormat = extract(`${prefix}Format`);
-  const customDateFormat = dateFormat === "other" ? extract("customDateFormat") : undefined;
+  const customDateFormat =
+    dateFormat === "other" ? extract("customDateFormat") : undefined;
 
   const target = new CSSTarget(
     extract(`${prefix}Selector`),
@@ -580,7 +605,9 @@ function parseDrillChain(
     }
   }
 
-  const sortedKeys = Object.keys(tempStore).sort((a, b) => parseInt(a) - parseInt(b));
+  const sortedKeys = Object.keys(tempStore).sort(
+    (a, b) => parseInt(a) - parseInt(b)
+  );
   for (const idx of sortedKeys) {
     const row = tempStore[idx];
     chainSteps.push({
@@ -645,22 +672,17 @@ async function generatePreview(feedConfig: any) {
     if (feedConfig.feedType === "webScraping") {
       // If advanced is true, use Puppeteer
       if (feedConfig.config.advanced) {
-        const browser = await puppeteer.launch(
-          {
-            headless: true,
-            args: ["--no-sandbox", "--disable-setuid-sandbox"],
-          }
-        );
+        const browser = await puppeteer.launch({
+          headless: true,
+          args: ["--no-sandbox", "--disable-setuid-sandbox"],
+        });
         const page = await browser.newPage();
         await page.goto(feedConfig.config.baseUrl, {
           waitUntil: "networkidle2",
         });
         const html = await page.content();
         await browser.close();
-        rssXml = await buildRSS(
-          html,
-          feedConfig
-        );
+        rssXml = await buildRSS(html, feedConfig);
       } else {
         // Otherwise, use axios
         const response = feedConfig.article?.headers
@@ -669,10 +691,7 @@ async function generatePreview(feedConfig: any) {
             })
           : await axios.get(feedConfig.config.baseUrl);
         const html = response.data;
-        rssXml = await buildRSS(
-          html,
-          feedConfig
-        );
+        rssXml = await buildRSS(html, feedConfig);
       }
     } else if (feedConfig.feedType === "api") {
       const axiosConfig = {
@@ -688,10 +707,7 @@ async function generatePreview(feedConfig: any) {
       const response = await axios(axiosConfig);
       const apiData = response.data;
 
-      rssXml = buildRSSFromApiData(
-        apiData,
-        feedConfig,
-      );
+      rssXml = buildRSSFromApiData(apiData, feedConfig);
     }
     return rssXml;
   } catch (error) {
