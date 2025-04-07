@@ -28,12 +28,21 @@
       background: #fff;
     }
 
-    #closePlaygroundBtn.floating-btn {
+    #selectorActions.floating-btn {
       position: fixed;
       left: 50%;
       transform: translateX(-50%);
-      bottom: 0.25rem;
+      top: -0.5rem;
       z-index: 10000;
+      background: white;
+      border: 2px solid #ccc;
+      padding: 0.5rem;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+      flex-wrap: wrap;
     }
 
     #titleDrillContainer,
@@ -44,6 +53,10 @@
     #dateDrillContainer {
       margin-top: 1em;
     }
+
+    .small {
+      transform: scale(0.75);
+    }
   </style>
 </head>
 
@@ -51,9 +64,18 @@
   <button type="button" id="playgroundBtn" class="outline hidden">
     Selector Playground
   </button>
-  <button type="button" id="closePlaygroundBtn" class="contrast hidden">
-    Close
-  </button>
+  <div id="selectorActions" class="hidden" style="text-align:center;">
+    <button data-field="itemSelector" class="contrast small">Item</button>
+    <button data-field="titleSelector" class="contrast small">Title</button>
+    <button data-field="descriptionSelector" class="contrast small">Description</button>
+    <button data-field="linkSelector" class="contrast small">Link</button>
+    <button data-field="enclosureSelector" class="contrast small">Enclosure</button>
+    <button data-field="authorSelector" class="contrast small">Author</button>
+    <button data-field="dateSelector" class="contrast small">Date</button>
+    <button id="closePlaygroundBtn" class="contrast small">
+      Close
+    </button>
+  </div>
   <article id="form">
     <header style="text-align: center">
       <img style="margin-top: 2em; margin-bottom: 2em" height="10%" width="10%" src="public/logo.png" />
@@ -363,7 +385,7 @@
     const playgroundBtn = document.getElementById("playgroundBtn");
     const playgroundOverlay = document.getElementById("playgroundOverlay");
     const playgroundIframe = document.getElementById("playgroundIframe");
-    const closePlaygroundBtn = document.getElementById("closePlaygroundBtn");
+    const selectorActions = document.getElementById("selectorActions");
     const feedUrlInput = document.getElementById("feedUrl");
     const dateFormatSelect = document.getElementById("dateFormat");
     const customDateFormatInput = document.getElementById("customDateFormat");
@@ -422,7 +444,7 @@
             const baseUrlInput = document.getElementById("linkBaseUrl");
             const baseUrl = getFeedRootUrl();
             linkBaseUrl.value = baseUrl;
-            
+
           } else {
             document.getElementById("linkBaseUrl").style.display = "none";
             document.getElementById("linkBaseUrlLabel").style.display =
@@ -575,20 +597,42 @@
         return;
       }
       playgroundOverlay.style.display = "block";
-      closePlaygroundBtn.classList.remove("hidden");
-      closePlaygroundBtn.classList.add("floating-btn");
+      selectorActions.classList.remove("hidden");
+      selectorActions.classList.add("floating-btn");
       playgroundIframe.src = `/proxy?url=${encodeURIComponent(targetUrl)}`;
       playgroundBtn.classList.add("hidden");
       playgroundBtn.classList.remove("floating-btn");
     });
 
-    closePlaygroundBtn.addEventListener("click", () => {
-      playgroundOverlay.style.display = "none";
-      playgroundIframe.src = "";
-      playgroundBtn.classList.remove("hidden");
-      playgroundBtn.classList.add("floating-btn");
-      closePlaygroundBtn.classList.add("hidden");
-      closePlaygroundBtn.classList.remove("floating-btn");
+    selectorActions.addEventListener("click", (e) => {
+      e.stopPropagation();  // so it doesn’t bubble to parent, if that matters
+      const btn = e.target; // whichever element was clicked
+
+      // If user clicked the "Close" button
+      if (btn.id === "closePlaygroundBtn") {
+        // Hide the overlay
+        playgroundOverlay.style.display = "none";
+        playgroundIframe.src = "";
+        playgroundBtn.classList.remove("hidden");
+        playgroundBtn.classList.add("floating-btn");
+        selectorActions.classList.add("hidden");
+        selectorActions.classList.remove("floating-btn");
+        return;
+      }
+
+      const field = btn.dataset.field;
+      if (field) {
+        if (!currentSelector) {
+          alert("No selector chosen yet!");
+        } else {
+          const input = document.getElementById(field);
+          if (input) {
+            input.value = currentSelector;
+            alert(`Set ${field} to: ${currentSelector}`);
+          }
+        }
+
+      }
     });
 
     const drillStepIndices = {};
@@ -747,8 +791,8 @@
         document.getElementById("enclosureAttribute").value = selectors.enclosure.attribute || '';
         document.getElementById("enclosureBaseUrl").value = selectors.enclosure.rootUrl || '';
         document.getElementById("enclosureRelativeLink").checked = selectors.enclosure.relativeLink || false;
-        
-        if(document.getElementById("enclosureRelativeLink").checked){
+
+        if (document.getElementById("enclosureRelativeLink").checked) {
           document.getElementById("enclosureBaseUrl").style.display = "block";
           document.getElementById("enclosureBaseUrlLabel").style.display = "block";
         } else {
@@ -762,7 +806,7 @@
 
         document.getElementById("authorSelector").value = selectors.author.selector || '';
         document.getElementById("authorAttribute").value = selectors.author.attribute || '';
-        
+
         if (selectors.date?.dateFormat) {
           const format = selectors.date.dateFormat;
           const knownFormats = ['DD/MM/YYYY', 'MM/DD/YYYY', 'DD.MM.YYYY', 'MM.DD.YYYY'];
@@ -776,11 +820,22 @@
             document.getElementById("customDateFormatLabel").style.display = "block";
           }
         }
-        
+
         alert("Selectors have been auto-filled successfully!");
       } catch (error) {
         console.error('Error:', error);
         alert('An error occurred while auto-filling selectors.');
+      }
+    });
+
+    let currentSelector = null;
+
+    window.addEventListener('message', function (event) {
+      if (!event.data) return;
+
+      if (event.data.type === 'selectorUpdated') {
+        currentSelector = event.data.selector;
+        console.log("Updated currentSelector:", currentSelector);
       }
     });
   </script>
