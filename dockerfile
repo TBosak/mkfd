@@ -15,7 +15,7 @@ RUN apt-get update && apt-get install -y \
     libxshmfence1 \
  && rm -rf /var/lib/apt/lists/*
 
-RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
+RUN curl -fsSL https://deb.nodesource.com/setup_23.x | bash - \
  && apt-get install -y nodejs
 
 ENV PUPPETEER_EXECUTABLE_PATH=/usr/bin/chromium
