@@ -1,4 +1,4 @@
-FROM oven/bun:debian
+FROM oven/bun:1.2.2-debian
 
 RUN apt-get update && apt-get install -y \
   chromium \
