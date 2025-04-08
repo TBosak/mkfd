@@ -149,7 +149,15 @@ app.post("/", async (ctx) => {
   }
 
   const extract = (key: string, fallback: any = undefined) =>
-    body[key]?.toString() || fallback;
+    body[key] ?? fallback;
+
+  const cookieNames = extract("cookieNames[]") || [];
+  const cookieValues = extract("cookieValues[]") || [];
+  const cookieString = cookieNames
+    .map((name, i) => `${name}=${cookieValues[i]}`)
+    .join("; ");
+  
+  console.log("Cookie String:", cookieString);
 
   const feedType = extract("feedType", "webScraping");
 
@@ -231,7 +239,13 @@ app.post("/preview", async (ctx) => {
       jsonData[key] ?? fallback;
 
     const feedType = extract("feedType", "webScraping");
+    const cookieNames = extract("cookieNames[]") || [];
+    const cookieValues = extract("cookieValues[]") || [];
 
+    const cookieString = cookieNames
+      .map((name, i) => `${name}=${cookieValues[i]}`)
+      .join("; ");
+    
     const apiConfig: ApiConfig = {
       title: extract("feedName", "RSS Feed"),
       baseUrl: extract("feedUrl"),
@@ -294,22 +308,6 @@ app.post("/preview", async (ctx) => {
     return ctx.text("Invalid request.", 400);
   }
 });
-
-//GPT ONLY ENDPOINT TO GET HTML AND DETERMINE BEST CSS SELECTORS
-// app.post('/html', async (ctx) => {
-//   //Axios request from url in request body
-//   let jsonData = await ctx.req.json();
-//   let url = jsonData.url;
-//   await axios.get(url)
-//     .then(async (response) => {
-//       // Process the response stream
-//       let data = Buffer.from(response.data, 'utf-8');
-//       let compressed = gzipSync(data);
-//       await Bun.write("./public/html.gz", compressed);
-//     })
-//   let text = await file('./public/html.gz').text()
-//   return ctx.body(text);
-// });
 
 app.get("/feeds", async (ctx) => {
   const files = await readdir(configsDir);
