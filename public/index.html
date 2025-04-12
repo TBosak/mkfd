@@ -41,7 +41,7 @@
       display: flex;
       align-items: center;
       gap: 0.5rem;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
       flex-wrap: wrap;
     }
 
@@ -61,9 +61,7 @@
 </head>
 
 <body>
-  <button type="button" id="playgroundBtn" class="outline hidden">
-    Selector Playground
-  </button>
+  <button type="button" id="playgroundBtn" class="outline hidden">🪄 Selector Playground</button>
   <div id="selectorActions" class="hidden" style="text-align:center;">
     <button data-field="itemSelector" class="contrast small">Item</button>
     <button data-field="titleSelector" class="contrast small">Title</button>
@@ -72,9 +70,7 @@
     <button data-field="enclosureSelector" class="contrast small">Enclosure</button>
     <button data-field="authorSelector" class="contrast small">Author</button>
     <button data-field="dateSelector" class="contrast small">Date</button>
-    <button id="closePlaygroundBtn" class="contrast small">
-      Close
-    </button>
+    <button id="closePlaygroundBtn" class="contrast small">Close</button>
   </div>
   <article id="form">
     <header style="text-align: center">
@@ -84,42 +80,40 @@
     </header>
     <main style="padding-left: 30vw; padding-right: 30vw">
       <form action="/" method="post">
-        <label for="feedName">Feed Name:</label>
+        <label for="feedName">Feed Name 🏷️:</label>
         <input type="text" name="feedName" id="feedName" required /><br><br>
         <div id="urlDiv">
-          <label for="feedUrl">Target URL:</label>
+          <label for="feedUrl">Target URL 🌐:</label>
           <input type="text" name="feedUrl" id="feedUrl" />
-          <button type="button" id="autoFillSelectorsBtn" class="outline contrast">
-            Suggest Selectors
-          </button>
+          <button type="button" id="autoFillSelectorsBtn" class="outline contrast">🦄 Suggest Selectors</button>
         </div>
         <br>
         <br>
-        <label for="feedType">Feed Type:</label>
+        <label for="feedType">Feed Type 🛠️:</label>
         <select name="feedType" id="feedType" value="webScraping">
           <option value="webScraping">Web Scraping</option>
           <option value="api">REST API Call</option>
           <option value="email">Email</option>
         </select><br><br>
         <div id="emailScrapingFields" style="display: none">
-          <h3>Email Configuration</h3>
+          <h3>Email Configuration ✉️</h3>
           <label for="emailHost">IMAP Server:</label>
           <input type="text" name="emailHost" id="emailHost" /><br><br>
           <label for="emailPort">IMAP Port:</label>
           <input type="text" name="emailPort" id="emailPort" /><br><br>
           <label for="emailUsername">Username:</label>
           <input type="text" name="emailUsername" id="emailUsername" /><br><br>
-          <label for="emailPassword">Password:</label>
+          <label for="emailPassword">🔒 Password:</label>
           <input type="password" name="emailPassword" id="emailPassword" /><br><br>
           <label for="emailFolderFieldSet">Folder:</label>
           <fieldset name="emailFolderFieldSet" role="group">
             <select name="emailFolder" id="emailFolder"></select>
-            <input type="button" id="fetchFolders" value="Load Folder Options" />
+            <input type="button" id="fetchFolders" value="Load Folder Options 📂" />
           </fieldset>
           <br><br>
         </div>
         <div id="webScrapingFields">
-          <h3>CSS Selectors for RSS Feed Items</h3>
+          <h3>CSS Selectors for RSS Feed Items 🪄</h3>
           <label for="itemSelector">Item Selector (Iterator):</label>
           <input type="text" name="itemSelector" id="itemSelector" /><br><br>
           <label for="titleSelector">Title Selector:</label>
@@ -130,16 +124,18 @@
           <input type="text" name="titleIterator" id="titleIterator" /><br><br>
           <label>
             <input type="checkbox" name="titleStripHtml" id="titleStripHtml" />
-            Strip HTML in Title </label><br><br>
+            Strip HTML in Title
+          </label><br><br>
           <label>
             <input type="checkbox" name="titleTitleCase" id="titleTitleCase" />
-            Convert Title to Title Case </label><br><br>
+            Convert Title to Title Case
+          </label><br><br>
           Title Drill Chain (Optional)
           <span class="tooltip"
             data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
           <div id="titleDrillContainer"></div>
           <button type="button" class="outline" id="titleAddButton" onclick="addDrillStep('title')">
-            + Add Chain
+            🔗 Add Chain
           </button>
           <br><br>
           <details>
@@ -152,7 +148,8 @@
             <input type="text" name="descriptionIterator" id="descriptionIterator" /><br><br>
             <label>
               <input type="checkbox" name="descriptionStripHtml" id="descriptionStripHtml" />
-              Strip HTML in Description </label><br><br>
+              Strip HTML in Description
+            </label><br><br>
             <label>
               <input type="checkbox" name="descriptionTitleCase" id="descriptionTitleCase" />
               Convert Description to Title Case
@@ -162,7 +159,7 @@
               data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
             <div id="descriptionDrillContainer"></div>
             <button type="button" class="outline" id="descriptionAddButton" onclick="addDrillStep('description')">
-              + Add Chain
+              🔗 Add Chain
             </button>
           </details>
           <br><br>
@@ -176,7 +173,8 @@
             <input type="text" name="linkIterator" id="linkIterator" /><br><br>
             <label>
               <input type="checkbox" name="linkRelativeLink" id="linkRelativeLink" />
-              Relative Link? </label><br><br>
+              Relative Link?
+            </label><br><br>
             <label style="display: none" id="linkBaseUrlLabel" for="linkBaseUrl">Base URL:</label>
             <input style="display: none; margin-bottom: 1em;" type="text" name="linkBaseUrl" id="linkBaseUrl" />
             Link Drill Chain (Optional)
@@ -184,7 +182,7 @@
               data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
             <div id="linkDrillContainer"></div>
             <button type="button" class="outline" id="linkAddButton" onclick="addDrillStep('link')">
-              + Add Chain
+              🔗 Add Chain
             </button>
           </details>
           <br><br>
@@ -198,7 +196,8 @@
             <input type="text" name="enclosureIterator" id="enclosureIterator" /><br><br>
             <label>
               <input type="checkbox" name="enclosureRelativeLink" id="enclosureRelativeLink" />
-              Relative Link? </label><br><br>
+              Relative Link?
+            </label><br><br>
             <label style="display: none" id="enclosureBaseUrlLabel" for="enclosureBaseUrl">Base URL:</label>
             <input style="display: none; margin-bottom: 1em;" type="text" name="enclosureBaseUrl"
               id="enclosureBaseUrl" />
@@ -207,7 +206,7 @@
               data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
             <div id="enclosureDrillContainer"></div>
             <button type="button" class="outline" id="enclosureAddButton" onclick="addDrillStep('enclosure')">
-              + Add Chain
+              🔗 Add Chain
             </button>
           </details>
           <br><br>
@@ -217,13 +216,12 @@
             <input type="text" name="authorSelector" id="authorSelector" /><br><br>
             <label for="authorAttribute">Author Attribute:</label>
             <input type="text" name="authorAttribute" id="authorAttribute" /><br><br>
-            <label for="authorIterator">
-              Author Parent Iterator (optional):
-            </label>
+            <label for="authorIterator">Author Parent Iterator (optional):</label>
             <input type="text" name="authorIterator" id="authorIterator" /><br><br>
             <label>
               <input type="checkbox" name="authorStripHtml" id="authorStripHtml" />
-              Strip HTML in Author </label><br><br>
+              Strip HTML in Author
+            </label><br><br>
             <label>
               <input type="checkbox" name="authorTitleCase" id="authorTitleCase" />
               Convert Author to Title Case
@@ -234,7 +232,7 @@
               data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
             <div id="authorDrillContainer"></div>
             <button type="button" class="outline" id="authorAddButton" onclick="addDrillStep('author')">
-              + Add Chain
+              🔗 Add Chain
             </button>
           </details>
           <br><br>
@@ -244,15 +242,11 @@
             <input type="text" name="dateSelector" id="dateSelector" /><br><br>
             <label for="dateAttribute">Date Attribute:</label>
             <input type="text" name="dateAttribute" id="dateAttribute" /><br><br>
-            <label for="dateIterator">
-              Date Parent Iterator (optional):
-            </label>
+            <label for="dateIterator">Date Parent Iterator (optional):</label>
             <input type="text" name="dateIterator" id="dateIterator" /><br><br>
-            <label for="dateFormat">
-              Date Format (optional):
-              <span class="tooltip"
-                data-tooltip="Most common formats (e.g., Unix timestamps, ISO formats) are automatically parsed. Only specify if needed.">ℹ️</span>
-            </label>
+            <label for="dateFormat">Date Format (optional):</label>
+            <span class="tooltip"
+              data-tooltip="Most common formats (e.g., Unix timestamps, ISO) are auto-detected. Only specify if needed.">ℹ️</span>
             <select name="dateFormat" id="dateFormat">
               <option value="">Auto Detect</option>
               <option value="DD/MM/YYYY">DD/MM/YYYY</option>
@@ -269,75 +263,67 @@
               data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
             <div id="dateDrillContainer"></div>
             <button type="button" class="outline" id="dateAddButton" onclick="addDrillStep('date')">
-              + Add Chain
+              🔗 Add Chain
             </button>
           </details>
         </div>
-        <!-- API Fields -->
         <div id="apiFields" style="display: none">
-          <h3>API Configuration</h3>
-          <label for="apiRoute">API Route (Ex: "/dog/breeds"):</label>
+          <h3>API Configuration ⚙️</h3>
+          <label for="apiRoute">API Route (e.g. "/dog/breeds"):</label>
           <input type="text" name="apiRoute" id="apiRoute" /><br><br>
-
           <label for="apiMethod">HTTP Method:</label>
           <select name="apiMethod" id="apiMethod">
             <option value="GET">GET</option>
             <option value="POST">POST</option>
           </select><br><br>
-
           <label for="apiParams">Query Parameters (JSON format):</label><br>
           <textarea name="apiParams" id="apiParams" rows="5" cols="50">{}</textarea><br><br>
-
           <label for="apiHeaders">HTTP Headers (JSON format):</label><br>
           <textarea name="apiHeaders" id="apiHeaders" rows="5" cols="50">{}</textarea><br><br>
-
           <label for="apiBody">Request Body (JSON format):</label><br>
           <textarea name="apiBody" id="apiBody" rows="5" cols="50">{}</textarea><br><br>
-
-          <h3>API Response Mapping</h3>
+          <h3>API Response Mapping 🔗</h3>
           <label for="apiItemsPath">Items Path (e.g., 'data.items'):</label>
           <input type="text" name="apiItemsPath" id="apiItemsPath" /><br><br>
-
           <label for="apiTitleField">Title Field:</label>
           <input type="text" name="apiTitleField" id="apiTitleField" /><br><br>
-
           <label for="apiDescriptionField">Description Field:</label>
           <input type="text" name="apiDescriptionField" id="apiDescriptionField" /><br><br>
-
           <label for="apiLinkField">Link Field:</label>
           <input type="text" name="apiLinkField" id="apiLinkField" /><br><br>
-
           <label for="apiDateField">Date Field:</label>
           <input type="text" name="apiDateField" id="apiDateField" /><br><br>
         </div>
         <br><br>
         <details>
-          <summary>Additional Options</summary>
+          <summary>Additional Options ⚙️</summary>
+          <label>Cookies:</label>
+          <div id="cookiesContainer"></div>
+          <button type="button" onclick="addCookieRow()" class="outline">Add Cookie 🍪</button>
           <label for="headers">HTTP Headers (JSON format):</label>
           <textarea name="headers" id="headers" rows="5" cols="50">{}</textarea>
-          <label for="refreshTime">Refresh Time (in minutes):</label>
+          <label for="refreshTime">Refresh Time (minutes):</label>
           <input type="text" name="refreshTime" id="refreshTime" min="1" value="5" />
           <label>
-            <input type="checkbox" name="reverse" id="reverse" /> Reverse
-            Order
+            <input type="checkbox" name="reverse" id="reverse" />
+            Reverse Order
           </label>
           <label>
             <input type="checkbox" name="advanced" id="advanced" />
-            Use Advanced Scraping <span class="tooltip"
-              data-tooltip="Use for websites that have lazily loaded content. This option launches a headless browser that waits for content to load before scraping.">ℹ️</span>
+            Use Advanced Scraping
+            <span class="tooltip"
+              data-tooltip="Use for sites that lazy-load content. Launches a headless browser for deeper scraping.">ℹ️</span>
           </label>
           <label>
             <input type="checkbox" name="strict" id="strict" />
-            Strict Mode <span class="tooltip"
-              data-tooltip="Rejects feed items that do not have all of the expected fields/properties.">ℹ️</span>
+            Strict Mode
+            <span class="tooltip" data-tooltip="Reject feed items missing expected fields.">ℹ️</span>
           </label>
         </details>
         <br><br>
         <div role="group">
-          <button type="button" id="previewButton" class="outline contrast">
-            Preview
-          </button>
-          <button type="submit" class="outline contrast">Submit</button>
+          <button type="button" id="previewButton" class="outline contrast">🔎 Preview</button>
+          <button type="submit" class="outline contrast">🚀 Submit</button>
         </div>
       </form>
     </main>
@@ -354,32 +340,19 @@
         Hide
       </button>
     </article>
-    <article id="playgroundOverlay" style="
-          display: none;
-          position: fixed;
-          inset: 0;
-          background: rgba(0, 0, 0, 0.5);
-          z-index: 9999;
-        ">
-      <div style="
-            position: relative;
-            width: 90%;
-            height: 90%;
-            margin: 2% auto;
-            background: #fff;
-            border-radius: 8px;
-            overflow: hidden;
-          ">
+    <article id="playgroundOverlay"
+      style="display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); z-index: 9999;">
+      <div
+        style="position: relative; width: 90%; height: 90%; margin: 2% auto; background: #fff; border-radius: 8px; overflow: hidden;">
         <iframe id="playgroundIframe" style="width: 100%; height: 100%; border: 0"
           sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-modals"></iframe>
       </div>
     </article>
   </article>
   <script>
+    let currentSelector = null;
     const feedTypeSelect = document.getElementById("feedType");
-    const emailScrapingFields = document.getElementById(
-      "emailScrapingFields",
-    );
+    const emailScrapingFields = document.getElementById("emailScrapingFields");
     const webScrapingFields = document.getElementById("webScrapingFields");
     const apiFields = document.getElementById("apiFields");
     const playgroundBtn = document.getElementById("playgroundBtn");
@@ -389,9 +362,7 @@
     const feedUrlInput = document.getElementById("feedUrl");
     const dateFormatSelect = document.getElementById("dateFormat");
     const customDateFormatInput = document.getElementById("customDateFormat");
-    const customDateFormatLabel = document.getElementById(
-      "customDateFormatLabel",
-    );
+    const customDateFormatLabel = document.getElementById("customDateFormatLabel");
     const feedUrlDiv = document.getElementById("urlDiv");
 
     function getFeedRootUrl() {
@@ -402,11 +373,9 @@
         return "";
       }
     }
-
     function isRelativeUrl(value) {
       return value && (value.startsWith("/") || !/^https?:\/\//i.test(value));
     }
-
     document.addEventListener("DOMContentLoaded", function () {
       dateFormatSelect.addEventListener("change", function () {
         if (this.value === "other") {
@@ -417,13 +386,11 @@
           customDateFormatInput.style.display = "none";
           customDateFormatLabel.style.display = "none";
           customDateFormatInput.required = false;
-          customDateFormatInput.value = ""; // Clear the input when not selected
+          customDateFormatInput.value = "";
         }
       });
-
       feedUrlInput.addEventListener("input", function () {
         const val = this.value.trim();
-        console.log(val);
         if (val.length > 0) {
           playgroundBtn.classList.remove("hidden");
           playgroundBtn.classList.add("floating-btn");
@@ -432,47 +399,32 @@
           playgroundBtn.classList.add("hidden");
         }
       });
-
-      document
-        .getElementById("linkRelativeLink")
-        .addEventListener("change", function () {
-          const linkBaseUrl = document.getElementById("linkBaseUrl")
-          if (this.checked) {
-            linkBaseUrl.style.display = "block";
-            document.getElementById("linkBaseUrlLabel").style.display =
-              "block";
-            const baseUrlInput = document.getElementById("linkBaseUrl");
-            const baseUrl = getFeedRootUrl();
-            linkBaseUrl.value = baseUrl;
-
-          } else {
-            document.getElementById("linkBaseUrl").style.display = "none";
-            document.getElementById("linkBaseUrlLabel").style.display =
-              "none";
-            linkBaseUrl.value = "";
-          }
-        });
-
-      document
-        .getElementById("enclosureRelativeLink")
-        .addEventListener("change", function () {
-          const enclosureBaseUrl = document.getElementById("enclosureBaseUrl")
-          if (this.checked) {
-            enclosureBaseUrl.style.display =
-              "block";
-            document.getElementById("enclosureBaseUrlLabel").style.display =
-              "block";
-            const baseUrl = getFeedRootUrl();
-            enclosureBaseUrl.value = baseUrl;
-          } else {
-            document.getElementById("enclosureBaseUrl").style.display =
-              "none";
-            document.getElementById("enclosureBaseUrlLabel").style.display =
-              "none";
-            enclosureBaseUrl.value = "";
-          }
-        });
-
+      document.getElementById("linkRelativeLink").addEventListener("change", function () {
+        const linkBaseUrl = document.getElementById("linkBaseUrl");
+        if (this.checked) {
+          linkBaseUrl.style.display = "block";
+          document.getElementById("linkBaseUrlLabel").style.display = "block";
+          const baseUrl = getFeedRootUrl();
+          linkBaseUrl.value = baseUrl;
+        } else {
+          linkBaseUrl.style.display = "none";
+          document.getElementById("linkBaseUrlLabel").style.display = "none";
+          linkBaseUrl.value = "";
+        }
+      });
+      document.getElementById("enclosureRelativeLink").addEventListener("change", function () {
+        const enclosureBaseUrl = document.getElementById("enclosureBaseUrl");
+        if (this.checked) {
+          enclosureBaseUrl.style.display = "block";
+          document.getElementById("enclosureBaseUrlLabel").style.display = "block";
+          const baseUrl = getFeedRootUrl();
+          enclosureBaseUrl.value = baseUrl;
+        } else {
+          enclosureBaseUrl.style.display = "none";
+          document.getElementById("enclosureBaseUrlLabel").style.display = "none";
+          enclosureBaseUrl.value = "";
+        }
+      });
       feedTypeSelect.addEventListener("change", function () {
         if (this.value === "webScraping") {
           webScrapingFields.style.display = "block";
@@ -492,16 +444,10 @@
           feedUrlDiv.style.display = "none";
         }
       });
-
-      document
-        .getElementById("previewButton")
-        .addEventListener("click", handlePreview);
-
+      document.getElementById("previewButton").addEventListener("click", handlePreview);
       function handlePreview() {
         const form = document.querySelector("form");
-
         const formData = new FormData(form);
-
         const data = {};
         formData.forEach((value, key) => {
           if (data[key]) {
@@ -513,48 +459,39 @@
             data[key] = value;
           }
         });
-
         sendPreviewRequest(data);
       }
-
-      document
-        .getElementById("fetchFolders")
-        .addEventListener("click", () => {
-          const data = {
-            host: document.getElementById("emailHost").value,
-            port: parseInt(document.getElementById("emailPort").value),
-            user: document.getElementById("emailUsername").value,
-            password: document.getElementById("emailPassword").value,
-          };
-
-          fetch("/imap/folders", {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(data),
-          })
-            .then((res) => res.json())
-            .then((res) => {
-              const select = document.getElementById("emailFolder");
-              select.innerHTML = "";
-              res.folders.forEach((folder) => {
-                const option = document.createElement("option");
-                option.value = folder;
-                option.textContent = folder;
-                select.appendChild(option);
-              });
-            })
-            .catch((err) => {
-              console.error(err);
-              alert("Failed to fetch folders. Check your credentials.");
+      document.getElementById("fetchFolders").addEventListener("click", () => {
+        const data = {
+          host: document.getElementById("emailHost").value,
+          port: parseInt(document.getElementById("emailPort").value),
+          user: document.getElementById("emailUsername").value,
+          password: document.getElementById("emailPassword").value,
+        };
+        fetch("/imap/folders", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        })
+          .then((res) => res.json())
+          .then((res) => {
+            const select = document.getElementById("emailFolder");
+            select.innerHTML = "";
+            res.folders.forEach((folder) => {
+              const option = document.createElement("option");
+              option.value = folder;
+              option.textContent = folder;
+              select.appendChild(option);
             });
-        });
-
+          })
+          .catch((err) => {
+            alert("Failed to fetch folders. Check your credentials.");
+          });
+      });
       function sendPreviewRequest(data) {
         fetch("/preview", {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-          },
+          headers: { "Content-Type": "application/json" },
           body: JSON.stringify(data),
         })
           .then((response) => {
@@ -567,29 +504,22 @@
             displayPreview(rssFeedXml);
           })
           .catch((error) => {
-            console.error("Error fetching preview:", error);
             alert("An error occurred while fetching the preview.");
           });
       }
-
       function displayPreview(rssFeedXml) {
         const preview = document.getElementById("preview");
         const previewFrame = document.getElementById("previewFrame");
-
         const blob = new Blob([rssFeedXml], { type: "xml" });
         const blobUrl = URL.createObjectURL(blob);
-
         previewFrame.src = blobUrl;
-
         previewFrame.onload = () => {
           URL.revokeObjectURL(blobUrl);
         };
-
         preview.style.display = "block";
         window.scrollTo(0, preview.offsetTop);
       }
     });
-
     playgroundBtn.addEventListener("click", () => {
       const targetUrl = feedUrlInput.value.trim();
       if (!targetUrl) {
@@ -603,14 +533,10 @@
       playgroundBtn.classList.add("hidden");
       playgroundBtn.classList.remove("floating-btn");
     });
-
     selectorActions.addEventListener("click", (e) => {
-      e.stopPropagation();  // so it doesn’t bubble to parent, if that matters
-      const btn = e.target; // whichever element was clicked
-
-      // If user clicked the "Close" button
+      e.stopPropagation();
+      const btn = e.target;
       if (btn.id === "closePlaygroundBtn") {
-        // Hide the overlay
         playgroundOverlay.style.display = "none";
         playgroundIframe.src = "";
         playgroundBtn.classList.remove("hidden");
@@ -619,7 +545,6 @@
         selectorActions.classList.remove("floating-btn");
         return;
       }
-
       const field = btn.dataset.field;
       if (field) {
         if (!currentSelector) {
@@ -631,123 +556,103 @@
             alert(`Set ${field} to: ${currentSelector}`);
           }
         }
-
       }
     });
-
+    window.addEventListener("message", function (event) {
+      if (!event.data) return;
+      if (event.data.type === "selectorUpdated") {
+        currentSelector = event.data.selector;
+      }
+    });
     const drillStepIndices = {};
-
     function addDrillStep(field) {
       if (!drillStepIndices[field]) drillStepIndices[field] = 0;
-
       const container = document.getElementById(`${field}DrillContainer`);
       const index = drillStepIndices[field]++;
       const step = drillTemplates(field, index);
       container.appendChild(step);
-
       const button = document.getElementById(`${field}AddButton`);
       if (button) button.remove();
     }
-
     function drillTemplates(field, index) {
       const step = document.createElement("div");
       step.className = "drill-step";
       step.style.border = "1px solid #ccc";
       step.style.padding = "1em";
       step.style.marginBottom = "1em";
-
       const nestedContainerId = `${field}-nested-${generateUUID()}`;
-
       step.innerHTML = `
-    <label>Selector:</label>
-    <input type="text" name="${field}DrillChain[${index}][selector]" />
-
-    <label>Attribute:</label>
-    <input type="text" name="${field}DrillChain[${index}][attribute]" />
-
-    <label>
-      <input type="checkbox"
-             name="${field}DrillChain[${index}][isRelative]"
-             class="relative-toggle"
-             data-field="${field}"
-             data-nested="${nestedContainerId}" />
-      Relative?
-    </label>
-
-    <div class="relative-base-url hidden" style="margin-top: 0.5em;">
-      <label>Base URL:</label>
-      <input type="text" name="${field}DrillChain[${index}][baseUrl]" />
-    </div>
-
-    <div class="drill-nested" id="${nestedContainerId}">
-      <button type="button"
-              class="outline small add-nested"
-              data-field="${field}"
-              data-target="${nestedContainerId}">
-        + Add Nested Step
-      </button>
-    </div>
-  `;
-
+        <label>Selector:</label>
+        <input type="text" name="${field}DrillChain[${index}][selector]" />
+        <label>Attribute:</label>
+        <input type="text" name="${field}DrillChain[${index}][attribute]" />
+        <label>
+          <input type="checkbox"
+                 name="${field}DrillChain[${index}][isRelative]"
+                 class="relative-toggle"
+                 data-field="${field}"
+                 data-nested="${nestedContainerId}" />
+          Relative?
+        </label>
+        <div class="relative-base-url hidden" style="margin-top: 0.5em;">
+          <label>Base URL:</label>
+          <input type="text" name="${field}DrillChain[${index}][baseUrl]" />
+        </div>
+        <div class="drill-nested" id="${nestedContainerId}">
+          <button type="button"
+                  class="outline small add-nested"
+                  data-field="${field}"
+                  data-target="${nestedContainerId}">
+            + Add Nested Step
+          </button>
+        </div>
+      `;
       return step;
     }
-
     document.addEventListener("click", function (e) {
       if (e.target.matches(".add-nested")) {
         const field = e.target.dataset.field;
         const targetId = e.target.dataset.target;
         const target = document.getElementById(targetId);
-
         if (!drillStepIndices[field]) drillStepIndices[field] = 0;
         const index = drillStepIndices[field]++;
         const newStep = drillTemplates(field, index);
         target.insertBefore(newStep, e.target);
-        e.target.remove(); // remove +Add Nested Step button
+        e.target.remove();
       }
     });
-
     document.addEventListener("change", async function (e) {
       if (!e.target.matches(".relative-toggle")) return;
-
       const checkbox = e.target;
       const wrapper = checkbox.closest(".drill-step");
       const baseUrlDiv = wrapper.querySelector(".relative-base-url");
       const baseUrlInput = baseUrlDiv?.querySelector("input");
-
       const isChecked = checkbox.checked;
-
       if (!baseUrlDiv || !baseUrlInput) return;
-
       baseUrlDiv.classList.toggle("hidden", !isChecked);
-
       if (isChecked && !baseUrlInput.value) {
         const feedUrl = document.getElementById("feedUrl")?.value.trim();
         if (!feedUrl) return;
-
         try {
           const res = await fetch("/utils/root-url", {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ url: feedUrl }),
           });
-
           const data = await res.json();
           if (data.origin) {
             baseUrlInput.value = data.origin;
           }
-        } catch (err) {
-          console.warn("Failed to fetch root URL from backend", err);
-        }
+        } catch { }
       }
     });
     function generateUUID() {
-      return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function (c) {
+      return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
         const r = (Math.random() * 16) | 0;
-        const v = c === 'x' ? r : (r & 0x3) | 0x8;
+        const v = c === "x" ? r : (r & 0x3) | 0x8;
         return v.toString(16);
       });
     }
-
     document.getElementById("autoFillSelectorsBtn").addEventListener("click", async () => {
       const feedUrl = document.getElementById("feedUrl").value.trim();
       if (!feedUrl) {
@@ -828,8 +733,6 @@
       }
     });
 
-    let currentSelector = null;
-
     window.addEventListener('message', function (event) {
       if (!event.data) return;
 
@@ -838,6 +741,55 @@
         console.log("Updated currentSelector:", currentSelector);
       }
     });
+    function addCookieRow() {
+      const container = document.getElementById("cookiesContainer");
+
+      const rowDiv = document.createElement("div");
+      rowDiv.className = "cookieRow";
+      rowDiv.style = `
+    margin-bottom: 1em;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    position: relative;
+
+    padding: 1em;
+    padding-top: 2.5em; 
+    box-sizing: border-box;
+    `;
+
+      const removeBtn = document.createElement("button");
+      removeBtn.type = "button";
+      removeBtn.textContent = "X";
+      removeBtn.classList.add("contrast");
+      removeBtn.title = "Remove this cookie";
+      removeBtn.classList.add("outline");
+      removeBtn.style = `
+      position: absolute;
+      top: 0.25em;
+      right: 0.5em;
+      font-size: 1.5em;
+      cursor: pointer;
+      z-index: 999;
+      transform: scale(0.5);
+      transform-origin: top right;
+    `;
+      removeBtn.onclick = () => rowDiv.remove();
+
+      const keyInput = document.createElement("input");
+      keyInput.name = "cookieNames[]";
+      keyInput.placeholder = "Cookie name";
+      keyInput.style = "margin-right: 0.5em;";
+
+      const valueInput = document.createElement("input");
+      valueInput.name = "cookieValues[]";
+      valueInput.placeholder = "Cookie value";
+      valueInput.style = "margin-right: 0.5em;";
+
+      rowDiv.appendChild(removeBtn);
+      rowDiv.appendChild(keyInput);
+      rowDiv.appendChild(valueInput);
+      container.appendChild(rowDiv);
+    }
   </script>
 </body>
 

@@ -219,3 +219,20 @@ export async function resolveDrillChain(
     if (browser) await browser.close();
   }
 }
+
+export function parseCookiesForPuppeteer(cookieString: string, domain: string): any[] {
+  if (!cookieString) return [];
+
+  return cookieString
+    .split(";")
+    .map((cookie) => {
+      const [name, ...rest] = cookie.trim().split("=");
+      return {
+        name: name.trim(),
+        value: rest.join("="),
+        domain,
+        path: "/",
+      };
+    })
+    .filter((c) => c.name && c.value);
+}
