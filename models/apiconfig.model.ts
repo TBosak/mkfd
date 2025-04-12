@@ -6,6 +6,7 @@ export default class ApiConfig {
     public route?: string,
     public params?: { [key: string]: string },
     public headers?: { [key: string]: string },
+    public cookieString?: string,
     public body?: any,
     public withCredentials?: boolean,
     public contributor?: string,

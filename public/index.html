@@ -1,5 +1,6 @@
 <!doctype html>
 <html lang="en">
+
 <head>
   <meta charset="UTF-8" />
   <title>Feed Builder</title>
@@ -9,12 +10,15 @@
     #autoFillSelectorsBtn {
       width: 100%;
     }
+
     summary {
       font-weight: bold;
     }
+
     .hidden {
       display: none;
     }
+
     #playgroundBtn.floating-btn {
       transform: scale(0.8);
       position: fixed;
@@ -23,6 +27,7 @@
       z-index: 9999;
       background: #fff;
     }
+
     #selectorActions.floating-btn {
       position: fixed;
       left: 50%;
@@ -36,9 +41,10 @@
       display: flex;
       align-items: center;
       gap: 0.5rem;
-      box-shadow: 0 4px 10px rgba(0,0,0,0.15);
+      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
       flex-wrap: wrap;
     }
+
     #titleDrillContainer,
     #descriptionDrillContainer,
     #linkDrillContainer,
@@ -47,11 +53,13 @@
     #dateDrillContainer {
       margin-top: 1em;
     }
+
     .small {
       transform: scale(0.75);
     }
   </style>
 </head>
+
 <body>
   <button type="button" id="playgroundBtn" class="outline hidden">🪄 Selector Playground</button>
   <div id="selectorActions" class="hidden" style="text-align:center;">
@@ -122,8 +130,9 @@
             <input type="checkbox" name="titleTitleCase" id="titleTitleCase" />
             Convert Title to Title Case
           </label><br><br>
-          Title Drill Chain (Optional) 
-          <span class="tooltip" data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
+          Title Drill Chain (Optional)
+          <span class="tooltip"
+            data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
           <div id="titleDrillContainer"></div>
           <button type="button" class="outline" id="titleAddButton" onclick="addDrillStep('title')">
             🔗 Add Chain
@@ -145,8 +154,9 @@
               <input type="checkbox" name="descriptionTitleCase" id="descriptionTitleCase" />
               Convert Description to Title Case
             </label><br><br>
-            Description Drill Chain (Optional) 
-            <span class="tooltip" data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
+            Description Drill Chain (Optional)
+            <span class="tooltip"
+              data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
             <div id="descriptionDrillContainer"></div>
             <button type="button" class="outline" id="descriptionAddButton" onclick="addDrillStep('description')">
               🔗 Add Chain
@@ -167,8 +177,9 @@
             </label><br><br>
             <label style="display: none" id="linkBaseUrlLabel" for="linkBaseUrl">Base URL:</label>
             <input style="display: none; margin-bottom: 1em;" type="text" name="linkBaseUrl" id="linkBaseUrl" />
-            Link Drill Chain (Optional) 
-            <span class="tooltip" data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
+            Link Drill Chain (Optional)
+            <span class="tooltip"
+              data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
             <div id="linkDrillContainer"></div>
             <button type="button" class="outline" id="linkAddButton" onclick="addDrillStep('link')">
               🔗 Add Chain
@@ -188,9 +199,11 @@
               Relative Link?
             </label><br><br>
             <label style="display: none" id="enclosureBaseUrlLabel" for="enclosureBaseUrl">Base URL:</label>
-            <input style="display: none; margin-bottom: 1em;" type="text" name="enclosureBaseUrl" id="enclosureBaseUrl" />
-            Enclosure Drill Chain (Optional) 
-            <span class="tooltip" data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
+            <input style="display: none; margin-bottom: 1em;" type="text" name="enclosureBaseUrl"
+              id="enclosureBaseUrl" />
+            Enclosure Drill Chain (Optional)
+            <span class="tooltip"
+              data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
             <div id="enclosureDrillContainer"></div>
             <button type="button" class="outline" id="enclosureAddButton" onclick="addDrillStep('enclosure')">
               🔗 Add Chain
@@ -214,8 +227,9 @@
               Convert Author to Title Case
             </label>
             <br><br>
-            Author Drill Chain (Optional) 
-            <span class="tooltip" data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
+            Author Drill Chain (Optional)
+            <span class="tooltip"
+              data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
             <div id="authorDrillContainer"></div>
             <button type="button" class="outline" id="authorAddButton" onclick="addDrillStep('author')">
               🔗 Add Chain
@@ -231,7 +245,8 @@
             <label for="dateIterator">Date Parent Iterator (optional):</label>
             <input type="text" name="dateIterator" id="dateIterator" /><br><br>
             <label for="dateFormat">Date Format (optional):</label>
-            <span class="tooltip" data-tooltip="Most common formats (e.g., Unix timestamps, ISO) are auto-detected. Only specify if needed.">ℹ️</span>
+            <span class="tooltip"
+              data-tooltip="Most common formats (e.g., Unix timestamps, ISO) are auto-detected. Only specify if needed.">ℹ️</span>
             <select name="dateFormat" id="dateFormat">
               <option value="">Auto Detect</option>
               <option value="DD/MM/YYYY">DD/MM/YYYY</option>
@@ -241,15 +256,11 @@
               <option value="other">Other (specify)</option>
             </select><br><br>
             <label for="customDateFormat" id="customDateFormatLabel" style="display: none;">Custom Date Format:</label>
-            <input
-              type="text"
-              name="customDateFormat"
-              id="customDateFormat"
-              placeholder="e.g. YYYY/MM/DD HH:mm"
-              style="display: none; margin-bottom: 1em;"
-            />
-            Date Drill Chain (Optional) 
-            <span class="tooltip" data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
+            <input type="text" name="customDateFormat" id="customDateFormat" placeholder="e.g. YYYY/MM/DD HH:mm"
+              style="display: none; margin-bottom: 1em;" />
+            Date Drill Chain (Optional)
+            <span class="tooltip"
+              data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
             <div id="dateDrillContainer"></div>
             <button type="button" class="outline" id="dateAddButton" onclick="addDrillStep('date')">
               🔗 Add Chain
@@ -288,7 +299,7 @@
           <summary>Additional Options ⚙️</summary>
           <label>Cookies:</label>
           <div id="cookiesContainer"></div>
-          <button type="button" onclick="addCookieRow()" class="outline contrast">Add Cookie 🍪</button>
+          <button type="button" onclick="addCookieRow()" class="outline">Add Cookie 🍪</button>
           <label for="headers">HTTP Headers (JSON format):</label>
           <textarea name="headers" id="headers" rows="5" cols="50">{}</textarea>
           <label for="refreshTime">Refresh Time (minutes):</label>
@@ -300,7 +311,8 @@
           <label>
             <input type="checkbox" name="advanced" id="advanced" />
             Use Advanced Scraping
-            <span class="tooltip" data-tooltip="Use for sites that lazy-load content. Launches a headless browser for deeper scraping.">ℹ️</span>
+            <span class="tooltip"
+              data-tooltip="Use for sites that lazy-load content. Launches a headless browser for deeper scraping.">ℹ️</span>
           </label>
           <label>
             <input type="checkbox" name="strict" id="strict" />
@@ -323,24 +335,17 @@
     </footer>
     <article id="preview" style="display: none">
       <iframe id="previewFrame" style="width: 100%; height: 100%"></iframe>
-      <button
-        onclick="document.getElementById('preview').style.display = 'none';"
-        style="width: 100%"
-        class="outline contrast"
-      >
+      <button onclick="document.getElementById('preview').style.display = 'none';" style="width: 100%"
+        class="outline contrast">
         Hide
       </button>
     </article>
-    <article
-      id="playgroundOverlay"
-      style="display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); z-index: 9999;"
-    >
-      <div style="position: relative; width: 90%; height: 90%; margin: 2% auto; background: #fff; border-radius: 8px; overflow: hidden;">
-        <iframe
-          id="playgroundIframe"
-          style="width: 100%; height: 100%; border: 0"
-          sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-modals"
-        ></iframe>
+    <article id="playgroundOverlay"
+      style="display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); z-index: 9999;">
+      <div
+        style="position: relative; width: 90%; height: 90%; margin: 2% auto; background: #fff; border-radius: 8px; overflow: hidden;">
+        <iframe id="playgroundIframe" style="width: 100%; height: 100%; border: 0"
+          sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-modals"></iframe>
       </div>
     </article>
   </article>
@@ -638,7 +643,7 @@
           if (data.origin) {
             baseUrlInput.value = data.origin;
           }
-        } catch {}
+        } catch { }
       }
     });
     function generateUUID() {
@@ -738,26 +743,54 @@
     });
     function addCookieRow() {
       const container = document.getElementById("cookiesContainer");
+
       const rowDiv = document.createElement("div");
       rowDiv.className = "cookieRow";
-      rowDiv.style = "margin-bottom: 1em;";
+      rowDiv.style = `
+    margin-bottom: 1em;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    position: relative;
+
+    padding: 1em;
+    padding-top: 2.5em; 
+    box-sizing: border-box;
+    `;
+
+      const removeBtn = document.createElement("button");
+      removeBtn.type = "button";
+      removeBtn.textContent = "X";
+      removeBtn.classList.add("contrast");
+      removeBtn.title = "Remove this cookie";
+      removeBtn.classList.add("outline");
+      removeBtn.style = `
+      position: absolute;
+      top: 0.25em;
+      right: 0.5em;
+      font-size: 1.5em;
+      cursor: pointer;
+      z-index: 999;
+      transform: scale(0.5);
+      transform-origin: top right;
+    `;
+      removeBtn.onclick = () => rowDiv.remove();
+
       const keyInput = document.createElement("input");
       keyInput.name = "cookieNames[]";
       keyInput.placeholder = "Cookie name";
       keyInput.style = "margin-right: 0.5em;";
+
       const valueInput = document.createElement("input");
       valueInput.name = "cookieValues[]";
       valueInput.placeholder = "Cookie value";
       valueInput.style = "margin-right: 0.5em;";
-      const removeBtn = document.createElement("button");
-      removeBtn.type = "button";
-      removeBtn.textContent = "Remove";
-      removeBtn.onclick = () => rowDiv.remove();
+
+      rowDiv.appendChild(removeBtn);
       rowDiv.appendChild(keyInput);
       rowDiv.appendChild(valueInput);
-      rowDiv.appendChild(removeBtn);
       container.appendChild(rowDiv);
     }
   </script>
 </body>
+
 </html>

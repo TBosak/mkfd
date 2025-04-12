@@ -20,6 +20,7 @@ import { encrypt } from "./utilities/security.utility";
 import puppeteer from "puppeteer";
 import { CookieStore, sessionMiddleware } from "hono-sessions";
 import { suggestSelectors } from "./utilities/suggestion-engine.utility";
+import { parseCookiesForPuppeteer } from "./utilities/data-handler.utility";
 
 const app = new Hono();
 const store = new CookieStore();
@@ -154,10 +155,13 @@ app.post("/", async (ctx) => {
   const cookieNames = extract("cookieNames[]") || [];
   const cookieValues = extract("cookieValues[]") || [];
   const cookieString = cookieNames
-    .map((name, i) => `${name}=${cookieValues[i]}`)
-    .join("; ");
-  
-  console.log("Cookie String:", cookieString);
+  .map((rawName: string, i: number) => {
+    const rawValue = cookieValues[i] ?? "";
+    const name = rawName.trim();
+    const value = rawValue.trim();
+    return `${name}=${value}`;
+  })
+  .join("; ");
 
   const feedType = extract("feedType", "webScraping");
 
@@ -168,6 +172,7 @@ app.post("/", async (ctx) => {
     route: extract("apiRoute"),
     params: JSON.parse(extract("apiParams", "{}")),
     headers: JSON.parse(extract("apiHeaders", "{}")),
+    cookieString: cookieString,
     body: JSON.parse(extract("apiBody", "{}")),
     advanced: ["on", true, "true"].includes(extract("advanced")),
   };
@@ -194,7 +199,6 @@ app.post("/", async (ctx) => {
             link: buildCSSTarget("link", body),
             enclosure: buildCSSTarget("enclosure", body),
             date: buildCSSTarget("date", body),
-            headers: extract("headers"),
           }
         : {},
     apiMapping:
@@ -243,8 +247,13 @@ app.post("/preview", async (ctx) => {
     const cookieValues = extract("cookieValues[]") || [];
 
     const cookieString = cookieNames
-      .map((name, i) => `${name}=${cookieValues[i]}`)
-      .join("; ");
+    .map((rawName: string, i: number) => {
+      const rawValue = cookieValues[i] ?? "";
+      const name = rawName.trim();
+      const value = rawValue.trim();
+      return `${name}=${value}`;
+    })
+    .join("; ");
     
     const apiConfig: ApiConfig = {
       title: extract("feedName", "RSS Feed"),
@@ -253,17 +262,11 @@ app.post("/preview", async (ctx) => {
       route: extract("apiRoute"),
       params: JSON.parse(extract("apiParams", "{}")),
       headers: JSON.parse(extract("apiHeaders", "{}")),
+      cookieString: cookieString,
       body: JSON.parse(extract("apiBody", "{}")),
       advanced: ["on", true, "true"].includes(extract("advanced")),
     };
 
-    const emailConfig = {
-      host: extract("emailHost"),
-      port: parseInt(extract("emailPort", "993")),
-      username: extract("emailUsername"),
-      encryptedPassword: encrypt(extract("emailPassword"), encryptionKey),
-      folder: extract("emailFolder"),
-    };
 
     const feedConfig = {
       feedId: "preview",
@@ -675,19 +678,34 @@ async function generatePreview(feedConfig: any) {
           args: ["--no-sandbox", "--disable-setuid-sandbox"],
         });
         const page = await browser.newPage();
-        await page.goto(feedConfig.config.baseUrl, {
-          waitUntil: "networkidle2",
-        });
+      
+        // 1) Set cookies (if you have them):
+        if (feedConfig.config.cookieString.trim()) {
+          const domain = new URL(feedConfig.config.baseUrl).hostname;
+          const puppeteerCookies = parseCookiesForPuppeteer(feedConfig.config.cookieString, domain);
+          await browser.setCookie(...puppeteerCookies);
+        }
+      
+        // 2) Set custom headers (if you have them):
+        // feedConfig.config.headers is presumably an object, e.g. { "X-Foo": "bar" }
+        if (feedConfig.config.headers && Object.keys(feedConfig.config.headers).length > 0) {
+          await page.setExtraHTTPHeaders(feedConfig.config.headers);
+        }
+      
+        // 3) Now navigate
+        await page.goto(feedConfig.config.baseUrl, { waitUntil: "networkidle2" });
         const html = await page.content();
         await browser.close();
-        rssXml = await buildRSS(html, feedConfig);
-      } else {
+        return buildRSS(html, feedConfig);
+      }
+       else {
         // Otherwise, use axios
-        const response = feedConfig.article?.headers
-          ? await axios.get(feedConfig.config.baseUrl, {
-              headers: feedConfig.article.headers,
-            })
-          : await axios.get(feedConfig.config.baseUrl);
+        const response = await axios.get(feedConfig.config.baseUrl, {
+          headers: {
+            ...(feedConfig.config.headers || {}),
+            Cookie: feedConfig.config.cookieString || ""
+          }
+        });
         const html = response.data;
         rssXml = await buildRSS(html, feedConfig);
       }
