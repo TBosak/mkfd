@@ -77,7 +77,7 @@ Email feeds do not refresh on intervals. The process runs continuously and updat
 
 - **Cookie secret**: A cookie secret is a random string that is used to sign cookies in the Mkfd application. It is used to ensure that cookies cannot be tampered with by malicious users. The cookie secret must be at least 32 characters long.
 
-- **Encryption key**: An encryption key is a random string that is used to encrypt sensitive data in the Mkfd application. It is used to ensure that sensitive data, such as passwords, cannot be accessed by unauthorized users. The encryption key must be at least 16 characters long.
+- **Encryption key**: An encryption key is a random string that is used to encrypt sensitive data in the Mkfd application. It is used to ensure that sensitive data, such as passwords, cannot be accessed by unauthorized users. The encryption key must 16, 24, or 32 characters long.
 
 - **SSL**: A boolean value that indicates whether to use SSL for the Mkfd application. Set to true if serving over HTTPS, false if serving over HTTP.
 
