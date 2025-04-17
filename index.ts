@@ -671,7 +671,6 @@ async function generatePreview(feedConfig: any) {
     let rssXml;
 
     if (feedConfig.feedType === "webScraping") {
-      // If advanced is true, use Puppeteer
       if (feedConfig.config.advanced) {
         const browser = await puppeteer.launch({
           headless: true,
@@ -679,27 +678,27 @@ async function generatePreview(feedConfig: any) {
         });
         const page = await browser.newPage();
       
-        // 1) Set cookies (if you have them):
         if (feedConfig.config.cookieString.trim()) {
           const domain = new URL(feedConfig.config.baseUrl).hostname;
           const puppeteerCookies = parseCookiesForPuppeteer(feedConfig.config.cookieString, domain);
           await browser.setCookie(...puppeteerCookies);
         }
       
-        // 2) Set custom headers (if you have them):
-        // feedConfig.config.headers is presumably an object, e.g. { "X-Foo": "bar" }
+
         if (feedConfig.config.headers && Object.keys(feedConfig.config.headers).length > 0) {
           await page.setExtraHTTPHeaders(feedConfig.config.headers);
         }
-      
-        // 3) Now navigate
+
+        await page.setUserAgent(
+          "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 " +
+          "(KHTML, like Gecko) Chrome/110.0.0.0 Safari/537.36"
+        );      
         await page.goto(feedConfig.config.baseUrl, { waitUntil: "networkidle2" });
         const html = await page.content();
         await browser.close();
         return buildRSS(html, feedConfig);
       }
        else {
-        // Otherwise, use axios
         const response = await axios.get(feedConfig.config.baseUrl, {
           headers: {
             ...(feedConfig.config.headers || {}),
