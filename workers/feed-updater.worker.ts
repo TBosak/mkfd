@@ -2,8 +2,8 @@ import { writeFile } from "fs/promises"
 import axios, { AxiosRequestConfig } from "axios"
 import { buildRSS, buildRSSFromApiData } from "../utilities/rss-builder.utility"
 import { join } from "path"
-import puppeteer from "puppeteer"
-import { parseCookiesForPuppeteer } from "../utilities/data-handler.utility"
+import { parseCookiesForPlaywright } from "../utilities/data-handler.utility"
+import { chromium } from "patchright";
 
 declare var self: Worker
 const rssDir = "./public/feeds"
@@ -22,27 +22,25 @@ async function fetchDataAndUpdateFeed(feedConfig: any) {
       rssXml = await buildRSS(html, feedConfig)
 
     } else if (feedConfig.feedType === "webScraping" && feedConfig.config.advanced) {
-      const browser = await puppeteer.launch({
+      const context = await chromium.launch({
+        channel: "chrome",
         headless: true,
-        args: ["--no-sandbox", "--disable-setuid-sandbox"]
-      })
-      const page = await browser.newPage()
+      });
+      const page = await context.newPage();
 
-      if (feedConfig.config.headers && Object.keys(feedConfig.config.headers).length > 0) {
-        await page.setExtraHTTPHeaders(feedConfig.config.headers)
+      if (feedConfig.config.headers && Object.keys(feedConfig.config.headers).length) {
+        await page.setExtraHTTPHeaders(feedConfig.config.headers);
       }
 
       if (feedConfig.config.cookieString) {
-        const domain = new URL(feedConfig.config.baseUrl).hostname
-        const cookiesArray = parseCookiesForPuppeteer(feedConfig.config.cookieString, domain)
-        if (cookiesArray.length > 0) {
-          await browser.setCookie(...cookiesArray)
-        }
+        const domain = new URL(feedConfig.config.baseUrl).hostname;
+        const cookiesArray = parseCookiesForPlaywright(feedConfig.config.cookieString, domain);
+        if (cookiesArray.length) await page.context().addCookies(cookiesArray);
       }
 
-      await page.goto(feedConfig.config.baseUrl, { waitUntil: "networkidle2" })
-      const html = await page.content()
-      await browser.close()
+      await page.goto(feedConfig.config.baseUrl, { waitUntil: "networkidle" });
+      const html = await page.content();
+      await context.close();
       rssXml = await buildRSS(html, feedConfig)
 
     } else if (feedConfig.feedType === "api") {

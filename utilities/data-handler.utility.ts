@@ -2,7 +2,8 @@ import axios from "axios";
 import dayjs from "dayjs";
 import * as cheerio from "cheerio";
 import customParseFormat from "dayjs/plugin/customParseFormat";
-import puppeteer, { Browser, Page } from "puppeteer";
+import { Browser, chromium, Cookie, Page } from "patchright";
+import { discoverUrl, looksLikeUrl } from "./rss-builder.utility";
 
 dayjs.extend(customParseFormat);
 
@@ -132,34 +133,28 @@ export async function resolveDrillChain(
     attribute: string;
     isRelative: boolean;
     baseUrl: string;
+    stripHtml: boolean;
   }>,
-  useAdvanced: boolean = false
+  useAdvanced: boolean = false,
+  expectUrl: boolean = false
 ): Promise<string> {
   if (!chain || chain.length === 0) return "";
 
-  let currentUrl = "";
   let currentHtml = "";
   let browser: Browser | null = null;
   let page: Page | null = null;
 
   try {
-    if (
-      startingHtmlOrUrl.startsWith("http://") ||
-      startingHtmlOrUrl.startsWith("https://")
-    ) {
+    if (startingHtmlOrUrl.startsWith("http://") || startingHtmlOrUrl.startsWith("https://")) {
       if (useAdvanced) {
-        browser = await puppeteer.launch({
-          headless: true,
-          args: ["--no-sandbox", "--disable-setuid-sandbox"],
-        });
-        page = await browser.newPage();
-        await page.goto(startingHtmlOrUrl, { waitUntil: "networkidle0" });
+        browser = await chromium.launch({ headless: true });
+        const context = await browser.newContext();
+        page = await context.newPage();
+        await page.goto(startingHtmlOrUrl, { waitUntil: "networkidle" });
         currentHtml = await page.content();
-        currentUrl = startingHtmlOrUrl;
       } else {
         const resp = await axios.get(startingHtmlOrUrl);
         currentHtml = resp.data;
-        currentUrl = startingHtmlOrUrl;
       }
     } else {
       currentHtml = startingHtmlOrUrl;
@@ -168,9 +163,7 @@ export async function resolveDrillChain(
     let finalValue = "";
 
     for (let i = 0; i < chain.length; i++) {
-      const step = chain[i];
-      const { selector, attribute, isRelative, baseUrl } = step;
-
+      const { selector, attribute, isRelative, baseUrl } = chain[i];
       const $ = cheerio.load(currentHtml);
       const el = $(selector).first();
       if (!el || el.length === 0) {
@@ -178,26 +171,32 @@ export async function resolveDrillChain(
         break;
       }
 
-      const rawValue = attribute ? el.attr(attribute) ?? "" : el.text() ?? "";
+      const rawValue = attribute ? (el.attr(attribute) ?? "") : (chain[i].stripHtml ? (el.text() ?? "") : (el.html() ?? ""));
 
       if (i === chain.length - 1) {
-        finalValue = rawValue;
+        let val = rawValue;
+      
+        if (expectUrl && !looksLikeUrl(val)) {
+          const $frag = cheerio.load(val);          // rawValue might be HTML
+          const mined = discoverUrl($frag, $frag.root());
+          if (mined) val = mined;
+        }
+      
+        finalValue = val;
       } else {
         let absoluteUrl = rawValue;
         if (isRelative && baseUrl) {
-          if (!baseUrl.endsWith("/") && !rawValue.startsWith("/")) {
-            absoluteUrl = baseUrl + "/" + rawValue;
-          } else {
-            absoluteUrl = baseUrl + rawValue;
-          }
+          absoluteUrl =
+            baseUrl.endsWith("/") || rawValue.startsWith("/")
+              ? baseUrl + rawValue
+              : `${baseUrl}/${rawValue}`;
         }
 
         if (useAdvanced && browser && page) {
           try {
-            await page.goto(absoluteUrl, { waitUntil: "networkidle0" });
+            await page.goto(absoluteUrl, { waitUntil: "networkidle" });
             currentHtml = await page.content();
-            currentUrl = absoluteUrl;
-          } catch (err) {
+          } catch {
             finalValue = "";
             break;
           }
@@ -205,8 +204,7 @@ export async function resolveDrillChain(
           try {
             const resp = await axios.get(absoluteUrl);
             currentHtml = resp.data;
-            currentUrl = absoluteUrl;
-          } catch (err) {
+          } catch {
             finalValue = "";
             break;
           }
@@ -220,19 +218,14 @@ export async function resolveDrillChain(
   }
 }
 
-export function parseCookiesForPuppeteer(cookieString: string, domain: string): any[] {
-  if (!cookieString) return [];
-
-  return cookieString
-    .split(";")
-    .map((cookie) => {
-      const [name, ...rest] = cookie.trim().split("=");
-      return {
-        name: name.trim(),
-        value: rest.join("="),
-        domain,
-        path: "/",
-      };
-    })
-    .filter((c) => c.name && c.value);
+export function parseCookiesForPlaywright(cookieString: string, domain: string): Cookie[] {
+  return cookieString.split(";").map(part => {
+    const [name, ...valuePieces] = part.trim().split("=");
+    return {
+      name,
+      value: valuePieces.join("="),
+      domain,          // or supply `url: feedConfig.config.baseUrl`
+      path: "/"
+    } as Cookie;
+  });
 }

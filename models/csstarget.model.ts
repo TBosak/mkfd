@@ -13,5 +13,6 @@ export default class CSSTarget {
       attribute: string;
       isRelative: boolean;
       baseUrl: string;
+      stripHtml: boolean;
     }>) {}
 }

@@ -588,6 +588,14 @@
         <input type="text" name="${field}DrillChain[${index}][attribute]" />
         <label>
           <input type="checkbox"
+                 name="${field}DrillChain[${index}][stripHtml]"
+                 class="strip-html-toggle"
+                 data-field="${field}"
+                 data-nested="${nestedContainerId}" />
+          Strip HTML?
+        </label>
+        <label>
+          <input type="checkbox"
                  name="${field}DrillChain[${index}][isRelative]"
                  class="relative-toggle"
                  data-field="${field}"

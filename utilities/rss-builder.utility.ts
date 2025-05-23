@@ -59,7 +59,7 @@ export async function buildRSS(res: any, feedConfig: any): Promise<string> {
           ),
           enclosure: {
             url: processLinks(
-              await extractField($, el, article.enclosure, advanced, true),
+              await extractField($, el, article.enclosure, advanced, true, false),
               article.enclosure?.stripHtml,
               article.enclosure?.relativeLink,
               article.enclosure?.rootUrl
@@ -104,7 +104,7 @@ export async function buildRSS(res: any, feedConfig: any): Promise<string> {
     }
 
     const feed = new RSS({
-      title: apiConfig?.title || $("title")?.text(),
+      title: apiConfig?.title || $("title")?.text()?.trim(),
       description: $('meta[property="twitter:description"]')?.attr("content"),
       author: "mkfd",
       site_url: apiConfig.baseUrl,
@@ -224,7 +224,7 @@ async function extractField(
 
   if (field.drillChain?.length) {
     const itemHtml = $.html(el);
-    return await resolveDrillChain(itemHtml, field.drillChain, advanced);
+    return await resolveDrillChain(itemHtml, field.drillChain, advanced, forLink || forEnclosure);
   }
 
   const target = $(el).find(field.selector);
@@ -234,18 +234,22 @@ async function extractField(
     if (rawAttr) return rawAttr;
   }
 
-  const rawText = target.text()?.trim();
+  const rawText = target.html()?.trim();
 
   if (rawText && /^https?:\/\//i.test(rawText)) {
     return rawText;
   }
 
-  if (rawText) {
+  if (rawText && !forEnclosure && !forLink) {
     return rawText;
   }
 
   if (forLink) {
-    const directHref = target.attr("href");
+    const directHref =
+    target.attr("href") ||
+    target.attr("src") ||
+    target.attr("data-src") ||
+    target.attr("srcset");
     if (directHref) return directHref;
 
     const nestedHref = target
@@ -256,28 +260,90 @@ async function extractField(
     if (nestedHref) return nestedHref;
   }
 
-  if (forEnclosure) {
-    const inlineStyle = target.attr("style");
-    let bgMatch = inlineStyle?.match(
-      /background(?:-image)?:.*url\(["']?(.*?)["']?\)/i
-    );
-    if (bgMatch?.[1]) return bgMatch[1];
+  if (forEnclosure || forLink) {
+    const url = discoverUrl($, target);
+    if (url) return url;
+  }
+  return "";
+}
 
-    let parent = target.parent();
-    while (parent.length) {
-      const parentStyle = parent.attr("style");
-      bgMatch = parentStyle?.match(/background(?:-image)?:.*url\(["']?(.*?)["']?\)/i);
-      if (bgMatch?.[1]) return bgMatch[1];
-      parent = parent.parent();
-    }
+export function looksLikeUrl(str: string) {
+  return /^https?:\/\//i.test(str) || str.startsWith("//");
+}
 
-    const nestedSrc = target
-      .find("img, video, audio")
-      .toArray()
-      .map((child) => $(child).attr("src"))
-      .find((url) => url && /^https?:\/\//i.test(url));
-    if (nestedSrc) return nestedSrc;
+export function discoverUrl($: cheerio.Root, target: cheerio.Cheerio): string {
+  const directAttr =
+  target.attr("href") || target.attr("src") || target.attr("data-src") || target.attr("srcset");
+  if (directAttr) {
+    const first = directAttr.split(/[,\s]/)[0];
+    return decodeURIComponent(first);
+  }
+  const ld = target.find('script[type="application/ld+json"]').first().html();
+  if (ld) {
+    try {
+      const data = JSON.parse(ld);
+      const candidate =
+        data?.contentUrl ??
+        data?.thumbnailUrl ??
+        (Array.isArray(data?.image) ? data.image[0] : data?.image);
+      if (candidate && looksLikeMedia(candidate)) return candidate;
+    } catch { /* ignore bad JSON */ }
+  }
+  // inline/background style on element
+  const inlineStyle = target.attr("style");
+  let m = inlineStyle?.match(/background(?:-image)?:[^;]*url\(["']?(.*?)["']?\)/i);
+  if (m?.[1]) return m[1];
+
+  // walk up DOM for bg-image urls
+  let p = target.parent();
+  while (p.length) {
+    const ps = p.attr("style");
+    m = ps?.match(/background(?:-image)?:[^;]*url\(["']?(.*?)["']?\)/i);
+    if (m?.[1]) return m[1];
+    p = p.parent();
   }
 
+  // direct attrs
+  const direct =
+    target.attr("href") ||
+    target.attr("src") ||
+    target.attr("data-src") ||
+    target.attr("srcset");
+    if (direct) return decodeURIComponent(direct.split(/[,\s]/)[0]);
+
+  // nested <img|video|audio>
+  const nestedSrc = target
+    .find("img, video, audio")
+    .toArray()
+    .map((c) => $(c).attr("src"))
+    .find((url) => looksLikeUrl(url ?? ""));
+  if (nestedSrc) return nestedSrc;
+
+  /* ----- catch-all: mine outerHTML ----- */
+  const html = $.html(target);
+  const abs = nextUsefulAbs(html);
+  if (abs) return abs;
+
+  const attr = html.match(/\b(?:src|href|data-[\w-]+)=["']([^"']+)["']/i);
+  if (attr?.[1]) return decodeURIComponent(attr[1]);
+
   return "";
+}
+
+const ABS_URL_RE = /https?:\/\/[^\s"'<>]+/ig;  // global, to keep scanning
+const BORING   = /^https?:\/\/(?:schema\.org|www\.w3\.org)\b/i;
+
+function nextUsefulAbs(html: string): string {
+  let m: RegExpExecArray | null;
+  while ((m = ABS_URL_RE.exec(html))) {
+    const u = decodeURIComponent(m[0]);
+    if (!BORING.test(u) && (looksLikeMedia(u)))
+      return u;
+  }
+  return "";
+}
+
+function looksLikeMedia(url: string): boolean {
+  return /\.(jpe?g|png|gif|webp|bmp|svg|mp4|m4v|mov|webm|m3u8|mp3|aac|ogg|wav)$/i
+    .test(url.split('?')[0]);   // ignore query-string when matching
 }
