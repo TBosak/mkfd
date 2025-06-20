@@ -21,6 +21,7 @@ import { CookieStore, sessionMiddleware } from "hono-sessions";
 import { suggestSelectors } from "./utilities/suggestion-engine.utility";
 import { parseCookiesForPlaywright } from "./utilities/data-handler.utility";
 import { chromium } from "patchright";
+import * as cheerio from "cheerio";
 
 const app = new Hono();
 const store = new CookieStore();
@@ -132,6 +133,7 @@ app.post("/", async (ctx) => {
   const contentType = ctx.req.header("Content-Type") || "";
 
   let body: Record<string, any>;
+  let sampleHtml = "";
 
   try {
     if (contentType.includes("application/json")) {
@@ -141,97 +143,269 @@ app.post("/", async (ctx) => {
       contentType.includes("application/x-www-form-urlencoded")
     ) {
       const formData = await ctx.req.formData();
-      body = Object.fromEntries(formData);
+      body = Object.fromEntries(formData as any); 
+
+      const potentialDrillChainKeys = Object.keys(body).filter(k => k.includes("DrillChain"));
+      const structuredDrillChains: Record<string, any[]> = {};
+
+      for (const key of potentialDrillChainKeys) {
+        const drillChainMatch = key.match(/^(\w+)DrillChain\[(\d+)\]\[(\w+)\]$/);
+        if (drillChainMatch) {
+          const fieldName = drillChainMatch[1];
+          const index = parseInt(drillChainMatch[2]);
+          const property = drillChainMatch[3];
+          const chainKey = `${fieldName}DrillChain`; 
+          const value = body[key]; 
+
+          if (!structuredDrillChains[chainKey]) {
+            structuredDrillChains[chainKey] = [];
+          }
+          while (structuredDrillChains[chainKey].length <= index) {
+            structuredDrillChains[chainKey].push({});
+          }
+          if (value !== null && value !== undefined) {
+            structuredDrillChains[chainKey][index][property] = value;
+            delete body[key]; 
+          }
+        }
+      }
+      Object.assign(body, structuredDrillChains);
+
     } else {
       return ctx.text("Unsupported Content-Type.", 415);
     }
-  } catch {
+
+    if (body.feedType === "webScraping" && body.feedUrl) {
+      try {
+        const response = await axios.get(body.feedUrl, {
+          maxContentLength: 2 * 1024 * 1024,
+          maxBodyLength: 2 * 1024 * 1024,
+        });
+        sampleHtml = response.data;
+      } catch (e) {
+        console.warn("Could not fetch sample HTML for URL analysis:", e.message);
+        sampleHtml = "";
+      }
+    }
+
+  } catch (e) {
+    console.error("Error parsing request body:", e);
     return ctx.text("Invalid request body.", 400);
   }
 
-  const extract = (key: string, fallback: any = undefined) =>
-    body[key] ?? fallback;
+  const extract = (key: string, fallback: any = undefined) => {
+    return body[key] ?? fallback;
+  }
 
-  const cookieNames = extract("cookieNames[]") || [];
-  const cookieValues = extract("cookieValues[]") || [];
-  const cookieString = cookieNames
-    .map((rawName: string, i: number) => {
-      const rawValue = cookieValues[i] ?? "";
-      const name = rawName.trim();
-      const value = rawValue.trim();
-      return `${name}=${value}`;
-    })
-    .join("; ");
+  const extractBool = (key: string, fallback: boolean = false) => {
+    const val = extract(key);
+    if (val === undefined) return fallback;
+    if (typeof val === 'boolean') return val;
+    return ["on", "true", "checked"].includes(String(val).toLowerCase());
+  };
+
+  const extractJson = (key: string, fallback: any = {}) => {
+    const val = extract(key);
+    if (typeof val === 'object' && val !== null) return val; 
+    if (typeof val === 'string') {
+      try {
+        return JSON.parse(val);
+      } catch {
+        console.warn(`Failed to parse JSON for key: ${key}, value: ${val}`);
+        return fallback; 
+      }
+    }
+    return fallback; 
+  };
+  
+  const cookieNames = extract("cookieNames", []) as string[];
+  const cookieValues = extract("cookieValues", []) as string[];
+  const cookies = cookieNames.map((name, i) => ({ name: name.trim(), value: (cookieValues[i] ?? "").trim() })).filter(c => c.name);
 
   const feedType = extract("feedType", "webScraping");
+  const feedName = extract("feedName", "RSS Feed");
 
-  const apiConfig: ApiConfig = {
-    title: extract("feedName", "RSS Feed"),
-    baseUrl: extract("feedUrl"),
-    method: extract("apiMethod", "GET"),
-    route: extract("apiRoute"),
-    params: JSON.parse(extract("apiParams", "{}")),
-    headers: JSON.parse(extract("apiHeaders", "{}")),
-    cookieString: cookieString,
-    body: JSON.parse(extract("apiBody", "{}")),
-    advanced: ["on", true, "true"].includes(extract("advanced")),
+  let configData: any = {}; 
+  let articleData: any = {}; 
+  let apiMappingData: any = {}; 
+  let emailConfigData: any = {}; 
+
+  const feedOptions = {
+    feedLanguage: "",
+    feedCopyright: "",
+    feedDescription: "",
+    feedManagingEditor: "",
+    feedWebMaster: "",
+    feedPubDate: "", 
+    feedLastBuildDate: "",
+    feedCategories: [] as string[], 
+    feedDocs: "https://www.rssboard.org/rss-specification", 
+    feedGenerator: "MkFD Feed Generator", 
+    feedTtl: undefined as number | undefined, 
+    feedRating: "",
+    feedSkipHours: [] as number[], 
+    feedSkipDays: [] as string[], 
+    feedImage: undefined as { url: string; title: string; link: string; width?: number; height?: number; description?: string } | undefined,
   };
 
-  const emailConfig = {
-    host: extract("emailHost"),
-    port: parseInt(extract("emailPort", "993")),
-    user: extract("emailUsername"),
-    encryptedPassword: encrypt(extract("emailPassword"), encryptionKey),
-    folder: extract("emailFolder"),
-  };
+  if (feedType === "webScraping") {
+    configData = {
+      baseUrl: extract("feedUrl"), 
+    };
+    articleData = {
+      iterator: await buildCSSTarget("item", body, sampleHtml), 
+      title: await buildCSSTarget("title", body, sampleHtml),
+      link: await buildCSSTarget("link", body, sampleHtml),
+      description: await buildCSSTarget("description", body, sampleHtml),
+      author: await buildCSSTarget("author", body, sampleHtml),
+      categories: await buildCSSTarget("categories", body, sampleHtml), 
+      comments: await buildCSSTarget("commentsUrl", body, sampleHtml), 
+      enclosure: await buildCSSTarget("enclosure", body, sampleHtml),
+      guid: await buildCSSTarget("guid", body, sampleHtml), 
+      pubDate: await buildCSSTarget("date", body, sampleHtml), 
+      source: {
+        title: await buildCSSTarget("sourceTitle", body, sampleHtml),
+        url: await buildCSSTarget("sourceUrl", body, sampleHtml),
+      },
+      contentEncoded: await buildCSSTarget("contentEncoded", body, sampleHtml),
+      summary: await buildCSSTarget("summary", body, sampleHtml),
+      contributors: await buildCSSTarget("contributors", body, sampleHtml),
+      lat: await buildCSSTarget("lat", body, sampleHtml),
+      long: await buildCSSTarget("long", body, sampleHtml),
+    };
 
-  const feedConfig = {
+    feedOptions.feedLanguage = extract("feedLanguageSelector") ? `${extract("feedLanguageSelector")}${extract("feedLanguageAttribute", "") ? `|attr:${extract("feedLanguageAttribute")}` : ""}` : "";
+    feedOptions.feedCopyright = extract("feedCopyrightSelector") ? `${extract("feedCopyrightSelector")}${extract("feedCopyrightAttribute", "") ? `|attr:${extract("feedCopyrightAttribute")}` : ""}` : "";
+    feedOptions.feedManagingEditor = extract("feedManagingEditorSelector") ? `${extract("feedManagingEditorSelector")}${extract("feedManagingEditorAttribute", "") ? `|attr:${extract("feedManagingEditorAttribute")}` : ""}` : "";
+    feedOptions.feedWebMaster = extract("feedWebMasterSelector") ? `${extract("feedWebMasterSelector")}${extract("feedWebMasterAttribute", "") ? `|attr:${extract("feedWebMasterAttribute")}` : ""}` : "";
+    
+    const feedCategoriesScraped = extract("feedCategoriesScrapingSelector") ? `${extract("feedCategoriesScrapingSelector")}${extract("feedCategoriesScrapingAttribute", "") ? `|attr:${extract("feedCategoriesScrapingAttribute")}` : ""}` : "";
+    if (feedCategoriesScraped) feedOptions.feedCategories = [feedCategoriesScraped]; 
+
+    const feedTtlScraped = extract("feedTtlSelector") ? `${extract("feedTtlSelector")}${extract("feedTtlAttribute", "") ? `|attr:${extract("feedTtlAttribute")}` : ""}` : "";
+    if (feedTtlScraped) feedOptions.feedTtl = Number(feedTtlScraped); 
+    
+    feedOptions.feedRating = extract("feedRatingSelector") ? `${extract("feedRatingSelector")}${extract("feedRatingAttribute", "") ? `|attr:${extract("feedRatingAttribute")}` : ""}` : "";
+    
+    const skipDaysScraped = extract("feedSkipDaysSelector") ? `${extract("feedSkipDaysSelector")}${extract("feedSkipDaysAttribute", "") ? `|attr:${extract("feedSkipDaysAttribute")}` : ""}` : "";
+    if (skipDaysScraped) feedOptions.feedSkipDays = [skipDaysScraped]; 
+
+    const skipHoursScraped = extract("feedSkipHoursSelector") ? `${extract("feedSkipHoursSelector")}${extract("feedSkipHoursAttribute", "") ? `|attr:${extract("feedSkipHoursAttribute")}` : ""}` : "";
+    if (skipHoursScraped) feedOptions.feedSkipHours = [Number(skipHoursScraped)]; 
+
+    const imgUrlSel = extract("feedImageUrlSelector");
+    if (imgUrlSel) {
+      feedOptions.feedImage = {
+        url: `${imgUrlSel}${extract("feedImageUrlAttribute", "") ? `|attr:${extract("feedImageUrlAttribute")}` : ""}`,
+        title: extract("feedImageTitleSelector") ? `${extract("feedImageTitleSelector")}${extract("feedImageTitleAttribute", "") ? `|attr:${extract("feedImageTitleAttribute")}` : ""}` : "",
+        link: extract("feedImageLinkSelector") ? `${extract("feedImageLinkSelector")}${extract("feedImageLinkAttribute", "") ? `|attr:${extract("feedImageLinkAttribute")}` : ""}` : "",
+        width: extract("feedImageWidthSelector") ? Number(`${extract("feedImageWidthSelector")}${extract("feedImageWidthAttribute", "") ? `|attr:${extract("feedImageWidthAttribute")}` : ""}`) : undefined,
+        height: extract("feedImageHeightSelector") ? Number(`${extract("feedImageHeightSelector")}${extract("feedImageHeightAttribute", "") ? `|attr:${extract("feedImageHeightAttribute")}` : ""}`) : undefined,
+        description: extract("feedImageDescriptionSelector") ? `${extract("feedImageDescriptionSelector")}${extract("feedImageDescriptionAttribute", "") ? `|attr:${extract("feedImageDescriptionAttribute")}` : ""}` : "",
+      };
+    }
+
+  } else if (feedType === "api") {
+    configData = {
+      baseUrl: extract("feedUrl"),
+      method: extract("apiMethod", "GET"),
+      route: extract("apiRoute"),
+      params: extractJson("apiParams"),
+      apiSpecificHeaders: extractJson("apiHeaders"), 
+      apiSpecificBody: extractJson("apiBody"),     
+    };
+    apiMappingData = {
+      items: extract("apiItemsPath"),
+      title: extract("apiTitleField"), 
+      link: extract("apiLinkField"),
+      description: extract("apiDescriptionField"),
+      author: extract("apiAuthor"),
+      categories: extract("apiCategories"),      
+      comments: extract("apiCommentsUrl"), 
+      enclosureUrl: extract("apiEnclosureUrl"),
+      enclosureLength: extract("apiEnclosureSize"), 
+      enclosureType: extract("apiEnclosureType"),
+      guid: extract("apiGuid"),
+      guidIsPermaLink: extract("apiGuidIsPermaLink"), 
+      pubDate: extract("apiDateField"), 
+      sourceTitle: extract("apiSourceTitle"),
+      sourceUrl: extract("apiSourceUrl"),
+      contentEncoded: extract("apiContentEncoded"),
+      summary: extract("apiSummary"),
+      contributors: extract("apiContributors"),
+      lat: extract("apiLat"),
+      long: extract("apiLong"),
+      feedTitlePath: extract("apiFeedTitle"),
+      feedLinkPath: extract("feedUrl"), 
+      feedDescriptionPath: extract("apiFeedDescription"),
+      feedLanguagePath: extract("apiFeedLanguage"),
+      feedCopyrightPath: extract("apiFeedCopyright"),
+      feedManagingEditorPath: extract("apiFeedManagingEditor"),
+      feedWebMasterPath: extract("apiFeedWebMaster"),
+      feedPubDatePath: extract("apiFeedPubDate"),
+      feedLastBuildDatePath: extract("apiFeedLastBuildDate"),
+      feedCategoriesPath: extract("apiFeedCategories"), 
+      feedTtlPath: extract("apiFeedTtl"), 
+      feedRatingPath: extract("apiFeedRating"),
+      feedSkipHoursPath: extract("apiFeedSkipHours"), 
+      feedSkipDaysPath: extract("apiFeedSkipDays"),   
+      feedImageUrlPath: extract("apiFeedImageUrl"),
+      feedImageTitlePath: extract("apiFeedImageTitle"),
+      feedImageLinkPath: extract("apiFeedImageLink"),
+      feedImageWidthPath: extract("apiFeedImageWidth"), 
+      feedImageHeightPath: extract("apiFeedImageHeight"), 
+      feedImageDescriptionPath: extract("apiFeedImageDescription"),
+    };
+
+  } else if (feedType === "email") {
+    emailConfigData = {
+      host: extract("emailHost"),
+      port: parseInt(extract("emailPort", "993")) || 993,
+      user: extract("emailUsername"),
+      encryptedPassword: encrypt(extract("emailPassword"), encryptionKey),
+      folder: extract("emailFolder"),
+    };
+    feedOptions.feedLanguage = "en"; 
+    feedOptions.feedDescription = `Emails from folder: ${emailConfigData.folder}`;
+  }
+
+  const finalFeedConfig = {
     feedId,
-    feedName: apiConfig.title,
+    feedName,
     feedType,
-    config: feedType === "email" ? emailConfig : apiConfig,
-    article:
-      feedType === "webScraping"
-        ? {
-            iterator: new CSSTarget(extract("itemSelector")),
-            title: buildCSSTarget("title", body),
-            description: buildCSSTarget("description", body),
-            link: buildCSSTarget("link", body),
-            enclosure: buildCSSTarget("enclosure", body),
-            date: buildCSSTarget("date", body),
-          }
-        : {},
-    apiMapping:
-      feedType === "api"
-        ? {
-            items: extract("apiItemsPath"),
-            title: extract("apiTitleField"),
-            description: extract("apiDescriptionField"),
-            link: extract("apiLinkField"),
-            date: extract("apiDateField"),
-          }
-        : {},
-    refreshTime: parseInt(extract("refreshTime", "5")),
-    reverse: ["on", true, "true"].includes(extract("reverse")),
-    strict: ["on", true, "true"].includes(extract("strict")),
+    refreshTime: parseInt(extract("refreshTime", "5")) || 5,
+    reverse: extractBool("reverse"),
+    strict: extractBool("strict"),
+    advanced: extractBool("advanced"), 
+    headers: extractJson("headers"),   
+    cookies: cookies.length > 0 ? cookies : undefined, 
+    
+    config: feedType === "email" ? emailConfigData : configData, 
+    ...(feedType === "webScraping" && { article: articleData }), 
+    ...(feedType === "api" && { apiMapping: apiMappingData }),     
+    
+    ...feedOptions 
   };
 
-  const yamlStr = yaml.dump(feedConfig);
+  const yamlStr = yaml.dump(finalFeedConfig);
   const yamlFilePath = join(configsDir, `${feedId}.yaml`);
   await writeFile(yamlFilePath, yamlStr, "utf8");
 
-  setFeedUpdaterInterval(feedConfig);
+  setFeedUpdaterInterval(finalFeedConfig);
 
   if (contentType.includes("application/json")) {
     return ctx.json({
       message: "RSS feed is being generated.",
       feedUrl: `public/feeds/${feedId}.xml`,
+      feedId: feedId,
+      config: finalFeedConfig 
     });
   }
 
   return ctx.html(`
-    <p>Your RSS feed is being generated and will update every ${feedConfig.refreshTime} minutes.</p>
-    <p>Access it at: <a href=\"public/feeds/${feedId}.xml\">public/feeds/${feedId}.xml</a></p>
+    <p>Your RSS feed is being generated and will update every ${finalFeedConfig.refreshTime} minutes.</p>
+    <p>Access it at: <a href=\"/public/feeds/${feedId}.xml\">/public/feeds/${feedId}.xml</a></p>
+    <p><a href="/feeds">View all feeds</a></p>
   `);
 });
 
@@ -239,75 +413,209 @@ app.post("/preview", async (ctx) => {
   try {
     const jsonData = await ctx.req.json();
 
-    const extract = (key: string, fallback: any = undefined) =>
-      jsonData[key] ?? fallback;
-
-    const feedType = extract("feedType", "webScraping");
-    const cookieNames = extract("cookieNames[]") || [];
-    const cookieValues = extract("cookieValues[]") || [];
-
-    const cookieString = cookieNames
-      .map((rawName: string, i: number) => {
-        const rawValue = cookieValues[i] ?? "";
-        const name = rawName.trim();
-        const value = rawValue.trim();
-        return `${name}=${value}`;
-      })
-      .join("; ");
-
-    const apiConfig: ApiConfig = {
-      title: extract("feedName", "RSS Feed"),
-      baseUrl: extract("feedUrl"),
-      method: extract("apiMethod", "GET"),
-      route: extract("apiRoute"),
-      params: JSON.parse(extract("apiParams", "{}")),
-      headers: JSON.parse(extract("apiHeaders", "{}")),
-      cookieString: cookieString,
-      body: JSON.parse(extract("apiBody", "{}")),
-      advanced: ["on", true, "true"].includes(extract("advanced")),
+    const extract = (key: string, fallback: any = undefined) => jsonData[key] ?? fallback;
+    const extractBool = (key: string, fallback: boolean = false) => {
+        const val = jsonData[key];
+        if (val === undefined) return fallback;
+        if (typeof val === 'boolean') return val;
+        return ["on", "true", "checked"].includes(String(val).toLowerCase());
+    };
+    const extractJson = (key: string, fallback: any = {}) => {
+        const val = jsonData[key];
+        if (typeof val === 'object' && val !== null) return val;
+        if (typeof val === 'string') {
+            try { return JSON.parse(val); } catch { return fallback; }
+        }
+        return fallback;
     };
 
+    const feedType = extract("feedType", "webScraping");
+    const feedName = extract("feedName", "RSS Feed");
+
+    let sampleHtml = "";
+    if (feedType === "webScraping" && extract("feedUrl")) {
+      try {
+        const response = await axios.get(extract("feedUrl"), {
+          maxContentLength: 2 * 1024 * 1024,
+          maxBodyLength: 2 * 1024 * 1024,
+        });
+        sampleHtml = response.data;
+      } catch (e) {
+        console.warn("Could not fetch sample HTML for preview:", e.message);
+        sampleHtml = "";
+      }
+    }
+
+    const cookieNames = extract("cookieNames", []) as string[];
+    const cookieValues = extract("cookieValues", []) as string[];
+    const cookies = cookieNames.map((name, i) => ({ name: name.trim(), value: (cookieValues[i] ?? "").trim() })).filter(c => c.name);
+
+    let configData: any = {};
+    let articleData: any = {};
+    let apiMappingData: any = {};
+    // No emailConfigData for preview as it involves live connections not suitable for simple preview
+
+    const feedOptions = {
+        feedLanguage: "",
+        feedCopyright: "",
+        feedDescription: "",
+        feedManagingEditor: "",
+        feedWebMaster: "",
+        feedPubDate: "",
+        feedLastBuildDate: "",
+        feedCategories: [] as string[],
+        feedDocs: "https://www.rssboard.org/rss-specification",
+        feedGenerator: "MkFD Preview Generator",
+        feedTtl: undefined as number | undefined,
+        feedRating: "",
+        feedSkipHours: [] as number[],
+        feedSkipDays: [] as string[],
+        feedImage: undefined as { url: string; title: string; link: string; width?: number; height?: number; description?: string } | undefined,
+    };
+
+    if (feedType === "webScraping") {
+        configData = {
+            baseUrl: extract("feedUrl"),
+        };
+        articleData = {
+            iterator: await buildCSSTarget("item", jsonData, sampleHtml),
+            title: await buildCSSTarget("title", jsonData, sampleHtml),
+            link: await buildCSSTarget("link", jsonData, sampleHtml),
+            description: await buildCSSTarget("description", jsonData, sampleHtml),
+            author: await buildCSSTarget("author", jsonData, sampleHtml),
+            categories: await buildCSSTarget("categories", jsonData, sampleHtml),
+            comments: await buildCSSTarget("commentsUrl", jsonData, sampleHtml),
+            enclosure: await buildCSSTarget("enclosure", jsonData, sampleHtml),
+            guid: await buildCSSTarget("guid", jsonData, sampleHtml),
+            pubDate: await buildCSSTarget("date", jsonData, sampleHtml),
+            source: {
+                title: await buildCSSTarget("sourceTitle", jsonData, sampleHtml),
+                url: await buildCSSTarget("sourceUrl", jsonData, sampleHtml),
+            },
+            contentEncoded: await buildCSSTarget("contentEncoded", jsonData, sampleHtml),
+            summary: await buildCSSTarget("summary", jsonData, sampleHtml),
+            contributors: await buildCSSTarget("contributors", jsonData, sampleHtml),
+            lat: await buildCSSTarget("lat", jsonData, sampleHtml),
+            long: await buildCSSTarget("long", jsonData, sampleHtml),
+        };
+
+        // Feed-level from selectors - for preview, these are direct values if simple, or selectors if complex
+        // For simplicity in preview, we might assume direct values for some, or rely on worker to fully parse selectors for live feeds.
+        // The rss-builder utility will attempt to use these values directly.
+        feedOptions.feedLanguage = extract("feedLanguageSelector"); // Assumes this provides a direct value for preview
+        feedOptions.feedCopyright = extract("feedCopyrightSelector");
+        feedOptions.feedManagingEditor = extract("feedManagingEditorSelector");
+        feedOptions.feedWebMaster = extract("feedWebMasterSelector");
+        const feedCategoriesPreview = extract("feedCategoriesScrapingSelector");
+        if (feedCategoriesPreview) feedOptions.feedCategories = feedCategoriesPreview.split(',').map(s => s.trim());
+        const feedTtlPreview = extract("feedTtlSelector");
+        if (feedTtlPreview) feedOptions.feedTtl = Number(feedTtlPreview);
+        feedOptions.feedRating = extract("feedRatingSelector");
+        const skipDaysPreview = extract("feedSkipDaysSelector");
+        if (skipDaysPreview) feedOptions.feedSkipDays = skipDaysPreview.split(',').map(s => s.trim());
+        const skipHoursPreview = extract("feedSkipHoursSelector");
+        if (skipHoursPreview) feedOptions.feedSkipHours = skipHoursPreview.split(',').map(s => Number(s.trim()));
+
+        const imgUrlPreview = extract("feedImageUrlSelector");
+        if (imgUrlPreview) {
+            feedOptions.feedImage = {
+                url: imgUrlPreview,
+                title: extract("feedImageTitleSelector"),
+                link: extract("feedImageLinkSelector"),
+                width: extract("feedImageWidthSelector") ? Number(extract("feedImageWidthSelector")) : undefined,
+                height: extract("feedImageHeightSelector") ? Number(extract("feedImageHeightSelector")) : undefined,
+                description: extract("feedImageDescriptionSelector"),
+            };
+        }
+    } else if (feedType === "api") {
+        configData = {
+            baseUrl: extract("feedUrl"),
+            method: extract("apiMethod", "GET"),
+            route: extract("apiRoute"),
+            params: extractJson("apiParams"),
+            apiSpecificHeaders: extractJson("apiHeaders"),
+            apiSpecificBody: extractJson("apiBody"),
+        };
+        apiMappingData = {
+            items: extract("apiItemsPath"),
+            title: extract("apiTitleField"),
+            link: extract("apiLinkField"),
+            description: extract("apiDescriptionField"),
+            author: extract("apiAuthor"),
+            categories: extract("apiCategories"),
+            comments: extract("apiCommentsUrl"),
+            enclosureUrl: extract("apiEnclosureUrl"),
+            enclosureLength: extract("apiEnclosureSize"),
+            enclosureType: extract("apiEnclosureType"),
+            guid: extract("apiGuid"),
+            guidIsPermaLink: extract("apiGuidIsPermaLink"),
+            pubDate: extract("apiDateField"),
+            sourceTitle: extract("apiSourceTitle"),
+            sourceUrl: extract("apiSourceUrl"),
+            contentEncoded: extract("apiContentEncoded"),
+            summary: extract("apiSummary"),
+            contributors: extract("apiContributors"),
+            lat: extract("apiLat"),
+            long: extract("apiLong"),
+            // Feed level mappings from API paths (worker handles full resolution for live feed)
+            // For preview, rss-builder will use these paths to attempt extraction
+            feedTitlePath: extract("apiFeedTitle"),
+            feedLinkPath: extract("feedUrl"), // Usually the feedUrl itself for API
+            feedDescriptionPath: extract("apiFeedDescription"),
+            feedLanguagePath: extract("apiFeedLanguage"),
+            feedCopyrightPath: extract("apiFeedCopyright"),
+            feedManagingEditorPath: extract("apiFeedManagingEditor"),
+            feedWebMasterPath: extract("apiFeedWebMaster"),
+            feedPubDatePath: extract("apiFeedPubDate"),
+            feedLastBuildDatePath: extract("apiFeedLastBuildDate"),
+            feedCategoriesPath: extract("apiFeedCategories"),
+            feedTtlPath: extract("apiFeedTtl"),
+            feedRatingPath: extract("apiFeedRating"),
+            feedSkipHoursPath: extract("apiFeedSkipHours"),
+            feedSkipDaysPath: extract("apiFeedSkipDays"),
+            feedImageUrlPath: extract("apiFeedImageUrl"),
+            feedImageTitlePath: extract("apiFeedImageTitle"),
+            feedImageLinkPath: extract("apiFeedImageLink"),
+            feedImageWidthPath: extract("apiFeedImageWidth"),
+            feedImageHeightPath: extract("apiFeedImageHeight"),
+            feedImageDescriptionPath: extract("apiFeedImageDescription"),
+        };
+        // For API previews, feedOptions are largely derived by rss-builder from apiMappingData paths
+    }
+
     const feedConfig = {
-      feedId: "preview",
-      feedName: apiConfig.title,
-      feedType,
-      config: apiConfig,
-      article:
-        feedType === "webScraping"
-          ? {
-              iterator: new CSSTarget(extract("itemSelector")),
-              title: buildCSSTarget("title", jsonData),
-              description: buildCSSTarget("description", jsonData),
-              link: buildCSSTarget("link", jsonData),
-              author: buildCSSTarget("author", jsonData),
-              date: buildCSSTarget("date", jsonData),
-              enclosure: buildCSSTarget("enclosure", jsonData),
-            }
-          : {},
-      apiMapping:
-        feedType === "api"
-          ? {
-              items: extract("apiItemsPath"),
-              title: extract("apiTitleField"),
-              description: extract("apiDescriptionField"),
-              link: extract("apiLinkField"),
-              date: extract("apiDateField"),
-            }
-          : {},
-      refreshTime: parseInt(extract("refreshTime", "5")),
-      reverse: ["on", true, "true"].includes(extract("reverse")),
-      strict: ["on", true, "true"].includes(extract("strict")),
+        feedId: "preview",
+        feedName,
+        feedType,
+        refreshTime: parseInt(extract("refreshTime", "5")) || 5,
+        reverse: extractBool("reverse"),
+        strict: extractBool("strict"),
+        advanced: extractBool("advanced"),
+        headers: extractJson("headers"),
+        cookies: cookies.length > 0 ? cookies : undefined,
+        config: configData,
+        ...(feedType === "webScraping" && { article: articleData }),
+        ...(feedType === "api" && { apiMapping: apiMappingData }),
+        ...feedOptions,
     };
 
     const response = await generatePreview(feedConfig);
 
     return ctx.text(response, 200, {
-      "Content-Type": "application/rss+xml",
-      "Cache-Control": "no-cache, no-store, must-revalidate",
+        "Content-Type": "application/rss+xml",
+        "Cache-Control": "no-cache, no-store, must-revalidate",
     });
   } catch (error) {
     console.error("Error generating preview:", error);
-    return ctx.text("Invalid request.", 400);
+    // Check if error is an Axios error or similar with a response object
+    if (error.response && error.response.data) {
+        console.error("Error response data:", error.response.data);
+        return ctx.text(`Error generating preview: ${error.message}. Server responded with: ${JSON.stringify(error.response.data)}`, 400);
+    } else if (error.request) {
+        console.error("Error request data:", error.request);
+        return ctx.text(`Error generating preview: ${error.message}. No response received from server.`, 400);
+    }
+    return ctx.text(`Error generating preview: ${error.message}`, 400);
   }
 });
 
@@ -547,26 +855,111 @@ app.post("/utils/root-url", async (c) => {
   }
 });
 
-function buildCSSTarget(prefix: string, body: Record<string, any>): CSSTarget {
-  const extract = (k: string) => body[k]?.toString() ?? "";
+function isLikelyAbsoluteUrl(url: string): boolean {
+  if (!url) return false;
+  return /^https?:\/\//i.test(url) || url.startsWith("//");
+}
 
-  const dateFormat = extract(`${prefix}Format`);
-  const customDateFormat =
-    dateFormat === "other" ? extract("customDateFormat") : undefined;
+async function determineIsRelativeAndBaseUrl(
+  url: string,
+  userIsRelative: boolean | undefined,
+  userBaseUrl: string | undefined,
+  feedUrl: string | undefined
+): Promise<{ isRelative: boolean, baseUrl: string | undefined }> {
+  if (typeof userIsRelative === "boolean" && userBaseUrl) {
+    return { isRelative: userIsRelative, baseUrl: userBaseUrl };
+  }
+  if (typeof userIsRelative === "boolean") {
+    if (userIsRelative && !userBaseUrl && feedUrl) {
+      return { isRelative: true, baseUrl: feedUrl };
+    }
+    return { isRelative: userIsRelative, baseUrl: userBaseUrl };
+  }
+  if (userBaseUrl) {
+    if (isLikelyAbsoluteUrl(url)) {
+      return { isRelative: false, baseUrl: userBaseUrl };
+    } else {
+      return { isRelative: true, baseUrl: userBaseUrl };
+    }
+  }
+  if (isLikelyAbsoluteUrl(url)) {
+    try {
+      const resp = await axios.head(url, { maxRedirects: 2, validateStatus: () => true });
+      if (resp.status >= 200 && resp.status < 600) {
+        return { isRelative: false, baseUrl: undefined };
+      }
+    } catch {
+      if (feedUrl) return { isRelative: true, baseUrl: feedUrl };
+      return { isRelative: true, baseUrl: undefined };
+    }
+    if (feedUrl) return { isRelative: true, baseUrl: feedUrl };
+    return { isRelative: true, baseUrl: undefined };
+  }
+  if (feedUrl) return { isRelative: true, baseUrl: feedUrl };
+  return { isRelative: true, baseUrl: undefined };
+}
 
+function extractSampleUrlFromHtml(html: string, selector: string, attribute?: string): string {
+  const $ = cheerio.load(html);
+  const el = $(selector).first();
+  if (!el.length) return "";
+  if (attribute) {
+    return el.attr(attribute) || "";
+  }
+  return el.attr("href") || el.attr("src") || "";
+}
+
+async function buildCSSTarget(prefix: string, body: Record<string, any>, sampleHtml?: string): Promise<CSSTarget> {
+  const extractField = (suffix: string, fallback: any = "") => body[`${prefix}${suffix}`] ?? fallback;
+  const extractBoolField = (suffix: string, fallback: boolean = false) => {
+    const val = body[`${prefix}${suffix}`];
+    if (val === undefined) return fallback;
+    if (typeof val === 'boolean') return val;
+    return ["on", "true", "checked"].includes(String(val).toLowerCase());
+  };
+
+  const selector = extractField("Selector");
+  const attribute = extractField("Attribute");
+  let userIsRelative = extractBoolField("RelativeLink", undefined);
+  let userBaseUrl = extractField("BaseUrl", undefined);
+
+  let isRelative = userIsRelative;
+  let baseUrl = userBaseUrl;
+
+  // Only apply to link, enclosure, sourceUrl
+  if (["link", "enclosure", "sourceUrl"].includes(prefix) && sampleHtml && selector) {
+    const urlSample = extractSampleUrlFromHtml(sampleHtml, selector, attribute);
+    const result = await determineIsRelativeAndBaseUrl(urlSample, userIsRelative, userBaseUrl, body.feedUrl);
+    isRelative = result.isRelative;
+    baseUrl = result.baseUrl;
+  }
+
+  // Extract drill chain data directly if it was pre-processed into an array of objects
+  const drillChainData = body[`${prefix}DrillChain`] as Array<any> || [];
   const target = new CSSTarget(
-    extract(`${prefix}Selector`),
-    extract(`${prefix}Attribute`),
-    ["on", "true", true].includes(extract(`${prefix}StripHtml`)),
-    extract(`${prefix}BaseUrl`),
-    ["on", "true", true].includes(extract(`${prefix}RelativeLink`)),
-    ["on", "true", true].includes(extract(`${prefix}TitleCase`)),
-    extract(`${prefix}Iterator`),
-    dateFormat === "other" ? customDateFormat : dateFormat
+    selector,
+    attribute,
+    extractBoolField("StripHtml"),
+    baseUrl,
+    isRelative,
+    extractBoolField("TitleCase"),
+    extractField("Iterator"),
+    extractField("Format")
   );
-
-  // Parse the chain
-  target.drillChain = parseDrillChain(prefix, body);
+  if (prefix === "guid") {
+    target.guidIsPermaLink = extractBoolField("IsPermaLink");
+  }
+  if (drillChainData.length > 0) {
+    target.drillChain = drillChainData.map(step => ({
+      selector: step.selector ?? "",
+      attribute: step.attribute ?? "",
+      isRelative: ["on", "true", true, "checked"].includes(String(step.isRelative).toLowerCase()),
+      baseUrl: step.baseUrl ?? "",
+      stripHtml: ["on", "true", true, "checked"].includes(String(step.stripHtml).toLowerCase()),
+    }));
+  } else {
+    target.drillChain = parseDrillChain(prefix, body);
+  }
   return target;
 }
 
@@ -580,46 +973,47 @@ function parseDrillChain(
   baseUrl: string;
   stripHtml: boolean;
 }> {
-  const key = `${prefix}DrillChain`;
-  const rawChain = body[key];
+  const chainKey = `${prefix}DrillChain`;
+  const rawChain = body[chainKey]; // Expects an array of objects from the improved POST / handler
 
   if (Array.isArray(rawChain)) {
-    return rawChain.map((step) => ({
+    return rawChain.map((step: any) => ({
       selector: step.selector ?? "",
       attribute: step.attribute ?? "",
-      isRelative: ["on", "true", true].includes(step.isRelative),
+      isRelative: ["on", "true", true, "checked"].includes(String(step.isRelative).toLowerCase()),
       baseUrl: step.baseUrl ?? "",
-      stripHtml: ["on", "true", true].includes(step.stripHtml),
+      stripHtml: ["on", "true", true, "checked"].includes(String(step.stripHtml).toLowerCase()),
     }));
   }
 
+  // This fallback logic for flat keys (e.g., titleDrillChain[0][selector]) 
+  // should ideally not be needed if the main POST / handler correctly structures drill chains.
+  // Keeping it as a safety measure or for cases where pre-structuring might fail.
   const chainSteps = [];
-  const chainKeyRegex = new RegExp(`^${key}\\[(\\d+)\\]\\[(.*?)\\]$`);
+  const flatKeyRegex = new RegExp(`^${prefix.replace(/([A-Z])/g, ' $1').split(' ').map(s => s.toLowerCase()).join('')}DrillChain\[(\d+)\]\[(selector|attribute|isRelative|baseUrl|stripHtml)\]$`, 'i');
   const tempStore: Record<string, Record<string, string>> = {};
 
   for (const key of Object.keys(body)) {
-    const match = chainKeyRegex.exec(key);
+    const match = flatKeyRegex.exec(key);
     if (match) {
-      const index = match[1];
-      const fieldName = match[2];
+      const index = match[1]; // Index from regex
+      const fieldName = match[2]; // Property name from regex
       if (!tempStore[index]) tempStore[index] = {};
-      tempStore[index][fieldName] = body[key];
+      tempStore[index][fieldName.toLowerCase()] = String(body[key]);
     }
   }
 
-  const sortedKeys = Object.keys(tempStore).sort(
-    (a, b) => parseInt(a) - parseInt(b)
-  );
+  const sortedKeys = Object.keys(tempStore).sort((a, b) => parseInt(a) - parseInt(b));
   for (const idx of sortedKeys) {
     const row = tempStore[idx];
     chainSteps.push({
       selector: row.selector ?? "",
       attribute: row.attribute ?? "",
-      isRelative: ["on", "true", true].includes(row.isRelative),
+      isRelative: ["on", "true", true, "checked"].includes(String(row.isrelative).toLowerCase()), // ensure lowercase for matching
       baseUrl: row.baseUrl ?? "",
+      stripHtml: ["on", "true", true, "checked"].includes(String(row.striphtml).toLowerCase()), // ensure lowercase
     });
   }
-
   return chainSteps;
 }
 
@@ -670,29 +1064,30 @@ async function processFeedsAtStart() {
 async function generatePreview(feedConfig: any) {
   try {
     let rssXml;
+    // The feedConfig passed here should now be the fully expanded one
+    // including all item and feed level options as defined in POST / and /preview routes.
 
     if (feedConfig.feedType === "webScraping") {
-      if (feedConfig.config.advanced) {
+      // feedConfig.config contains baseUrl, advanced settings
+      // feedConfig.article contains all CSSTargets for items
+      // feedConfig directly contains feed-level options like feedLanguage, feedCopyright, etc.
+      // or selectors for these if they are to be scraped (though preview might use direct values).
+
+      if (feedConfig.advanced) { // Check for advanced scraping (e.g., Playwright)
         const context = await chromium.launch({
           channel: "chrome",
           headless: true,
         });
         const page = await context.newPage();
 
-        if (
-          feedConfig.config.headers &&
-          Object.keys(feedConfig.config.headers).length
-        ) {
-          await page.setExtraHTTPHeaders(feedConfig.config.headers);
+        if (feedConfig.headers && Object.keys(feedConfig.headers).length) {
+          await page.setExtraHTTPHeaders(feedConfig.headers);
         }
 
-        if (feedConfig.config.cookieString) {
+        if (feedConfig.cookies && feedConfig.cookies.length > 0) {
           const domain = new URL(feedConfig.config.baseUrl).hostname;
-          const cookiesArray = parseCookiesForPlaywright(
-            feedConfig.config.cookieString,
-            domain
-          );
-          if (cookiesArray.length) await page.context().addCookies(cookiesArray);
+          const playwrightCookies = feedConfig.cookies.map(c => ({ ...c, domain, path: '/' }));
+          if (playwrightCookies.length) await page.context().addCookies(playwrightCookies);
         }
 
         await page.goto(feedConfig.config.baseUrl, {
@@ -700,40 +1095,56 @@ async function generatePreview(feedConfig: any) {
         });
         const html = await page.content();
         await context.close();
-        return buildRSS(html, feedConfig);
+        // buildRSS expects the full feedConfig which now includes all detailed options
+        rssXml = await buildRSS(html, feedConfig); 
       } else {
-        // Otherwise, use axios
+        // Standard axios call for non-advanced web scraping
+        const cookieString = (feedConfig.cookies || []).map(c => `${c.name}=${c.value}`).join('; ');
         const response = await axios.get(feedConfig.config.baseUrl, {
           headers: {
-            ...(feedConfig.config.headers || {}),
-            Cookie: feedConfig.config.cookieString || "",
+            ...(feedConfig.headers || {}),
+            ...(cookieString && { Cookie: cookieString }),
           },
+          maxContentLength: 2 * 1024 * 1024,
+          maxBodyLength: 2 * 1024 * 1024,
         });
         const html = response.data;
         rssXml = await buildRSS(html, feedConfig);
       }
     } else if (feedConfig.feedType === "api") {
-      const axiosConfig = {
+      // feedConfig.config contains API call details (baseUrl, route, method, params, apiSpecificHeaders, apiSpecificBody)
+      // feedConfig.apiMapping contains paths to extract data from API response
+      // feedConfig directly contains feed-level options (or paths to them in apiMapping)
+      
+      const axiosConfig: any = {
         method: feedConfig.config.method || "GET",
         url: feedConfig.config.baseUrl + (feedConfig.config.route || ""),
-        headers: feedConfig.config.headers || {},
+        headers: feedConfig.config.apiSpecificHeaders || feedConfig.headers || {},
         params: feedConfig.config.params || {},
-        data: feedConfig.config.body || {},
-        withCredentials: feedConfig.config.withCredentials || false,
+        data: feedConfig.config.apiSpecificBody || {},
       };
+      
+      // If general cookies are present and no specific API auth is overriding, pass them.
+      if (feedConfig.cookies && feedConfig.cookies.length > 0 && !axiosConfig.headers.Authorization && !axiosConfig.headers.cookie) {
+        axiosConfig.headers.Cookie = feedConfig.cookies.map(c => `${c.name}=${c.value}`).join('; ');
+      }
 
-      console.log("axiosConfig:", axiosConfig);
+      console.log("Preview Axios Config:", axiosConfig);
       const response = await axios(axiosConfig);
       const apiData = response.data;
 
+      // buildRSSFromApiData expects the full feedConfig which includes all detailed options and mappings
       rssXml = buildRSSFromApiData(apiData, feedConfig);
     }
     return rssXml;
   } catch (error) {
     console.error(
-      `Error fetching data for feedId ${feedConfig.feedId}:`,
+      `Error fetching/processing data for preview feedId ${feedConfig.feedId}:`,
       error.message
     );
+    // Re-throw the error to be handled by the calling route (/preview)
+    // This allows the route to provide a more specific HTTP error response.
+    throw error;
   }
 }
 
@@ -804,7 +1215,7 @@ async function deleteFeed(feedId: string): Promise<boolean> {
 }
 
 export default {
-  port: 5000,
+  port: 8000,
   fetch: app.fetch,
 };
 

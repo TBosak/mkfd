@@ -153,8 +153,16 @@ export async function resolveDrillChain(
         await page.goto(startingHtmlOrUrl, { waitUntil: "networkidle" });
         currentHtml = await page.content();
       } else {
-        const resp = await axios.get(startingHtmlOrUrl);
-        currentHtml = resp.data;
+        try {
+          const resp = await axios.get(startingHtmlOrUrl, {
+            maxContentLength: 2 * 1024 * 1024,
+            maxBodyLength: 2 * 1024 * 1024,
+          });
+          currentHtml = resp.data;
+        } catch (err) {
+          console.warn('resolveDrillChain: Skipped large or failed fetch for', startingHtmlOrUrl, err.message);
+          return '';
+        }
       }
     } else {
       currentHtml = startingHtmlOrUrl;
@@ -202,10 +210,14 @@ export async function resolveDrillChain(
           }
         } else {
           try {
-            const resp = await axios.get(absoluteUrl);
+            const resp = await axios.get(absoluteUrl, {
+              maxContentLength: 2 * 1024 * 1024,
+              maxBodyLength: 2 * 1024 * 1024,
+            });
             currentHtml = resp.data;
-          } catch {
-            finalValue = "";
+          } catch (err) {
+            console.warn('resolveDrillChain: Skipped large or failed fetch for', absoluteUrl, err.message);
+            finalValue = '';
             break;
           }
         }

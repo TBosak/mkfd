@@ -224,14 +224,14 @@ export async function suggestSelectors(
     link: {
       selector: childSelectors.link.selector ?? "",
       attribute: childSelectors.link.attribute ?? "",
-      relativeLink: isLinkRelative,
-      rootUrl: isLinkRelative ? baseUrl : undefined,
+      isRelative: isLinkRelative,
+      baseUrl: isLinkRelative ? baseUrl : undefined,
     },
     enclosure: {
       selector: childSelectors.enclosure.selector ?? "",
       attribute: childSelectors.enclosure.attribute ?? "",
-      relativeLink: isEnclosureRelative,
-      rootUrl: isEnclosureRelative ? baseUrl : undefined,
+      isRelative: isEnclosureRelative,
+      baseUrl: isEnclosureRelative ? baseUrl : undefined,
     },
     date: {
       selector: childSelectors.date.selector ?? "",
