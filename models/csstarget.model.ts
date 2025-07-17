@@ -14,5 +14,12 @@ export default class CSSTarget {
       isRelative: boolean;
       baseUrl: string;
       stripHtml: boolean;
-    }>) {}
+    }>,
+    // RSS 2.0 additional fields
+    public category?: string,
+    public comments?: string,
+    public guid?: string,
+    public pubDate?: string,
+    public source?: string
+  ) {}
 }

@@ -199,6 +199,11 @@ app.post("/", async (ctx) => {
             link: buildCSSTarget("link", body),
             enclosure: buildCSSTarget("enclosure", body),
             date: buildCSSTarget("date", body),
+            category: buildCSSTarget("category", body),
+            comments: buildCSSTarget("comments", body),
+            guid: buildCSSTarget("guid", body),
+            pubDate: buildCSSTarget("pubDate", body),
+            source: buildCSSTarget("source", body),
           }
         : {},
     apiMapping:
@@ -209,6 +214,11 @@ app.post("/", async (ctx) => {
             description: extract("apiDescriptionField"),
             link: extract("apiLinkField"),
             date: extract("apiDateField"),
+            category: extract("apiCategoryField"),
+            comments: extract("apiCommentsField"),
+            guid: extract("apiGuidField"),
+            pubDate: extract("apiPubDateField"),
+            source: extract("apiSourceField"),
           }
         : {},
     refreshTime: parseInt(extract("refreshTime", "5")),
@@ -554,6 +564,13 @@ function buildCSSTarget(prefix: string, body: Record<string, any>): CSSTarget {
   const customDateFormat =
     dateFormat === "other" ? extract("customDateFormat") : undefined;
 
+  // New RSS fields
+  const category = extract(`${prefix}Category`);
+  const comments = extract(`${prefix}Comments`);
+  const guid = extract(`${prefix}Guid`);
+  const pubDate = extract(`${prefix}PubDate`);
+  const source = extract(`${prefix}Source`);
+
   const target = new CSSTarget(
     extract(`${prefix}Selector`),
     extract(`${prefix}Attribute`),
@@ -562,7 +579,13 @@ function buildCSSTarget(prefix: string, body: Record<string, any>): CSSTarget {
     ["on", "true", true].includes(extract(`${prefix}RelativeLink`)),
     ["on", "true", true].includes(extract(`${prefix}TitleCase`)),
     extract(`${prefix}Iterator`),
-    dateFormat === "other" ? customDateFormat : dateFormat
+    dateFormat === "other" ? customDateFormat : dateFormat,
+    undefined, // drillChain will be set below
+    category,
+    comments,
+    guid,
+    pubDate,
+    source
   );
 
   // Parse the chain

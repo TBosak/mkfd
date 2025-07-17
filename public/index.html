@@ -266,6 +266,82 @@
               🔗 Add Chain
             </button>
           </details>
+          <br><br>
+          <details>
+            <summary>Category</summary>
+            <label for="categorySelector">Category Selector:</label>
+            <input type="text" name="categorySelector" id="categorySelector" /><br><br>
+            <label for="categoryAttribute">Category Attribute:</label>
+            <input type="text" name="categoryAttribute" id="categoryAttribute" /><br><br>
+            <label for="categoryIterator">Category Parent Iterator (optional):</label>
+            <input type="text" name="categoryIterator" id="categoryIterator" /><br><br>
+            Category Drill Chain (Optional)
+            <div id="categoryDrillContainer"></div>
+            <button type="button" class="outline" id="categoryAddButton" onclick="addDrillStep('category')">
+              🔗 Add Chain
+            </button>
+          </details>
+          <br><br>
+          <details>
+            <summary>Comments</summary>
+            <label for="commentsSelector">Comments Selector:</label>
+            <input type="text" name="commentsSelector" id="commentsSelector" /><br><br>
+            <label for="commentsAttribute">Comments Attribute:</label>
+            <input type="text" name="commentsAttribute" id="commentsAttribute" /><br><br>
+            <label for="commentsIterator">Comments Parent Iterator (optional):</label>
+            <input type="text" name="commentsIterator" id="commentsIterator" /><br><br>
+            Comments Drill Chain (Optional)
+            <div id="commentsDrillContainer"></div>
+            <button type="button" class="outline" id="commentsAddButton" onclick="addDrillStep('comments')">
+              🔗 Add Chain
+            </button>
+          </details>
+          <br><br>
+          <details>
+            <summary>GUID</summary>
+            <label for="guidSelector">GUID Selector:</label>
+            <input type="text" name="guidSelector" id="guidSelector" /><br><br>
+            <label for="guidAttribute">GUID Attribute:</label>
+            <input type="text" name="guidAttribute" id="guidAttribute" /><br><br>
+            <label for="guidIterator">GUID Parent Iterator (optional):</label>
+            <input type="text" name="guidIterator" id="guidIterator" /><br><br>
+            GUID Drill Chain (Optional)
+            <div id="guidDrillContainer"></div>
+            <button type="button" class="outline" id="guidAddButton" onclick="addDrillStep('guid')">
+              🔗 Add Chain
+            </button>
+          </details>
+          <br><br>
+          <details>
+            <summary>PubDate</summary>
+            <label for="pubDateSelector">PubDate Selector:</label>
+            <input type="text" name="pubDateSelector" id="pubDateSelector" /><br><br>
+            <label for="pubDateAttribute">PubDate Attribute:</label>
+            <input type="text" name="pubDateAttribute" id="pubDateAttribute" /><br><br>
+            <label for="pubDateIterator">PubDate Parent Iterator (optional):</label>
+            <input type="text" name="pubDateIterator" id="pubDateIterator" /><br><br>
+            PubDate Drill Chain (Optional)
+            <div id="pubDateDrillContainer"></div>
+            <button type="button" class="outline" id="pubDateAddButton" onclick="addDrillStep('pubDate')">
+              🔗 Add Chain
+            </button>
+          </details>
+          <br><br>
+          <details>
+            <summary>Source</summary>
+            <label for="sourceSelector">Source Selector:</label>
+            <input type="text" name="sourceSelector" id="sourceSelector" /><br><br>
+            <label for="sourceAttribute">Source Attribute:</label>
+            <input type="text" name="sourceAttribute" id="sourceAttribute" /><br><br>
+            <label for="sourceIterator">Source Parent Iterator (optional):</label>
+            <input type="text" name="sourceIterator" id="sourceIterator" /><br><br>
+            Source Drill Chain (Optional)
+            <div id="sourceDrillContainer"></div>
+            <button type="button" class="outline" id="sourceAddButton" onclick="addDrillStep('source')">
+              🔗 Add Chain
+            </button>
+          </details>
+          <br><br>
         </div>
         <div id="apiFields" style="display: none">
           <h3>API Configuration ⚙️</h3>
@@ -293,6 +369,16 @@
           <input type="text" name="apiLinkField" id="apiLinkField" /><br><br>
           <label for="apiDateField">Date Field:</label>
           <input type="text" name="apiDateField" id="apiDateField" /><br><br>
+          <label for="apiCategoryField">Category Field:</label>
+          <input type="text" name="apiCategoryField" id="apiCategoryField" /><br><br>
+          <label for="apiCommentsField">Comments Field:</label>
+          <input type="text" name="apiCommentsField" id="apiCommentsField" /><br><br>
+          <label for="apiGuidField">GUID Field:</label>
+          <input type="text" name="apiGuidField" id="apiGuidField" /><br><br>
+          <label for="apiPubDateField">PubDate Field:</label>
+          <input type="text" name="apiPubDateField" id="apiPubDateField" /><br><br>
+          <label for="apiSourceField">Source Field:</label>
+          <input type="text" name="apiSourceField" id="apiSourceField" /><br><br>
         </div>
         <br><br>
         <details>
