@@ -20,6 +20,11 @@ export async function buildRSS(res: any, feedConfig: any): Promise<string> {
     link?: CSSTarget;
     date?: CSSTarget;
     enclosure?: CSSTarget;
+    category?: CSSTarget;
+    comments?: CSSTarget;
+    guid?: CSSTarget;
+    pubDate?: CSSTarget;
+    source?: CSSTarget;
   };
   const reverse: boolean = feedConfig.reverse || false;
   const strict: boolean = feedConfig.strict || false;
@@ -67,6 +72,11 @@ export async function buildRSS(res: any, feedConfig: any): Promise<string> {
             size: 0,
             type: "application/octet-stream",
           },
+          category: article.category ? await extractField($, el, article.category, advanced) : undefined,
+          comments: article.comments ? await extractField($, el, article.comments, advanced) : undefined,
+          guid: article.guid ? await extractField($, el, article.guid, advanced) : undefined,
+          pubDate: article.pubDate ? await extractField($, el, article.pubDate, advanced) : undefined,
+          source: article.source ? await extractField($, el, article.source, advanced) : undefined,
         };
         if (itemData.enclosure.url) {
            if (itemData.enclosure.url.startsWith("//")) {
@@ -116,14 +126,13 @@ export async function buildRSS(res: any, feedConfig: any): Promise<string> {
         title: item.title,
         description: item.description,
         url: item.url,
-        guid: Bun.hash(JSON.stringify(item)),
+        guid: item.guid || Bun.hash(JSON.stringify(item)),
         author: item.author,
-        date: item.date,
-        enclosure: {
-          url: item.enclosure.url,
-          size: item.enclosure.size,
-          type: item.enclosure.type,
-        },
+        date: item.pubDate || item.date,
+        enclosure: item.enclosure,
+        category: item.category,
+        comments: item.comments,
+        source: item.source,
       });
     }
 
@@ -156,8 +165,11 @@ export function buildRSSFromApiData(apiData, feedConfig) {
       title: get(item, feedConfig.apiMapping.title, ""),
       description: get(item, feedConfig.apiMapping.description, ""),
       url: get(item, feedConfig.apiMapping.link, ""),
-      guid: Bun.hash(JSON.stringify(item)),
-      date: get(item, feedConfig.apiMapping.date, "") || new Date(),
+      guid: get(item, feedConfig.apiMapping.guid, Bun.hash(JSON.stringify(item))),
+      date: get(item, feedConfig.apiMapping.pubDate, get(item, feedConfig.apiMapping.date, "")) || new Date(),
+      category: get(item, feedConfig.apiMapping.category, undefined),
+      comments: get(item, feedConfig.apiMapping.comments, undefined),
+      source: get(item, feedConfig.apiMapping.source, undefined),
     });
   });
 
