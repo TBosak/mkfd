@@ -34,10 +34,10 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GHCR_TOKEN }}
 
-      - name: Extract version number
+      - name: Extract version from package.json
         id: vars
         run: |
-          VERSION=${{ github.run_number }}
+          VERSION=$(node -p "require('./package.json').version")
           echo "VERSION=$VERSION" >> $GITHUB_ENV
 
       - name: Build and push Docker images to Docker Hub and GHCR
