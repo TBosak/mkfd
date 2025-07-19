@@ -111,6 +111,9 @@
             <input type="button" id="fetchFolders" value="Load Folder Options 📂" />
           </fieldset>
           <br><br>
+          <label for="emailCount">Max Emails in Feed:</label>
+          <input type="number" name="emailCount" id="emailCount" min="1" max="1000" value="10" />
+          <br><br>
         </div>
         <div id="webScrapingFields">
           <h3>CSS Selectors for RSS Feed Items 🪄</h3>
@@ -797,6 +800,632 @@
       rowDiv.appendChild(keyInput);
       rowDiv.appendChild(valueInput);
       container.appendChild(rowDiv);
+    }
+
+    function getFormData() {
+      const feedType = document.getElementById('feedType').value;
+      const data = {
+        feedName: document.getElementById('feedName').value,
+        feedType: feedType,
+      };
+
+      if (feedType === 'webScraping') {
+        data.feedUrl = document.getElementById('feedUrl').value;
+        data.itemSelector = document.getElementById('itemSelector').value;
+
+        fields.forEach(field => {
+          const selectorEl = document.getElementById(`${field}Selector`);
+          if (selectorEl) data[`${field}Selector`] = selectorEl.value;
+          const attributeEl = document.getElementById(`${field}Attribute`);
+          if (attributeEl) data[`${field}Attribute`] = attributeEl.value;
+          const iteratorEl = document.getElementById(`${field}Iterator`);
+          if (iteratorEl) data[`${field}Iterator`] = iteratorEl.value;
+
+          if (['title', 'description', 'author', 'contentEncoded', 'summary'].includes(field)) {
+            const stripHtmlEl = document.getElementById(`${field}StripHtml`);
+            if (stripHtmlEl) data[`${field}StripHtml`] = stripHtmlEl.checked;
+            const titleCaseEl = document.getElementById(`${field}TitleCase`);
+            if (titleCaseEl) data[`${field}TitleCase`] = titleCaseEl.checked;
+          }
+          if ([ 'link', 'enclosure', 'sourceUrl'].includes(field)) {
+            const relativeLinkEl = document.getElementById(`${field}RelativeLink`);
+            if (relativeLinkEl) data[`${field}RelativeLink`] = relativeLinkEl.checked;
+            const baseUrlEl = document.getElementById(`${field}BaseUrl`);
+            if (baseUrlEl) data[`${field}BaseUrl`] = baseUrlEl.value;
+          }
+          if (field === 'date') {
+            const dateFormatValue = document.getElementById('dateFormat')?.value;
+            if (dateFormatValue === 'other') {
+              data.dateFormat = document.getElementById('customDateFormat')?.value;
+            } else {
+              data.dateFormat = dateFormatValue;
+            }
+          }
+          if (field === 'guid') {
+            const guidIsPermaLinkEl = document.getElementById('guidIsPermaLink');
+            if (guidIsPermaLinkEl) data.guidIsPermaLink = guidIsPermaLinkEl.checked;
+          }
+
+          const drillContainer = document.getElementById(`${field}DrillContainer`);
+          if (drillContainer && drillContainer.children.length > 0) {
+            const drillSteps = [];
+            for (let i = 0; i < drillContainer.children.length; i++) {
+              const stepElement = drillContainer.children[i];
+              const step = {
+                selector: stepElement.querySelector('input[name*="[selector]"]')?.value,
+                attribute: stepElement.querySelector('input[name*="[attribute]"]')?.value,
+                isRelative: stepElement.querySelector('input[name*="[isRelative]"]')?.checked || false,
+                baseUrl: stepElement.querySelector('input[name*="[baseUrl]"]')?.value || '',
+                stripHtml: stepElement.querySelector('input[name*="[stripHtml]"]')?.checked || false,
+              };
+              if(step.selector) { // Only add drill step if selector is present
+                  drillSteps.push(step);
+              }
+            }
+            if (drillSteps.length > 0) {
+              data[`${field}DrillChain`] = drillSteps;
+            }
+          }
+        });
+        // Feed Level Web Scraping Fields
+        data.feedLanguageSelector = document.getElementById('feedLanguageSelector')?.value;
+        data.feedLanguageAttribute = document.getElementById('feedLanguageAttribute')?.value;
+        data.feedCopyrightSelector = document.getElementById('feedCopyrightSelector')?.value;
+        data.feedCopyrightAttribute = document.getElementById('feedCopyrightAttribute')?.value;
+        data.feedManagingEditorSelector = document.getElementById('feedManagingEditorSelector')?.value;
+        data.feedManagingEditorAttribute = document.getElementById('feedManagingEditorAttribute')?.value;
+        data.feedWebMasterSelector = document.getElementById('feedWebMasterSelector')?.value;
+        data.feedWebMasterAttribute = document.getElementById('feedWebMasterAttribute')?.value;
+        data.feedCategoriesScrapingSelector = document.getElementById('feedCategoriesScrapingSelector')?.value;
+        data.feedCategoriesScrapingAttribute = document.getElementById('feedCategoriesScrapingAttribute')?.value;
+        data.feedTtlSelector = document.getElementById('feedTtlSelector')?.value;
+        data.feedTtlAttribute = document.getElementById('feedTtlAttribute')?.value;
+        data.feedRatingSelector = document.getElementById('feedRatingSelector')?.value;
+        data.feedRatingAttribute = document.getElementById('feedRatingAttribute')?.value;
+        data.feedSkipDaysSelector = document.getElementById('feedSkipDaysSelector')?.value;
+        data.feedSkipDaysAttribute = document.getElementById('feedSkipDaysAttribute')?.value;
+        data.feedSkipHoursSelector = document.getElementById('feedSkipHoursSelector')?.value;
+        data.feedSkipHoursAttribute = document.getElementById('feedSkipHoursAttribute')?.value;
+        data.feedImageUrlSelector = document.getElementById('feedImageUrlSelector')?.value;
+        data.feedImageUrlAttribute = document.getElementById('feedImageUrlAttribute')?.value;
+        data.feedImageTitleSelector = document.getElementById('feedImageTitleSelector')?.value;
+        data.feedImageTitleAttribute = document.getElementById('feedImageTitleAttribute')?.value;
+        data.feedImageLinkSelector = document.getElementById('feedImageLinkSelector')?.value;
+        data.feedImageLinkAttribute = document.getElementById('feedImageLinkAttribute')?.value;
+        data.feedImageWidthSelector = document.getElementById('feedImageWidthSelector')?.value;
+        data.feedImageWidthAttribute = document.getElementById('feedImageWidthAttribute')?.value;
+        data.feedImageHeightSelector = document.getElementById('feedImageHeightSelector')?.value;
+        data.feedImageHeightAttribute = document.getElementById('feedImageHeightAttribute')?.value;
+        data.feedImageDescriptionSelector = document.getElementById('feedImageDescriptionSelector')?.value;
+        data.feedImageDescriptionAttribute = document.getElementById('feedImageDescriptionAttribute')?.value;
+        // Note: feedPubDate and feedLastBuildDate are not typically scraped directly for web scraping.
+        // They are usually set by the server when the feed is generated or based on item dates.
+
+      } else if (feedType === 'api') {
+        data.feedUrl = document.getElementById('feedUrl').value; // Base URL for API
+        data.apiRoute = document.getElementById('apiRoute')?.value;
+        data.apiItemsPath = document.getElementById('apiItemsPath')?.value;
+        data.apiMethod = document.getElementById('apiMethod')?.value || 'GET';
+        data.apiParams = document.getElementById('apiParams')?.value;
+        data.apiHeaders = document.getElementById('apiHeaders')?.value;
+        data.apiBody = document.getElementById('apiBody')?.value;
+
+        data.apiTitle = document.getElementById('apiTitleField')?.value || document.getElementById('apiTitle')?.value; // Prioritize new field
+        data.apiDescription = document.getElementById('apiDescriptionField')?.value || document.getElementById('apiDescription')?.value;
+        data.apiLink = document.getElementById('apiLinkField')?.value || document.getElementById('apiLink')?.value;
+        data.apiAuthor = document.getElementById('apiAuthor')?.value;
+        data.apiDate = document.getElementById('apiDateField')?.value || document.getElementById('apiDate')?.value;
+        data.apiEnclosureUrl = document.getElementById('apiEnclosureUrl')?.value;
+        data.apiEnclosureSize = document.getElementById('apiEnclosureSize')?.value;
+        data.apiEnclosureType = document.getElementById('apiEnclosureType')?.value;
+        data.apiContentEncoded = document.getElementById('apiContentEncoded')?.value;
+        data.apiSummary = document.getElementById('apiSummary')?.value;
+        data.apiGuid = document.getElementById('apiGuid')?.value;
+        data.apiGuidIsPermaLink = document.getElementById('apiGuidIsPermaLink')?.value; // This should ideally be a boolean path or a fixed value
+        data.apiCategories = document.getElementById('apiCategories')?.value;
+        data.apiContributors = document.getElementById('apiContributors')?.value;
+        data.apiLat = document.getElementById('apiLat')?.value;
+        data.apiLong = document.getElementById('apiLong')?.value;
+        data.apiSourceUrl = document.getElementById('apiSourceUrl')?.value;
+        data.apiSourceTitle = document.getElementById('apiSourceTitle')?.value;
+
+        // API Feed Level Fields
+        data.apiFeedTitle = document.getElementById('apiFeedTitle')?.value;
+        data.apiFeedDescription = document.getElementById('apiFeedDescription')?.value;
+        data.apiFeedLink = data.feedUrl; // API feed link is typically the base URL
+        data.apiFeedLanguage = document.getElementById('apiFeedLanguage')?.value;
+        data.apiFeedCopyright = document.getElementById('apiFeedCopyright')?.value;
+        data.apiFeedManagingEditor = document.getElementById('apiFeedManagingEditor')?.value;
+        data.apiFeedWebMaster = document.getElementById('apiFeedWebMaster')?.value;
+        data.apiFeedCategories = document.getElementById('apiFeedCategories')?.value; // Feed categories from API
+        data.apiFeedPubDate = document.getElementById('apiFeedPubDate')?.value;
+        data.apiFeedLastBuildDate = document.getElementById('apiFeedLastBuildDate')?.value;
+        data.apiFeedTtl = document.getElementById('apiFeedTtl')?.value;
+        data.apiFeedRating = document.getElementById('apiFeedRating')?.value;
+        data.apiFeedSkipDays = document.getElementById('apiFeedSkipDays')?.value;
+        data.apiFeedSkipHours = document.getElementById('apiFeedSkipHours')?.value;
+        data.apiFeedImageUrl = document.getElementById('apiFeedImageUrl')?.value;
+        data.apiFeedImageTitle = document.getElementById('apiFeedImageTitle')?.value;
+        data.apiFeedImageLink = document.getElementById('apiFeedImageLink')?.value;
+        data.apiFeedImageWidth = document.getElementById('apiFeedImageWidth')?.value;
+        data.apiFeedImageHeight = document.getElementById('apiFeedImageHeight')?.value;
+        data.apiFeedImageDescription = document.getElementById('apiFeedImageDescription')?.value;
+
+      } else if (feedType === 'email') {
+        data.emailHost = document.getElementById('emailHost').value;
+        data.emailPort = document.getElementById('emailPort').value;
+        data.emailUsername = document.getElementById('emailUsername').value;
+        data.emailPassword = document.getElementById('emailPassword').value;
+        data.emailFolder = document.getElementById('emailFolder').value;
+        data.emailCount = document.getElementById('emailCount').value;
+        // Email feed level info is generally set from email content or defaults
+        // For example, feed title could be `Emails from ${data.emailFolder}`
+        // Language, copyright, etc., might not be directly configurable here but set in backend.
+      }
+
+      // Additional Options (common to all feed types)
+      data.headers = document.getElementById('headers').value;
+      data.refreshTime = document.getElementById('refreshTime').value;
+      data.reverse = document.getElementById('reverse').checked;
+      data.advanced = document.getElementById('advanced').checked;
+      data.strict = document.getElementById('strict').checked;
+
+      const cookies = [];
+      const cookieNames = document.getElementsByName("cookieNames[]");
+      const cookieValues = document.getElementsByName("cookieValues[]");
+      for (let i = 0; i < cookieNames.length; i++) {
+        if (cookieNames[i].value) { // Only add if name is present
+          cookies.push({
+            name: cookieNames[i].value,
+            value: cookieValues[i].value,
+          });
+        }
+      }
+      if (cookies.length > 0) {
+        data.cookies = cookies;
+      }
+      return data;
+    }
+
+    function populateForm(config) {
+      clearForm(); // Clear form first to reset all fields including drill chains
+      document.getElementById('feedName').value = config.feedName || '';
+      const feedType = config.feedType || 'webScraping';
+      document.getElementById('feedType').value = feedType;
+      handleFeedTypeChange(); // Ensure correct sections are shown based on feedType
+
+      if (feedType === 'webScraping') {
+        document.getElementById('feedUrl').value = config.feedUrl || '';
+        setVal('itemSelector', config.itemSelector);
+
+        fields.forEach(field => {
+          setVal(`${field}Selector`, config[`${field}Selector`]);
+          setVal(`${field}Attribute`, config[`${field}Attribute`]);
+          setVal(`${field}Iterator`, config[`${field}Iterator`]);
+
+          if (['title', 'description', 'author', 'contentEncoded', 'summary'].includes(field)) {
+            setVal(`${field}StripHtml`, config[`${field}StripHtml`], false, 'checkbox');
+            setVal(`${field}TitleCase`, config[`${field}TitleCase`], false, 'checkbox');
+          }
+          if (['link', 'enclosure', 'sourceUrl'].includes(field)) {
+            const isRelative = config[`${field}RelativeLink`] || false;
+            setVal(`${field}RelativeLink`, isRelative, false, 'checkbox');
+            setVal(`${field}BaseUrl`, config[`${field}BaseUrl`]);
+            const baseUrlInput = document.getElementById(`${field}BaseUrl`);
+            const baseUrlLabel = document.getElementById(`${field}BaseUrlLabel`);
+            if (baseUrlLabel) baseUrlLabel.style.display = isRelative ? 'block' : 'none';
+            if (baseUrlInput) baseUrlInput.style.display = isRelative ? 'block' : 'none';
+            if (isRelative && baseUrlInput && !baseUrlInput.value && config.feedUrl) {
+                 baseUrlInput.value = getFeedRootUrl(config.feedUrl);
+            } else if (isRelative && baseUrlInput && !baseUrlInput.value && document.getElementById('feedUrl').value) {
+                 baseUrlInput.value = getFeedRootUrl();
+            }
+          }
+          if (field === 'date') {
+            const dateFormatEl = document.getElementById('dateFormat');
+            const customDateFormatEl = document.getElementById('customDateFormat');
+            const customDateFormatLabelEl = document.getElementById('customDateFormatLabel');
+            if (config.dateFormat) {
+              const knownFormats = Array.from(dateFormatEl.options).map(opt => opt.value);
+              if (knownFormats.includes(config.dateFormat)) {
+                dateFormatEl.value = config.dateFormat;
+                if (customDateFormatEl) customDateFormatEl.style.display = 'none';
+                if (customDateFormatLabelEl) customDateFormatLabelEl.style.display = 'none';
+              } else {
+                dateFormatEl.value = 'other';
+                if (customDateFormatEl) {
+                  customDateFormatEl.value = config.dateFormat;
+                  customDateFormatEl.style.display = 'block';
+                }
+                if (customDateFormatLabelEl) customDateFormatLabelEl.style.display = 'block';
+              }
+            } else {
+              dateFormatEl.value = ''; // Default to Auto Detect
+              if (customDateFormatEl) customDateFormatEl.style.display = 'none';
+              if (customDateFormatLabelEl) customDateFormatLabelEl.style.display = 'none';
+            }
+          }
+          if (field === 'guid') {
+            setVal('guidIsPermaLink', config.guidIsPermaLink, false, 'checkbox');
+          }
+
+          const drillChain = config[`${field}DrillChain`];
+          const drillContainer = document.getElementById(`${field}DrillContainer`);
+          if (drillContainer) {
+            drillContainer.innerHTML = ''; // Clear existing before populating
+            if (drillChain && drillChain.length > 0) {
+              drillChain.forEach((step, idx) => {
+                // Ensure createDrillStepElement is defined and handles populating values
+                const stepElement = createDrillStepElement(field, idx, step);
+                drillContainer.appendChild(stepElement);
+              });
+            }
+            // Ensure the "Add Chain" button is correctly managed if it's part of createDrillStepElement logic
+             const addButtonExists = !!document.getElementById(`${field}AddButton`);
+             if (!addButtonExists && drillContainer.children.length === 0) { // Or some other logic to re-add if needed
+                const addButton = document.createElement('button');
+                addButton.type = 'button';
+                addButton.className = 'outline';
+                addButton.id = `${field}AddButton`;
+                addButton.textContent = '🔗 Add Chain';
+                addButton.onclick = function() { addDrillStep(field); };
+                // Append after the container or manage its position
+                const detailsElement = drillContainer.closest('details');
+                if (detailsElement) {
+                    detailsElement.appendChild(addButton);
+                } else {
+                    drillContainer.insertAdjacentElement('afterend', addButton);
+                }
+             } else if (addButtonExists && drillContainer.children.length > 0) {
+                document.getElementById(`${field}AddButton`)?.remove();
+             }
+
+          }
+        });
+        // Feed Level Web Scraping Fields
+        setVal('feedLanguageSelector', config.feedLanguageSelector);
+        setVal('feedLanguageAttribute', config.feedLanguageAttribute);
+        setVal('feedCopyrightSelector', config.feedCopyrightSelector);
+        setVal('feedCopyrightAttribute', config.feedCopyrightAttribute);
+        setVal('feedManagingEditorSelector', config.feedManagingEditorSelector);
+        setVal('feedManagingEditorAttribute', config.feedManagingEditorAttribute);
+        setVal('feedWebMasterSelector', config.feedWebMasterSelector);
+        setVal('feedWebMasterAttribute', config.feedWebMasterAttribute);
+        setVal('feedCategoriesScrapingSelector', config.feedCategoriesScrapingSelector);
+        setVal('feedCategoriesScrapingAttribute', config.feedCategoriesScrapingAttribute);
+        setVal('feedTtlSelector', config.feedTtlSelector);
+        setVal('feedTtlAttribute', config.feedTtlAttribute);
+        setVal('feedRatingSelector', config.feedRatingSelector);
+        setVal('feedRatingAttribute', config.feedRatingAttribute);
+        setVal('feedSkipDaysSelector', config.feedSkipDaysSelector);
+        setVal('feedSkipDaysAttribute', config.feedSkipDaysAttribute);
+        setVal('feedSkipHoursSelector', config.feedSkipHoursSelector);
+        setVal('feedSkipHoursAttribute', config.feedSkipHoursAttribute);
+        setVal('feedImageUrlSelector', config.feedImageUrlSelector);
+        setVal('feedImageUrlAttribute', config.feedImageUrlAttribute);
+        setVal('feedImageTitleSelector', config.feedImageTitleSelector);
+        setVal('feedImageTitleAttribute', config.feedImageTitleAttribute);
+        setVal('feedImageLinkSelector', config.feedImageLinkSelector);
+        setVal('feedImageLinkAttribute', config.feedImageLinkAttribute);
+        setVal('feedImageWidthSelector', config.feedImageWidthSelector);
+        setVal('feedImageWidthAttribute', config.feedImageWidthAttribute);
+        setVal('feedImageHeightSelector', config.feedImageHeightSelector);
+        setVal('feedImageHeightAttribute', config.feedImageHeightAttribute);
+        setVal('feedImageDescriptionSelector', config.feedImageDescriptionSelector);
+        setVal('feedImageDescriptionAttribute', config.feedImageDescriptionAttribute);
+
+      } else if (feedType === 'api') {
+        document.getElementById('feedUrl').value = config.feedUrl || ''; // Base URL for API
+        setVal('apiRoute', config.apiRoute);
+        setVal('apiItemsPath', config.apiItemsPath);
+        setVal('apiMethod', config.apiMethod, 'GET');
+        setVal('apiParams', config.apiParams, '{}');
+        setVal('apiHeaders', config.apiHeaders, '{}');
+        setVal('apiBody', config.apiBody, '{}');
+
+        // Item level - Using IDs from HTML directly
+        setVal('apiTitleField', config.apiTitle); 
+        setVal('apiDescriptionField', config.apiDescription);
+        setVal('apiLinkField', config.apiLink);
+        setVal('apiAuthor', config.apiAuthor);
+        setVal('apiDateField', config.apiDate);
+        setVal('apiEnclosureUrl', config.apiEnclosureUrl);
+        setVal('apiEnclosureSize', config.apiEnclosureSize);
+        setVal('apiEnclosureType', config.apiEnclosureType);
+        setVal('apiContentEncoded', config.apiContentEncoded);
+        setVal('apiSummary', config.apiSummary);
+        setVal('apiGuid', config.apiGuid);
+        setVal('apiGuidIsPermaLink', config.apiGuidIsPermaLink); 
+        setVal('apiCategories', config.apiCategories);
+        setVal('apiContributors', config.apiContributors);
+        setVal('apiLat', config.apiLat);
+        setVal('apiLong', config.apiLong);
+        setVal('apiSourceUrl', config.apiSourceUrl);
+        setVal('apiSourceTitle', config.apiSourceTitle);
+
+        // API Feed Level Fields
+        setVal('apiFeedTitle', config.apiFeedTitle);
+        setVal('apiFeedDescription', config.apiFeedDescription);
+        setVal('apiFeedLanguage', config.apiFeedLanguage);
+        setVal('apiFeedCopyright', config.apiFeedCopyright);
+        setVal('apiFeedManagingEditor', config.apiFeedManagingEditor);
+        setVal('apiFeedWebMaster', config.apiFeedWebMaster);
+        setVal('apiFeedCategories', config.apiFeedCategories);
+        setVal('apiFeedPubDate', config.apiFeedPubDate);
+        setVal('apiFeedLastBuildDate', config.apiFeedLastBuildDate);
+        setVal('apiFeedTtl', config.apiFeedTtl);
+        setVal('apiFeedRating', config.apiFeedRating);
+        setVal('apiFeedSkipDays', config.apiFeedSkipDays);
+        setVal('apiFeedSkipHours', config.apiFeedSkipHours);
+        setVal('apiFeedImageUrl', config.apiFeedImageUrl);
+        setVal('apiFeedImageTitle', config.apiFeedImageTitle);
+        setVal('apiFeedImageLink', config.apiFeedImageLink);
+        setVal('apiFeedImageWidth', config.apiFeedImageWidth);
+        setVal('apiFeedImageHeight', config.apiFeedImageHeight);
+        setVal('apiFeedImageDescription', config.apiFeedImageDescription);
+
+      } else if (feedType === 'email') {
+        setVal('emailHost', config.emailHost);
+        setVal('emailPort', config.emailPort);
+        setVal('emailUsername', config.emailUsername);
+        setVal('emailPassword', config.emailPassword);
+        setVal('emailCount', config.emailCount || 10);
+        const emailFolderEl = document.getElementById('emailFolder');
+        if (emailFolderEl && config.emailFolder) {
+            let optionExists = false;
+            for (let i = 0; i < emailFolderEl.options.length; i++) {
+                if (emailFolderEl.options[i].value === config.emailFolder) {
+                    optionExists = true;
+                    break;
+                }
+            }
+            if (optionExists) {
+                emailFolderEl.value = config.emailFolder;
+            } else if (config.emailFolder) {
+                const option = document.createElement('option');
+                option.value = config.emailFolder;
+                option.textContent = config.emailFolder;
+                option.selected = true;
+                emailFolderEl.appendChild(option);
+            }
+        }
+      }
+
+      // Populate Additional Options
+      const cookiesContainer = document.getElementById('cookiesContainer');
+      cookiesContainer.innerHTML = ''; // Clear existing cookies
+      if (config.cookies && Array.isArray(config.cookies)) {
+        config.cookies.forEach(cookie => addCookieRow(cookie.name, cookie.value));
+      }
+      setVal('headers', config.headers, '{}');
+      setVal('refreshTime', config.refreshTime, '5');
+      setVal('reverse', config.reverse, false, 'checkbox');
+      setVal('advanced', config.advanced, false, 'checkbox');
+      setVal('strict', config.strict, false, 'checkbox');
+    }
+
+    function setVal(id, value, defaultValue = '', type = 'text') {
+      const el = document.getElementById(id);
+      if (el) {
+        if (type === 'checkbox') {
+          el.checked = value === undefined ? defaultValue : value;
+        } else {
+          el.value = value === undefined ? defaultValue : value;
+        }
+      }
+    }
+    
+    function createDrillStepElement(field, index, data = {}) {
+        const step = document.createElement("div");
+        step.className = "drill-step";
+        step.style.border = "1px solid #ccc";
+        step.style.padding = "1em";
+        step.style.marginBottom = "1em";
+        const nestedContainerId = `${field}-nested-${generateUUID()}`;
+
+        // Ensure backticks inside the string are escaped if they are not for template variables
+        step.innerHTML = `
+            <label>Selector:</label>
+            <input type="text" name="${field}DrillChain[${index}][selector]" value="${data.selector || ''}" />
+            <label>Attribute:</label>
+            <input type="text" name="${field}DrillChain[${index}][attribute]" value="${data.attribute || ''}" />
+            <label>
+            <input type="checkbox"
+                    name="${field}DrillChain[${index}][stripHtml]"
+                    class="strip-html-toggle"
+                    ${data.stripHtml ? 'checked' : ''} />
+            Strip HTML?
+            </label>
+            <label>
+            <input type="checkbox"
+                    name="${field}DrillChain[${index}][isRelative]"
+                    class="relative-toggle"
+                    ${data.isRelative ? 'checked' : ''} />
+            Relative?
+            </label>
+            <div class="relative-base-url ${data.isRelative ? '' : 'hidden'}" style="margin-top: 0.5em;">
+            <label>Base URL:</label>
+            <input type="text" name="${field}DrillChain[${index}][baseUrl]" value="${data.baseUrl || ''}" />
+            </div>
+            <div class="drill-nested" id="${nestedContainerId}">
+            <button type="button"
+                    class="outline small add-nested"
+                    data-field="${field}"
+                    data-target="${nestedContainerId}">
+                + Add Nested Step
+            </button>
+            </div>
+            <button type="button" class="outline small" onclick="this.parentElement.remove()">Remove Step</button>
+        `; // End of template literal, ensure no stray backticks before this.
+
+        const relativeToggle = step.querySelector('.relative-toggle');
+        if(relativeToggle) {
+            if (data.isRelative && !data.baseUrl) {
+                const feedUrlInput = document.getElementById("feedUrl");
+                if (feedUrlInput?.value) {
+                    const baseUrlField = step.querySelector('input[name*="[baseUrl]"]');
+                    if (baseUrlField) baseUrlField.value = getFeedRootUrl(feedUrlInput.value);
+                }
+            }
+        }
+        return step;
+    }
+
+
+    function clearForm() {
+      document.getElementById('feedName').value = '';
+      document.getElementById('feedUrl').value = '';
+      setVal('itemSelector', '');
+
+      fields.forEach(field => {
+        setVal(`${field}Selector`, '');
+        setVal(`${field}Attribute`, '');
+        setVal(`${field}Iterator`, '');
+
+        if (['title', 'description', 'author', 'contentEncoded', 'summary'].includes(field)) {
+          setVal(`${field}StripHtml`, false, false, 'checkbox');
+          setVal(`${field}TitleCase`, false, false, 'checkbox');
+        }
+        if (['link', 'enclosure', 'sourceUrl'].includes(field)) {
+          setVal(`${field}RelativeLink`, false, false, 'checkbox');
+          setVal(`${field}BaseUrl`, '');
+          const baseUrlLabelEl = document.getElementById(`${field}BaseUrlLabel`);
+          const baseUrlInputEl = document.getElementById(`${field}BaseUrl`);
+          if (baseUrlLabelEl) baseUrlLabelEl.style.display = 'none';
+          if (baseUrlInputEl) baseUrlInputEl.style.display = 'none';
+        }
+        if (field === 'date') {
+          const dateFormatEl = document.getElementById('dateFormat');
+          if (dateFormatEl) dateFormatEl.value = ''; // Auto Detect
+          const customDateFormatEl = document.getElementById('customDateFormat');
+          if (customDateFormatEl) customDateFormatEl.value = '';
+          if (customDateFormatEl) customDateFormatEl.style.display = 'none';
+          const customDateFormatLabelEl = document.getElementById('customDateFormatLabel');
+          if (customDateFormatLabelEl) customDateFormatLabelEl.style.display = 'none';
+        }
+        if (field === 'guid') {
+          setVal('guidIsPermaLink', false, false, 'checkbox');
+        }
+        const drillContainer = document.getElementById(`${field}DrillContainer`);
+        if (drillContainer) {
+            drillContainer.innerHTML = '';
+             const addButtonId = `${field}AddButton`;
+             if (!document.getElementById(addButtonId)) {
+                const addButton = document.createElement('button');
+                addButton.type = 'button';
+                addButton.className = 'outline';
+                addButton.id = addButtonId;
+                addButton.textContent = '🔗 Add Chain';
+                addButton.onclick = function() { addDrillStep(field); }; // Changed to regular function
+                
+                const detailsElement = drillContainer.closest('details');
+                if (detailsElement) { 
+                    detailsElement.appendChild(addButton);
+                } else { 
+                     drillContainer.insertAdjacentElement('afterend', addButton);
+                }
+             }
+        }
+      });
+
+      // Clear Feed Level Web Scraping Fields
+      setVal('feedLanguageSelector');
+      setVal('feedLanguageAttribute');
+      setVal('feedCopyrightSelector');
+      setVal('feedCopyrightAttribute');
+      setVal('feedManagingEditorSelector');
+      setVal('feedManagingEditorAttribute');
+      setVal('feedWebMasterSelector');
+      setVal('feedWebMasterAttribute');
+      setVal('feedCategoriesScrapingSelector');
+      setVal('feedCategoriesScrapingAttribute');
+      setVal('feedTtlSelector');
+      setVal('feedTtlAttribute');
+      setVal('feedRatingSelector');
+      setVal('feedRatingAttribute');
+      setVal('feedSkipDaysSelector');
+      setVal('feedSkipDaysAttribute');
+      setVal('feedSkipHoursSelector');
+      setVal('feedSkipHoursAttribute');
+      setVal('feedImageUrlSelector');
+      setVal('feedImageUrlAttribute');
+      setVal('feedImageTitleSelector');
+      setVal('feedImageTitleAttribute');
+      setVal('feedImageLinkSelector');
+      setVal('feedImageLinkAttribute');
+      setVal('feedImageWidthSelector');
+      setVal('feedImageWidthAttribute');
+      setVal('feedImageHeightSelector');
+      setVal('feedImageHeightAttribute');
+      setVal('feedImageDescriptionSelector');
+      setVal('feedImageDescriptionAttribute');
+
+      // Clear API fields
+      setVal('apiRoute');
+      setVal('apiItemsPath');
+      setVal('apiMethod', 'GET');
+      setVal('apiParams', '{}');
+      setVal('apiHeaders', '{}');
+      setVal('apiBody', '{}');
+      setVal('apiTitleField');
+      setVal('apiDescriptionField');
+      setVal('apiLinkField');
+      setVal('apiAuthor');
+      setVal('apiDateField');
+      setVal('apiEnclosureUrl');
+      setVal('apiEnclosureSize');
+      setVal('apiEnclosureType');
+      setVal('apiContentEncoded');
+      setVal('apiSummary');
+      setVal('apiGuid');
+      setVal('apiGuidIsPermaLink','');
+      setVal('apiCategories');
+      setVal('apiContributors');
+      setVal('apiLat');
+      setVal('apiLong');
+      setVal('apiSourceUrl');
+      setVal('apiSourceTitle');
+      // API Feed Level
+      setVal('apiFeedTitle');
+      setVal('apiFeedDescription');
+      setVal('apiFeedLanguage');
+      setVal('apiFeedCopyright');
+      setVal('apiFeedManagingEditor');
+      setVal('apiFeedWebMaster');
+      setVal('apiFeedCategories');
+      setVal('apiFeedPubDate');
+      setVal('apiFeedLastBuildDate');
+      setVal('apiFeedTtl');
+      setVal('apiFeedRating');
+      setVal('apiFeedSkipDays');
+      setVal('apiFeedSkipHours');
+      setVal('apiFeedImageUrl');
+      setVal('apiFeedImageTitle');
+      setVal('apiFeedImageLink');
+      setVal('apiFeedImageWidth');
+      setVal('apiFeedImageHeight');
+      setVal('apiFeedImageDescription');
+
+
+      // Clear Email fields
+      setVal('emailHost');
+      setVal('emailPort');
+      setVal('emailUsername');
+      setVal('emailPassword');
+      setVal('emailCount', '10');
+      const emailFolderEl = document.getElementById('emailFolder');
+      if (emailFolderEl) emailFolderEl.innerHTML = ''; // Clear folder options
+
+      // Clear Additional Options
+      document.getElementById('cookiesContainer').innerHTML = '';
+      setVal('headers', '{}');
+      setVal('refreshTime', '5');
+      setVal('reverse', false, false, 'checkbox');
+      setVal('advanced', false, false, 'checkbox');
+      setVal('strict', false, false, 'checkbox');
+
+      document.getElementById('feedType').value = 'webScraping'; // Reset to default
+      handleFeedTypeChange(); // Ensure UI reflects the cleared state and default feedType
     }
   </script>
 </body>

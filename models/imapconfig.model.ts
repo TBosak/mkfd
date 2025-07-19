@@ -5,4 +5,5 @@ export interface ImapConfig {
   user: string;
   encryptedPassword: string;
   folder: string;
+  emailCount?: number;
 }
