@@ -2,7 +2,7 @@
   "name": "mkfd",
   "module": "index.ts",
   "type": "module",
-  "version": "1.0.0",
+  "version": "2.0.0",
   "scripts": {
     "start": "bun run index.ts",
     "dev": "bun run index.ts --watch --passkey=admin123 --cookieSecret=a18c1fd2211edd76a18c1fd2211edd76 --encryptionKey=a18c1fd2211edd76"
