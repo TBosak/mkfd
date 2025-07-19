@@ -28,21 +28,68 @@
       background: #fff;
     }
 
-    #selectorActions.floating-btn {
+    #selectorActions.floating-btn:not(.hidden) {
       position: fixed;
-      left: 50%;
-      transform: translateX(-50%);
-      top: -0.5rem;
+      top: 1.5rem;
+      left: 0;
       z-index: 10000;
       background: white;
+      border-top-right-radius: 10px;
+      border-bottom-right-radius: 10px;
       border: 2px solid #ccc;
-      padding: 0.5rem;
-      border-radius: 10px;
+      border-left: none;
+      padding: 0.5rem 0.5rem 0.5rem 0.5rem;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0.5rem;
+      box-shadow: 2px 4px 10px rgba(0, 0, 0, 0.10);
+      width: 180px;
+      min-width: 180px;
+      max-width: 180px;
+      height: 80vh;
+      max-height: 80vh;
+      overflow-y: auto;
+      opacity: 0.98;
+    }
+    #selectorActions:not(.hidden) {
+      width: 48px;
+      height: 48px;
+      min-width: 48px;
+      min-height: 48px;
+      max-width: 48px;
+      max-height: 48px;
+      background: rgba(255,255,255,0.7);
+      border-radius: 50%;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+      padding: 0;
       display: flex;
       align-items: center;
-      gap: 0.5rem;
-      box-shadow: 0 4px 10px rgba(0, 0, 0, 0.15);
-      flex-wrap: wrap;
+      justify-content: center;
+      left: 1.5rem;
+      top: 1.5rem;
+      transform: none;
+      z-index: 10000;
+      overflow: visible;
+    }
+    #selectorActions #selectorActionsContent {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0.25em;
+      width: 100%;
+      overflow-x: hidden;
+    }
+    #selectorActions #selectorActionsContent button {
+      width: 100%;
+      min-width: 120px;
+      padding: 0.5em 0.5em;
+      margin: 0;
+      border-radius: 6px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 0px;
     }
 
     #titleDrillContainer,
@@ -63,14 +110,25 @@
 <body>
   <button type="button" id="playgroundBtn" class="outline hidden">🪄 Selector Playground</button>
   <div id="selectorActions" class="hidden" style="text-align:center;">
-    <button data-field="itemSelector" class="contrast small">Item</button>
-    <button data-field="titleSelector" class="contrast small">Title</button>
-    <button data-field="descriptionSelector" class="contrast small">Description</button>
-    <button data-field="linkSelector" class="contrast small">Link</button>
-    <button data-field="enclosureSelector" class="contrast small">Enclosure</button>
-    <button data-field="authorSelector" class="contrast small">Author</button>
-    <button data-field="dateSelector" class="contrast small">Date</button>
-    <button id="closePlaygroundBtn" class="contrast small">Close</button>
+    <div id="selectorActionsContent">
+      <button data-field="itemSelector" class="contrast small">Item</button>
+      <button data-field="titleSelector" class="contrast small">Title</button>
+      <button data-field="descriptionSelector" class="contrast small">Description</button>
+      <button data-field="linkSelector" class="contrast small">Link</button>
+      <button data-field="enclosureSelector" class="contrast small">Enclosure</button>
+      <button data-field="authorSelector" class="contrast small">Author</button>
+      <button data-field="dateSelector" class="contrast small">Date</button>
+      <button data-field="contentEncodedSelector" class="contrast small">Content Encoded</button>
+      <button data-field="summarySelector" class="contrast small">Summary</button>
+      <button data-field="guidSelector" class="contrast small">GUID</button>
+      <button data-field="categoriesSelector" class="contrast small">Item Categories</button>
+      <button data-field="contributorsSelector" class="contrast small">Contributors</button>
+      <button data-field="latSelector" class="contrast small">Latitude</button>
+      <button data-field="longSelector" class="contrast small">Longitude</button>
+      <button data-field="sourceUrlSelector" class="contrast small">Source URL</button>
+      <button data-field="sourceTitleSelector" class="contrast small">Source Title</button>
+      <button id="closePlaygroundBtn" class="contrast small">Close</button>
+    </div>
   </div>
   <article id="form">
     <header style="text-align: center">
@@ -126,8 +184,9 @@
           <label for="titleIterator">Title Parent Iterator (optional):</label>
           <input type="text" name="titleIterator" id="titleIterator" /><br><br>
           <label>
-            <input type="checkbox" name="titleStripHtml" id="titleStripHtml" />
+            <input type="checkbox" name="titleStripHtml" id="titleStripHtml" checked />
             Strip HTML in Title
+            <span class="tooltip" data-tooltip="Recommended: Most feed readers expect plain text for titles.">ℹ️</span>
           </label><br><br>
           <label>
             <input type="checkbox" name="titleTitleCase" id="titleTitleCase" />
@@ -152,6 +211,7 @@
             <label>
               <input type="checkbox" name="descriptionStripHtml" id="descriptionStripHtml" />
               Strip HTML in Description
+              <span class="tooltip" data-tooltip="Uncheck to allow HTML in descriptions (recommended for most feeds).">ℹ️</span>
             </label><br><br>
             <label>
               <input type="checkbox" name="descriptionTitleCase" id="descriptionTitleCase" />
@@ -222,8 +282,9 @@
             <label for="authorIterator">Author Parent Iterator (optional):</label>
             <input type="text" name="authorIterator" id="authorIterator" /><br><br>
             <label>
-              <input type="checkbox" name="authorStripHtml" id="authorStripHtml" />
+              <input type="checkbox" name="authorStripHtml" id="authorStripHtml" checked />
               Strip HTML in Author
+              <span class="tooltip" data-tooltip="Recommended: Most feed readers expect plain text for authors.">ℹ️</span>
             </label><br><br>
             <label>
               <input type="checkbox" name="authorTitleCase" id="authorTitleCase" />
@@ -269,9 +330,263 @@
               🔗 Add Chain
             </button>
           </details>
+          <br><br>
+          <details>
+            <summary>Content Encoded (CDATA)</summary>
+            <label for="contentEncodedSelector">Content Encoded Selector:</label>
+            <input type="text" name="contentEncodedSelector" id="contentEncodedSelector" /><br><br>
+            <label for="contentEncodedAttribute">Content Encoded Attribute:</label>
+            <input type="text" name="contentEncodedAttribute" id="contentEncodedAttribute" /><br><br>
+            <label for="contentEncodedIterator">Content Encoded Parent Iterator (optional):</label>
+            <input type="text" name="contentEncodedIterator" id="contentEncodedIterator" /><br><br>
+            <label>
+              <input type="checkbox" name="contentEncodedStripHtml" id="contentEncodedStripHtml" />
+              Strip HTML in Content Encoded
+              <span class="tooltip" data-tooltip="Uncheck to allow HTML in content:encoded (recommended for most feeds).">ℹ️</span>
+            </label><br><br>
+            <label>
+              <input type="checkbox" name="contentEncodedTitleCase" id="contentEncodedTitleCase" />
+              Convert Content Encoded to Title Case
+            </label><br><br>
+            Content Encoded Drill Chain (Optional)
+            <span class="tooltip"
+              data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
+            <div id="contentEncodedDrillContainer"></div>
+            <button type="button" class="outline" id="contentEncodedAddButton" onclick="addDrillStep('contentEncoded')">
+              🔗 Add Chain
+            </button>
+          </details>
+          <br><br>
+          <details>
+            <summary>Summary/Excerpt</summary>
+            <label for="summarySelector">Summary Selector:</label>
+            <input type="text" name="summarySelector" id="summarySelector" /><br><br>
+            <label for="summaryAttribute">Summary Attribute:</label>
+            <input type="text" name="summaryAttribute" id="summaryAttribute" /><br><br>
+            <label for="summaryIterator">Summary Parent Iterator (optional):</label>
+            <input type="text" name="summaryIterator" id="summaryIterator" /><br><br>
+            <label>
+              <input type="checkbox" name="summaryStripHtml" id="summaryStripHtml" checked />
+              Strip HTML in Summary
+              <span class="tooltip" data-tooltip="Recommended: Most feed readers expect plain text for summaries.">ℹ️</span>
+            </label><br><br>
+            <label>
+              <input type="checkbox" name="summaryTitleCase" id="summaryTitleCase" />
+              Convert Summary to Title Case
+            </label><br><br>
+            Summary Drill Chain (Optional)
+            <span class="tooltip"
+              data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
+            <div id="summaryDrillContainer"></div>
+            <button type="button" class="outline" id="summaryAddButton" onclick="addDrillStep('summary')">
+              🔗 Add Chain
+            </button>
+          </details>
+          <br><br>
+          <details>
+            <summary>GUID (Unique ID)</summary>
+            <label for="guidSelector">GUID Selector:</label>
+            <input type="text" name="guidSelector" id="guidSelector" /><br><br>
+            <label for="guidAttribute">GUID Attribute:</label>
+            <input type="text" name="guidAttribute" id="guidAttribute" /><br><br>
+            <label for="guidIterator">GUID Parent Iterator (optional):</label>
+            <input type="text" name="guidIterator" id="guidIterator" /><br><br>
+            <label>
+              <input type="checkbox" name="guidIsPermaLink" id="guidIsPermaLink" />
+              Is GUID a PermaLink?
+            </label><br><br>
+            GUID Drill Chain (Optional)
+            <span class="tooltip"
+              data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
+            <div id="guidDrillContainer"></div>
+            <button type="button" class="outline" id="guidAddButton" onclick="addDrillStep('guid')">
+              🔗 Add Chain
+            </button>
+          </details>
+          <br><br>
+          <details>
+            <summary>Item Categories (comma-separated)</summary>
+            <label for="categoriesSelector">Categories Selector:</label>
+            <input type="text" name="categoriesSelector" id="categoriesSelector" /><br><br>
+            <label for="categoriesAttribute">Categories Attribute:</label>
+            <input type="text" name="categoriesAttribute" id="categoriesAttribute" /><br><br>
+            <label for="categoriesIterator">Categories Parent Iterator (optional):</label>
+            <input type="text" name="categoriesIterator" id="categoriesIterator" /><br><br>
+            Categories Drill Chain (Optional)
+            <span class="tooltip"
+              data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
+            <div id="categoriesDrillContainer"></div>
+            <button type="button" class="outline" id="categoriesAddButton" onclick="addDrillStep('categories')">
+              🔗 Add Chain
+            </button>
+          </details>
+          <br><br>
+          <details>
+            <summary>Contributors (comma-separated)</summary>
+            <label for="contributorsSelector">Contributors Selector:</label>
+            <input type="text" name="contributorsSelector" id="contributorsSelector" /><br><br>
+            <label for="contributorsAttribute">Contributors Attribute:</label>
+            <input type="text" name="contributorsAttribute" id="contributorsAttribute" /><br><br>
+            <label for="contributorsIterator">Contributors Parent Iterator (optional):</label>
+            <input type="text" name="contributorsIterator" id="contributorsIterator" /><br><br>
+            Contributors Drill Chain (Optional)
+            <span class="tooltip"
+              data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
+            <div id="contributorsDrillContainer"></div>
+            <button type="button" class="outline" id="contributorsAddButton" onclick="addDrillStep('contributors')">
+              🔗 Add Chain
+            </button>
+          </details>
+          <br><br>
+          <details>
+            <summary>Geo Location (Latitude & Longitude)</summary>
+            <label for="latSelector">Latitude Selector:</label>
+            <input type="text" name="latSelector" id="latSelector" /><br><br>
+            <label for="latAttribute">Latitude Attribute:</label>
+            <input type="text" name="latAttribute" id="latAttribute" /><br><br>
+            <label for="latIterator">Latitude Parent Iterator (optional):</label>
+            <input type="text" name="latIterator" id="latIterator" /><br><br>
+            Latitude Drill Chain (Optional)
+            <span class="tooltip"
+              data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
+            <div id="latDrillContainer"></div>
+            <button type="button" class="outline" id="latAddButton" onclick="addDrillStep('lat')">
+              🔗 Add Chain
+            </button>
+            <br><br>
+            <label for="longSelector">Longitude Selector:</label>
+            <input type="text" name="longSelector" id="longSelector" /><br><br>
+            <label for="longAttribute">Longitude Attribute:</label>
+            <input type="text" name="longAttribute" id="longAttribute" /><br><br>
+            <label for="longIterator">Longitude Parent Iterator (optional):</label>
+            <input type="text" name="longIterator" id="longIterator" /><br><br>
+            Longitude Drill Chain (Optional)
+            <span class="tooltip"
+              data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
+            <div id="longDrillContainer"></div>
+            <button type="button" class="outline" id="longAddButton" onclick="addDrillStep('long')">
+              🔗 Add Chain
+            </button>
+          </details>
+          <br><br>
+          <details>
+            <summary>Item Source</summary>
+            <label for="sourceUrlSelector">Source URL Selector:</label>
+            <input type="text" name="sourceUrlSelector" id="sourceUrlSelector" /><br><br>
+            <label for="sourceUrlAttribute">Source URL Attribute:</label>
+            <input type="text" name="sourceUrlAttribute" id="sourceUrlAttribute" /><br><br>
+            <label for="sourceUrlIterator">Source URL Parent Iterator (optional):</label>
+            <input type="text" name="sourceUrlIterator" id="sourceUrlIterator" /><br><br>
+            <label>
+              <input type="checkbox" name="sourceUrlRelativeLink" id="sourceUrlRelativeLink" />
+              Relative Link?
+            </label><br><br>
+            <label style="display: none" id="sourceUrlBaseUrlLabel" for="sourceUrlBaseUrl">Base URL:</label>
+            <input style="display: none; margin-bottom: 1em;" type="text" name="sourceUrlBaseUrl" id="sourceUrlBaseUrl" />
+            Source URL Drill Chain (Optional)
+            <span class="tooltip"
+              data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
+            <div id="sourceUrlDrillContainer"></div>
+            <button type="button" class="outline" id="sourceUrlAddButton" onclick="addDrillStep('sourceUrl')">
+              🔗 Add Chain
+            </button>
+            <br><br>
+            <label for="sourceTitleSelector">Source Title Selector:</label>
+            <input type="text" name="sourceTitleSelector" id="sourceTitleSelector" /><br><br>
+            <label for="sourceTitleAttribute">Source Title Attribute:</label>
+            <input type="text" name="sourceTitleAttribute" id="sourceTitleAttribute" /><br><br>
+            <label for="sourceTitleIterator">Source Title Parent Iterator (optional):</label>
+            <input type="text" name="sourceTitleIterator" id="sourceTitleIterator" /><br><br>
+            Source Title Drill Chain (Optional)
+            <span class="tooltip"
+              data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
+            <div id="sourceTitleDrillContainer"></div>
+            <button type="button" class="outline" id="sourceTitleAddButton" onclick="addDrillStep('sourceTitle')">
+              🔗 Add Chain
+            </button>
+          </details>
+          <br><br>
+          <details>
+            <summary>Feed Level Information (Web Scraping)</summary>
+            <label for="feedLanguageSelector">Feed Language Selector:</label>
+            <input type="text" name="feedLanguageSelector" id="feedLanguageSelector" placeholder="e.g., html[lang]" /><br><br>
+            <label for="feedLanguageAttribute">Feed Language Attribute (optional, e.g., 'lang'):</label>
+            <input type="text" name="feedLanguageAttribute" id="feedLanguageAttribute" /><br><br>
+
+            <label for="feedCopyrightSelector">Feed Copyright Selector:</label>
+            <input type="text" name="feedCopyrightSelector" id="feedCopyrightSelector" /><br><br>
+            <label for="feedCopyrightAttribute">Feed Copyright Attribute (optional):</label>
+            <input type="text" name="feedCopyrightAttribute" id="feedCopyrightAttribute" /><br><br>
+
+            <label for="feedManagingEditorSelector">Managing Editor Selector:</label>
+            <input type="text" name="feedManagingEditorSelector" id="feedManagingEditorSelector" /><br><br>
+            <label for="feedManagingEditorAttribute">Managing Editor Attribute (optional):</label>
+            <input type="text" name="feedManagingEditorAttribute" id="feedManagingEditorAttribute" /><br><br>
+
+            <label for="feedWebMasterSelector">Webmaster Selector:</label>
+            <input type="text" name="feedWebMasterSelector" id="feedWebMasterSelector" /><br><br>
+            <label for="feedWebMasterAttribute">Webmaster Attribute (optional):</label>
+            <input type="text" name="feedWebMasterAttribute" id="feedWebMasterAttribute" /><br><br>
+
+            <label for="feedCategoriesScrapingSelector">Feed Categories Selector (comma-separated):</label>
+            <input type="text" name="feedCategoriesScrapingSelector" id="feedCategoriesScrapingSelector" /><br><br>
+            <label for="feedCategoriesScrapingAttribute">Feed Categories Attribute (optional):</label>
+            <input type="text" name="feedCategoriesScrapingAttribute" id="feedCategoriesScrapingAttribute" /><br><br>
+
+            <label for="feedTtlSelector">Feed TTL (Time To Live in minutes) Selector:</label>
+            <input type="number" name="feedTtlSelector" id="feedTtlSelector" /><br><br>
+            <label for="feedTtlAttribute">Feed TTL Attribute (optional):</label>
+            <input type="text" name="feedTtlAttribute" id="feedTtlAttribute" /><br><br>
+
+            <label for="feedRatingSelector">Feed Rating Selector:</label>
+            <input type="text" name="feedRatingSelector" id="feedRatingSelector" /><br><br>
+            <label for="feedRatingAttribute">Feed Rating Attribute (optional):</label>
+            <input type="text" name="feedRatingAttribute" id="feedRatingAttribute" /><br><br>
+
+            <label for="feedSkipDaysSelector">Skip Days Selector (comma-separated, e.g., Monday,Tuesday):</label>
+            <input type="text" name="feedSkipDaysSelector" id="feedSkipDaysSelector" /><br><br>
+            <label for="feedSkipDaysAttribute">Skip Days Attribute (optional):</label>
+            <input type="text" name="feedSkipDaysAttribute" id="feedSkipDaysAttribute" /><br><br>
+
+            <label for="feedSkipHoursSelector">Skip Hours Selector (comma-separated, 0-23):</label>
+            <input type="text" name="feedSkipHoursSelector" id="feedSkipHoursSelector" /><br><br>
+            <label for="feedSkipHoursAttribute">Skip Hours Attribute (optional):</label>
+            <input type="text" name="feedSkipHoursAttribute" id="feedSkipHoursAttribute" /><br><br>
+
+            <label for="feedImageUrlSelector">Feed Image URL Selector:</label>
+            <input type="text" name="feedImageUrlSelector" id="feedImageUrlSelector" /><br><br>
+            <label for="feedImageUrlAttribute">Feed Image URL Attribute (optional):</label>
+            <input type="text" name="feedImageUrlAttribute" id="feedImageUrlAttribute" /><br><br>
+
+            <label for="feedImageTitleSelector">Feed Image Title Selector:</label>
+            <input type="text" name="feedImageTitleSelector" id="feedImageTitleSelector" /><br><br>
+            <label for="feedImageTitleAttribute">Feed Image Title Attribute (optional):</label>
+            <input type="text" name="feedImageTitleAttribute" id="feedImageTitleAttribute" /><br><br>
+
+            <label for="feedImageLinkSelector">Feed Image Link Selector:</label>
+            <input type="text" name="feedImageLinkSelector" id="feedImageLinkSelector" /><br><br>
+            <label for="feedImageLinkAttribute">Feed Image Link Attribute (optional):</label>
+            <input type="text" name="feedImageLinkAttribute" id="feedImageLinkAttribute" /><br><br>
+
+            <label for="feedImageWidthSelector">Feed Image Width Selector:</label>
+            <input type="text" name="feedImageWidthSelector" id="feedImageWidthSelector" /><br><br>
+            <label for="feedImageWidthAttribute">Feed Image Width Attribute (optional):</label>
+            <input type="text" name="feedImageWidthAttribute" id="feedImageWidthAttribute" /><br><br>
+
+            <label for="feedImageHeightSelector">Feed Image Height Selector:</label>
+            <input type="text" name="feedImageHeightSelector" id="feedImageHeightSelector" /><br><br>
+            <label for="feedImageHeightAttribute">Feed Image Height Attribute (optional):</label>
+            <input type="text" name="feedImageHeightAttribute" id="feedImageHeightAttribute" /><br><br>
+
+            <label for="feedImageDescriptionSelector">Feed Image Description Selector:</label>
+            <input type="text" name="feedImageDescriptionSelector" id="feedImageDescriptionSelector" /><br><br>
+            <label for="feedImageDescriptionAttribute">Feed Image Description Attribute (optional):</label>
+            <input type="text" name="feedImageDescriptionAttribute" id="feedImageDescriptionAttribute" /><br><br>
+          </details>
+          <br><br>
         </div>
         <div id="apiFields" style="display: none">
-          <h3>API Configuration ⚙️</h3>
+          <h3>API Configuration 📬</h3>
           <label for="apiRoute">API Route (e.g. "/dog/breeds"):</label>
           <input type="text" name="apiRoute" id="apiRoute" /><br><br>
           <label for="apiMethod">HTTP Method:</label>
@@ -296,6 +611,73 @@
           <input type="text" name="apiLinkField" id="apiLinkField" /><br><br>
           <label for="apiDateField">Date Field:</label>
           <input type="text" name="apiDateField" id="apiDateField" /><br><br>
+          <label for="apiDate">Date:</label>
+          <input type="text" name="apiDate" id="apiDate" /><br><br>
+          <label for="apiEnclosureUrl">Enclosure URL JSON Path:</label>
+          <input type="text" name="apiEnclosureUrl" id="apiEnclosureUrl" /><br><br>
+          <label for="apiEnclosureSize">Enclosure Size JSON Path:</label>
+          <input type="text" name="apiEnclosureSize" id="apiEnclosureSize" /><br><br>
+          <label for="apiEnclosureType">Enclosure Type JSON Path:</label>
+          <input type="text" name="apiEnclosureType" id="apiEnclosureType" /><br><br>
+          <label for="apiContentEncoded">Content Encoded JSON Path:</label>
+          <input type="text" name="apiContentEncoded" id="apiContentEncoded" /><br><br>
+          <label for="apiSummary">Summary JSON Path:</label>
+          <input type="text" name="apiSummary" id="apiSummary" /><br><br>
+          <label for="apiGuid">GUID JSON Path:</label>
+          <input type="text" name="apiGuid" id="apiGuid" /><br><br>
+          <label for="apiGuidIsPermaLink">GUID isPermaLink JSON Path (boolean):</label>
+          <input type="text" name="apiGuidIsPermaLink" id="apiGuidIsPermaLink" /><br><br>
+          <label for="apiCategories">Item Categories JSON Path (comma-separated string):</label>
+          <input type="text" name="apiCategories" id="apiCategories" /><br><br>
+          <label for="apiContributors">Contributors JSON Path (comma-separated string):</label>
+          <input type="text" name="apiContributors" id="apiContributors" /><br><br>
+          <label for="apiLat">Latitude JSON Path:</label>
+          <input type="text" name="apiLat" id="apiLat" /><br><br>
+          <label for="apiLong">Longitude JSON Path:</label>
+          <input type="text" name="apiLong" id="apiLong" /><br><br>
+          <label for="apiSourceUrl">Source URL JSON Path:</label>
+          <input type="text" name="apiSourceUrl" id="apiSourceUrl" /><br><br>
+          <label for="apiSourceTitle">Source Title JSON Path:</label>
+          <input type="text" name="apiSourceTitle" id="apiSourceTitle" /><br><br>
+          <h4>Feed Level Information (Optional)</h4>
+          <label for="apiFeedTitle">Feed Title JSON Path:</label>
+          <input type="text" name="apiFeedTitle" id="apiFeedTitle" /><br><br>
+          <label for="apiFeedDescription">Feed Description JSON Path:</label>
+          <input type="text" name="apiFeedDescription" id="apiFeedDescription" /><br><br>
+          <label for="apiFeedLanguage">Feed Language JSON Path:</label>
+          <input type="text" name="apiFeedLanguage" id="apiFeedLanguage" /><br><br>
+          <label for="apiFeedCopyright">Feed Copyright JSON Path:</label>
+          <input type="text" name="apiFeedCopyright" id="apiFeedCopyright" /><br><br>
+          <label for="apiFeedManagingEditor">Feed Managing Editor JSON Path:</label>
+          <input type="text" name="apiFeedManagingEditor" id="apiFeedManagingEditor" /><br><br>
+          <label for="apiFeedWebMaster">Feed Webmaster JSON Path:</label>
+          <input type="text" name="apiFeedWebMaster" id="apiFeedWebMaster" /><br><br>
+          <label for="apiFeedCategories">Feed Categories JSON Path (comma-separated string):</label>
+          <input type="text" name="apiFeedCategories" id="apiFeedCategories" /><br><br>
+          <label for="apiFeedTtl">Feed TTL (Time To Live in minutes) JSON Path:</label>
+          <input type="text" name="apiFeedTtl" id="apiFeedTtl" /><br><br>
+          <label for="apiFeedRating">Feed Rating JSON Path:</label>
+          <input type="text" name="apiFeedRating" id="apiFeedRating" /><br><br>
+          <label for="apiFeedSkipDays">Skip Days JSON Path (comma-separated string):</label>
+          <input type="text" name="apiFeedSkipDays" id="apiFeedSkipDays" /><br><br>
+          <label for="apiFeedSkipHours">Skip Hours JSON Path (comma-separated string of numbers 0-23):</label>
+          <input type="text" name="apiFeedSkipHours" id="apiFeedSkipHours" /><br><br>
+          <label for="apiFeedImageUrl">Feed Image URL JSON Path:</label>
+          <input type="text" name="apiFeedImageUrl" id="apiFeedImageUrl" /><br><br>
+          <label for="apiFeedImageTitle">Feed Image Title JSON Path:</label>
+          <input type="text" name="apiFeedImageTitle" id="apiFeedImageTitle" /><br><br>
+          <label for="apiFeedImageLink">Feed Image Link JSON Path:</label>
+          <input type="text" name="apiFeedImageLink" id="apiFeedImageLink" /><br><br>
+          <label for="apiFeedImageWidth">Feed Image Width JSON Path:</label>
+          <input type="text" name="apiFeedImageWidth" id="apiFeedImageWidth" /><br><br>
+          <label for="apiFeedImageHeight">Feed Image Height JSON Path:</label>
+          <input type="text" name="apiFeedImageHeight" id="apiFeedImageHeight" /><br><br>
+          <label for="apiFeedImageDescription">Feed Image Description JSON Path:</label>
+          <input type="text" name="apiFeedImageDescription" id="apiFeedImageDescription" /><br><br>
+          <label for="apiFeedPubDate">Feed Publication Date JSON Path:</label>
+          <input type="text" name="apiFeedPubDate" id="apiFeedPubDate" /><br><br>
+          <label for="apiFeedLastBuildDate">Feed Last Build Date JSON Path:</label>
+          <input type="text" name="apiFeedLastBuildDate" id="apiFeedLastBuildDate" /><br><br>
         </div>
         <br><br>
         <details>
@@ -368,6 +750,12 @@
     const customDateFormatLabel = document.getElementById("customDateFormatLabel");
     const feedUrlDiv = document.getElementById("urlDiv");
 
+    const fields = [
+      'title', 'description', 'link', 'enclosure', 'author', 'date',
+      'contentEncoded', 'summary', 'guid', 'categories', 'contributors',
+      'lat', 'long', 'sourceUrl', 'sourceTitle'
+    ];
+
     function getFeedRootUrl() {
       try {
         const url = new URL(document.getElementById("feedUrl").value.trim());
@@ -417,15 +805,30 @@
       });
       document.getElementById("enclosureRelativeLink").addEventListener("change", function () {
         const enclosureBaseUrl = document.getElementById("enclosureBaseUrl");
+        const enclosureBaseUrlLabel = document.getElementById("enclosureBaseUrlLabel");
         if (this.checked) {
           enclosureBaseUrl.style.display = "block";
-          document.getElementById("enclosureBaseUrlLabel").style.display = "block";
+          if (enclosureBaseUrlLabel) enclosureBaseUrlLabel.style.display = "block";
           const baseUrl = getFeedRootUrl();
           enclosureBaseUrl.value = baseUrl;
         } else {
           enclosureBaseUrl.style.display = "none";
-          document.getElementById("enclosureBaseUrlLabel").style.display = "none";
+          if (enclosureBaseUrlLabel) enclosureBaseUrlLabel.style.display = "none";
           enclosureBaseUrl.value = "";
+        }
+      });
+      document.getElementById("sourceUrlRelativeLink").addEventListener("change", function () {
+        const sourceUrlBaseUrl = document.getElementById("sourceUrlBaseUrl");
+        const sourceUrlBaseUrlLabel = document.getElementById("sourceUrlBaseUrlLabel");
+        if (this.checked) {
+          sourceUrlBaseUrl.style.display = "block";
+          if (sourceUrlBaseUrlLabel) sourceUrlBaseUrlLabel.style.display = "block";
+          const baseUrl = getFeedRootUrl();
+          sourceUrlBaseUrl.value = baseUrl;
+        } else {
+          sourceUrlBaseUrl.style.display = "none";
+          if (sourceUrlBaseUrlLabel) sourceUrlBaseUrlLabel.style.display = "none";
+          sourceUrlBaseUrl.value = "";
         }
       });
       feedTypeSelect.addEventListener("change", function () {
@@ -722,6 +1125,66 @@
 
         document.getElementById("authorSelector").value = selectors.author.selector || '';
         document.getElementById("authorAttribute").value = selectors.author.attribute || '';
+
+        document.getElementById("contentEncodedSelector").value = selectors.contentEncoded?.selector || '';
+        document.getElementById("contentEncodedAttribute").value = selectors.contentEncoded?.attribute || '';
+
+        document.getElementById("summarySelector").value = selectors.summary?.selector || '';
+        document.getElementById("summaryAttribute").value = selectors.summary?.attribute || '';
+
+        document.getElementById("guidSelector").value = selectors.guid?.selector || '';
+        document.getElementById("guidAttribute").value = selectors.guid?.attribute || '';
+
+        document.getElementById("categoriesSelector").value = selectors.categories?.selector || '';
+        document.getElementById("categoriesAttribute").value = selectors.categories?.attribute || '';
+
+        document.getElementById("contributorsSelector").value = selectors.contributors?.selector || '';
+        document.getElementById("contributorsAttribute").value = selectors.contributors?.attribute || '';
+
+        document.getElementById("latSelector").value = selectors.lat?.selector || '';
+        document.getElementById("latAttribute").value = selectors.lat?.attribute || '';
+
+        document.getElementById("longSelector").value = selectors.long?.selector || '';
+        document.getElementById("longAttribute").value = selectors.long?.attribute || '';
+
+        document.getElementById("sourceUrlSelector").value = selectors.source?.url?.selector || '';
+        document.getElementById("sourceUrlAttribute").value = selectors.source?.url?.attribute || '';
+
+        document.getElementById("sourceTitleSelector").value = selectors.source?.title?.selector || '';
+        document.getElementById("sourceTitleAttribute").value = selectors.source?.title?.attribute || '';
+
+        // Feed-level selectors
+        document.getElementById("feedLanguageSelector").value = selectors.feedLanguage?.selector || '';
+        document.getElementById("feedLanguageAttribute").value = selectors.feedLanguage?.attribute || '';
+        document.getElementById("feedCopyrightSelector").value = selectors.feedCopyright?.selector || '';
+        document.getElementById("feedCopyrightAttribute").value = selectors.feedCopyright?.attribute || '';
+        document.getElementById("feedManagingEditorSelector").value = selectors.feedManagingEditor?.selector || '';
+        document.getElementById("feedManagingEditorAttribute").value = selectors.feedManagingEditor?.attribute || '';
+        document.getElementById("feedWebMasterSelector").value = selectors.feedWebMaster?.selector || '';
+        document.getElementById("feedWebMasterAttribute").value = selectors.feedWebMaster?.attribute || '';
+        document.getElementById("feedCategoriesScrapingSelector").value = selectors.feedCategories?.selector || '';
+        document.getElementById("feedCategoriesScrapingAttribute").value = selectors.feedCategories?.attribute || '';
+        document.getElementById("feedTtlSelector").value = selectors.feedTtl?.selector || '';
+        document.getElementById("feedTtlAttribute").value = selectors.feedTtl?.attribute || '';
+        document.getElementById("feedRatingSelector").value = selectors.feedRating?.selector || '';
+        document.getElementById("feedRatingAttribute").value = selectors.feedRating?.attribute || '';
+        document.getElementById("feedSkipDaysSelector").value = selectors.feedSkipDays?.selector || '';
+        document.getElementById("feedSkipDaysAttribute").value = selectors.feedSkipDays?.attribute || '';
+        document.getElementById("feedSkipHoursSelector").value = selectors.feedSkipHours?.selector || '';
+        document.getElementById("feedSkipHoursAttribute").value = selectors.feedSkipHours?.attribute || '';
+        // Feed image fields
+        document.getElementById("feedImageUrlSelector").value = selectors.feedImage?.url?.selector || '';
+        document.getElementById("feedImageUrlAttribute").value = selectors.feedImage?.url?.attribute || '';
+        document.getElementById("feedImageTitleSelector").value = selectors.feedImage?.title?.selector || '';
+        document.getElementById("feedImageTitleAttribute").value = selectors.feedImage?.title?.attribute || '';
+        document.getElementById("feedImageLinkSelector").value = selectors.feedImage?.link?.selector || '';
+        document.getElementById("feedImageLinkAttribute").value = selectors.feedImage?.link?.attribute || '';
+        document.getElementById("feedImageWidthSelector").value = selectors.feedImage?.width?.selector || '';
+        document.getElementById("feedImageWidthAttribute").value = selectors.feedImage?.width?.attribute || '';
+        document.getElementById("feedImageHeightSelector").value = selectors.feedImage?.height?.selector || '';
+        document.getElementById("feedImageHeightAttribute").value = selectors.feedImage?.height?.attribute || '';
+        document.getElementById("feedImageDescriptionSelector").value = selectors.feedImage?.description?.selector || '';
+        document.getElementById("feedImageDescriptionAttribute").value = selectors.feedImage?.description?.attribute || '';
 
         if (selectors.date?.dateFormat) {
           const format = selectors.date.dateFormat;
