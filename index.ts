@@ -1215,7 +1215,7 @@ async function deleteFeed(feedId: string): Promise<boolean> {
 }
 
 export default {
-  port: 8000,
+  port: 5000,
   fetch: app.fetch,
 };
 
