@@ -98,7 +98,7 @@ Some websites structure content across multiple layers:
 
 ## 🔧 To Do
 
-- [ ] Add ALL possible RSS fields to models
+- [x] Add ALL possible RSS fields to models
 - [x] Add option for parallel iterators
 - [ ] Scraping how-to video
 - [x] Add feed preview pane
@@ -106,12 +106,12 @@ Some websites structure content across multiple layers:
 - [x] Create dockerfile
 - [ ] Create Helm chart files
 - [x] Create GUI
-- [ ] Utilities
+- [x] Utilities
   - [x] HTML stripper
   - [x] Source URL wrapper for relative links
-  - [ ] Nested link follower/drilldown functionality for each feed item property
+  - [x] Nested link follower/drilldown functionality for each feed item property
   - [x] Adjust date parser logic with overrides from an optional date format input
-  - [ ] Add selector suggestion engine
+  - [x] Add selector suggestion engine
 - [ ] Amass contributors
 
 <br>
