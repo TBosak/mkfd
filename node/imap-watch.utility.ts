@@ -516,14 +516,7 @@ export function buildRSSFromEmailFolder(emails: Email[], feedSetup: RSSFeedOptio
         let extractedText = textSource.text();
         
         // Normalize all whitespace (including newlines) to single spaces and trim
-        let fullCleanedText = extractedText.replace(/\s+/g, ' ').trim();
-        
-        if (fullCleanedText.length > 500) {
-          // Truncate and add ellipsis, ensuring total length is at most 500
-          descriptionText = fullCleanedText.substring(0, 497) + "...";
-        } else {
-          descriptionText = fullCleanedText;
-        }
+        descriptionText = extractedText.replace(/\s+/g, ' ').trim();
       }
 
       // For contentEncodedHtml, get the HTML content after removals
