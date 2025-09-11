@@ -41,11 +41,42 @@ export async function sendWebhook(
       console.log(`Webhook sent successfully to ${webhookConfig.url} for feed ${payload.feedId}`);
       return true;
     } else {
-      console.warn(`Webhook failed with status ${response.status} for feed ${payload.feedId}`);
+      // Include response body where possible to help diagnose 4xx/5xx responses
+      let respBody: any = undefined;
+      try {
+        respBody = response.data;
+      } catch (e) {
+        respBody = "<unserializable response body>";
+      }
+      console.warn(
+        `Webhook failed with status ${response.status} for feed ${payload.feedId}. Response body: ${
+          typeof respBody === "string" ? respBody : JSON.stringify(respBody)
+        }`
+      );
       return false;
     }
   } catch (error) {
-    console.error(`Webhook error for feed ${payload.feedId}:`, error.message);
+    // Axios errors can include response/request info; log them for debugging
+    const anyErr: any = error;
+    if (anyErr.response) {
+      // Server responded with a status outside the 2xx range
+      const status = anyErr.response.status;
+      const data = anyErr.response.data;
+      console.error(
+        `Webhook error for feed ${payload.feedId}: Request failed with status code ${status}. Response body: ${
+          typeof data === "string" ? data : JSON.stringify(data)
+        }`
+      );
+    } else if (anyErr.request) {
+      // Request was sent but no response received
+      console.error(
+        `Webhook error for feed ${payload.feedId}: No response received from ${webhookConfig.url}. Request details:`,
+        anyErr.request
+      );
+    } else {
+      // Something else happened while setting up the request
+      console.error(`Webhook error for feed ${payload.feedId}:`, anyErr.message || anyErr);
+    }
     return false;
   }
 }
