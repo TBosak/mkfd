@@ -364,6 +364,7 @@ app.post("/", async (ctx) => {
       user: extract("emailUsername"),
       encryptedPassword: encrypt(extract("emailPassword"), encryptionKey),
       folder: extract("emailFolder"),
+      emailCount: parseInt(extract("emailCount", "10")) || 10,
     };
     feedOptions.feedLanguage = "en"; 
     feedOptions.feedDescription = `Emails from folder: ${emailConfigData.folder}`;
@@ -376,6 +377,7 @@ app.post("/", async (ctx) => {
     format: extract("webhookFormat", "xml") as "xml" | "json",
     newItemsOnly: extractBool("webhookNewItemsOnly", true),
     headers: extractJson("webhookHeaders"),
+    customPayload: extract("webhookCustomPayload", "").trim() || undefined,
   };
 
   const finalFeedConfig = {
@@ -723,7 +725,7 @@ app.get("/feeds", async (ctx) => {
         <div class="grid">
             <a href="public/feeds/${feedId}.xml" style="margin-right: auto;line-height:3em;">View Feed</a>
             ${hasWebhook ? `
-            <button onclick="triggerWebhook('${feedId}')" class="outline" style="width:25%;">
+            <button onclick="triggerWebhook('${feedId}')" class="outline">
               🪝 Trigger Webhook
             </button>
             ` : ''}

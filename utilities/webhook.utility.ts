@@ -1,6 +1,30 @@
-import axios, { AxiosRequestConfig } from "axios";
-import { WebhookConfig, WebhookPayload } from "../models/webhook.model";
+import axios from "axios";
 import * as cheerio from "cheerio";
+
+// Define types directly to avoid import issues in Node.js worker context
+interface WebhookConfig {
+  url: string;
+  enabled: boolean;
+  headers?: Record<string, string>;
+  format: 'xml' | 'json';
+  newItemsOnly: boolean;
+  customPayload?: string;
+}
+
+interface WebhookPayload {
+  feedId: string;
+  feedName: string;
+  feedType: string;
+  timestamp: string;
+  triggerType: 'automatic' | 'manual';
+  itemCount: number;
+  data: string | object;
+  metadata?: {
+    lastBuildDate?: string;
+    feedUrl?: string;
+    siteUrl?: string;
+  };
+}
 
 /**
  * Sends a webhook POST request to the configured URL
@@ -14,25 +38,100 @@ export async function sendWebhook(
   }
 
   try {
-    const axiosConfig: AxiosRequestConfig = {
+    const axiosConfig: any = {
       method: "POST",
       url: webhookConfig.url,
       headers: {
-        "Content-Type": webhookConfig.format === "xml" 
-          ? "application/xml" 
-          : "application/json",
+        // Default headers - will be overridden based on payload type
         ...webhookConfig.headers,
       },
       timeout: 10000, // 10 second timeout
     };
 
-    // Prepare the payload based on format
-    if (webhookConfig.format === "xml") {
+    // Prepare the payload and set appropriate Content-Type based on format and platform
+    if (webhookConfig.customPayload) {
+      // Parse items from data for granular access
+      let items: any[] = [];
+      try {
+        if (typeof payload.data === "object" && (payload.data as any).items) {
+          items = (payload.data as any).items;
+        } else if (typeof payload.data === "string") {
+          // Parse RSS XML to get items
+          const $ = cheerio.load(payload.data, { xmlMode: true });
+          items = $("item").map((_, item) => {
+            const $item = $(item);
+            return {
+              title: $item.find("title").text(),
+              description: $item.find("description").text(),
+              link: $item.find("link").text(),
+              pubDate: $item.find("pubDate").text(),
+              guid: $item.find("guid").text(),
+              author: $item.find("author").text(),
+              category: $item.find("category").map((_, cat) => $(cat).text()).get().join(", "),
+            };
+          }).get();
+        }
+      } catch (parseError) {
+        console.warn("Could not parse items for webhook template:", parseError);
+      }
+
+      // Use custom payload template with enhanced variable substitution
+      let customData = webhookConfig.customPayload
+        .replace(/\${feedId}/g, payload.feedId)
+        .replace(/\${feedName}/g, payload.feedName)
+        .replace(/\${feedType}/g, payload.feedType)
+        .replace(/\${itemCount}/g, payload.itemCount.toString())
+        .replace(/\${timestamp}/g, payload.timestamp)
+        .replace(/\${data}/g, typeof payload.data === "string" ? payload.data : JSON.stringify(payload.data));
+
+      // Replace individual item variables (up to first 10 items)
+      for (let i = 0; i < Math.min(items.length, 10); i++) {
+        const item = items[i];
+        customData = customData
+          .replace(new RegExp(`\\$\\{items\\[${i}\\]\\.title\\}`, 'g'), item.title || '')
+          .replace(new RegExp(`\\$\\{items\\[${i}\\]\\.description\\}`, 'g'), item.description || '')
+          .replace(new RegExp(`\\$\\{items\\[${i}\\]\\.link\\}`, 'g'), item.link || '')
+          .replace(new RegExp(`\\$\\{items\\[${i}\\]\\.author\\}`, 'g'), item.author || '')
+          .replace(new RegExp(`\\$\\{items\\[${i}\\]\\.pubDate\\}`, 'g'), item.pubDate || '')
+          .replace(new RegExp(`\\$\\{items\\[${i}\\]\\.category\\}`, 'g'), item.category || '')
+          .replace(new RegExp(`\\$\\{items\\[${i}\\]\\.guid\\}`, 'g'), item.guid || '');
+      }
+
+      // Replace first item shortcuts for convenience
+      if (items.length > 0) {
+        const firstItem = items[0];
+        customData = customData
+          .replace(/\${firstItem\.title}/g, firstItem.title || '')
+          .replace(/\${firstItem\.description}/g, firstItem.description || '')
+          .replace(/\${firstItem\.link}/g, firstItem.link || '')
+          .replace(/\${firstItem\.author}/g, firstItem.author || '')
+          .replace(/\${firstItem\.pubDate}/g, firstItem.pubDate || '')
+          .replace(/\${firstItem\.category}/g, firstItem.category || '')
+          .replace(/\${firstItem\.guid}/g, firstItem.guid || '');
+      }
+        
+      // Try to parse as JSON, fallback to string if not valid JSON
+      try {
+        axiosConfig.data = JSON.parse(customData);
+        axiosConfig.headers["Content-Type"] = "application/json";
+      } catch {
+        axiosConfig.data = customData;
+        axiosConfig.headers["Content-Type"] = "text/plain";
+      }
+    } else if (isDiscordWebhook(webhookConfig.url)) {
+      // Format for Discord webhooks - always JSON
+      axiosConfig.data = formatForDiscord(payload, webhookConfig.format);
+      axiosConfig.headers["Content-Type"] = "application/json";
+    } else if (webhookConfig.format === "xml") {
+      // Standard XML format
       axiosConfig.data = typeof payload.data === "string" 
         ? payload.data 
         : JSON.stringify(payload.data);
+      axiosConfig.headers["Content-Type"] = "application/xml";
     } else {
+      // Standard JSON format (original mkfd format)
       axiosConfig.data = payload;
+      axiosConfig.headers["Content-Type"] = "application/json";
     }
 
     const response = await axios(axiosConfig);
@@ -193,6 +292,109 @@ function getItemCountFromXML(rssXml: string): number {
   } catch (error) {
     console.error("Error counting items in RSS XML:", error);
     return 0;
+  }
+}
+
+/**
+ * Detects if a URL is a Discord webhook
+ */
+function isDiscordWebhook(url: string): boolean {
+  return url.includes('discord.com/api/webhooks') || url.includes('discordapp.com/api/webhooks');
+}
+
+/**
+ * Formats payload for Discord webhooks
+ */
+function formatForDiscord(payload: WebhookPayload, format: 'xml' | 'json'): any {
+  const feedName = payload.feedName || "RSS Feed";
+  const itemCount = payload.itemCount;
+  
+  if (format === "xml" && typeof payload.data === "string") {
+    // For XML format, send as content with code block
+    const truncatedXml = payload.data.length > 1500 
+      ? payload.data.substring(0, 1500) + '...' 
+      : payload.data;
+    
+    return {
+      content: `**${feedName}** - ${itemCount} item(s) updated`,
+      embeds: [{
+        title: "RSS Feed Update",
+        description: `\`\`\`xml\n${truncatedXml}\n\`\`\``,
+        color: 5814783, // Blue color
+        timestamp: payload.timestamp,
+        footer: {
+          text: `Feed Type: ${payload.feedType} | Feed ID: ${payload.feedId}`
+        }
+      }]
+    };
+  } else {
+    // For JSON format, create a nice embed with item details
+    const data = typeof payload.data === "object" ? payload.data : { items: [] };
+    const items = (data as any).items || [];
+    
+    const embed: any = {
+      title: `${feedName} - Feed Update`,
+      description: `${itemCount} item(s) in feed`,
+      color: 5814783, // Blue color
+      timestamp: payload.timestamp,
+      fields: [],
+      footer: {
+        text: `Feed Type: ${payload.feedType} | Feed ID: ${payload.feedId}`
+      }
+    };
+
+    // Add up to 5 recent items as fields
+    items.slice(0, 5).forEach((item: any, index: number) => {
+      const title = item.title || "Untitled";
+      const description = item.description || "";
+      const link = item.link || "";
+      const author = item.author || "";
+      const pubDate = item.pubDate || "";
+      
+      let fieldValue = "";
+      if (author) fieldValue += `**Author:** ${author}\n`;
+      if (pubDate) fieldValue += `**Published:** ${pubDate}\n`;
+      if (link) fieldValue += `**Link:** [View Item](${link})\n`;
+      if (description) {
+        // Clean up the description - remove extra whitespace and HTML entities
+        const cleanDesc = description
+          .replace(/\s+/g, ' ') // Replace multiple whitespace with single space
+          .replace(/&#?\w+;/g, '') // Remove HTML entities like &#8203;
+          .replace(/‌/g, '') // Remove zero-width non-joiner characters
+          .trim();
+        
+        // Use more of Discord's 1024 character limit per field
+        const maxDescLength = 800 - fieldValue.length; // Reserve space for other field content
+        const truncatedDesc = cleanDesc.length > maxDescLength 
+          ? cleanDesc.substring(0, maxDescLength).trim() + "..." 
+          : cleanDesc;
+        fieldValue += `\n${truncatedDesc}`;
+      }
+      
+      // Discord embed field values have a 1024 character limit
+      if (fieldValue.length > 1024) {
+        fieldValue = fieldValue.substring(0, 1020) + "...";
+      }
+      
+      embed.fields.push({
+        name: `📄 ${title.length > 256 ? title.substring(0, 253) + "..." : title}`, // Field names are limited to 256 chars
+        value: fieldValue || "No details available",
+        inline: false
+      });
+    });
+    
+    if (itemCount > 5) {
+      embed.fields.push({
+        name: "📝 Additional Items",
+        value: `... and ${itemCount - 5} more item(s)`,
+        inline: false
+      });
+    }
+
+    return {
+      content: `**${feedName}** updated with ${itemCount} item(s)`,
+      embeds: [embed]
+    };
   }
 }
 

@@ -731,6 +731,49 @@
             
             <label for="webhookHeaders">Webhook Headers (JSON format):</label>
             <textarea name="webhookHeaders" id="webhookHeaders" rows="3" placeholder='{"Authorization": "Bearer your-token", "Content-Type": "application/json"}'>{}</textarea>
+            
+            <details>
+              <summary>Advanced: Custom Payload Template</summary>
+              <label for="webhookCustomPayload">Custom Payload Template (optional):</label>
+              <span class="tooltip" data-tooltip="Use custom payload format for platforms other than Discord. Leave empty for auto-detection.">ℹ️</span>
+              <textarea name="webhookCustomPayload" id="webhookCustomPayload" rows="10" placeholder='Choose a template below or write your own...'></textarea>
+              
+              <div style="margin-top: 1em;">
+                <label><strong>Quick Templates:</strong></label>
+                <select id="templateSelector" onchange="loadWebhookTemplate()">
+                  <option value="">-- Select Platform Template --</option>
+                  <option value="discord">Discord</option>
+                  <option value="slack">Slack</option>
+                  <option value="teams">Microsoft Teams</option>
+                  <option value="generic">Generic (Simple JSON)</option>
+                  <option value="custom">Custom (Clear field)</option>
+                </select>
+              </div>
+              
+              <small style="margin-top: 1em; display: block;"><strong>Basic Variables:</strong><br>
+              • <code>${feedId}</code> - Unique feed identifier<br>
+              • <code>${feedName}</code> - Feed display name<br>  
+              • <code>${feedType}</code> - Type (webScraping, api, email)<br>
+              • <code>${itemCount}</code> - Number of items in feed<br>
+              • <code>${timestamp}</code> - ISO timestamp (2025-01-15T10:30:00.000Z)<br>
+              • <code>${data}</code> - Full RSS XML or parsed JSON data<br><br>
+              <strong>Individual Item Variables:</strong><br>
+              • <code>${firstItem.title}</code> - First item's title<br>
+              • <code>${firstItem.description}</code> - First item's description<br>
+              • <code>${firstItem.link}</code> - First item's link<br>
+              • <code>${firstItem.author}</code> - First item's author<br>
+              • <code>${firstItem.pubDate}</code> - First item's publication date<br>
+              • <code>${firstItem.category}</code> - First item's categories<br>
+              • <code>${items[0].title}</code> - Specific item by index (0-9)<br>
+              • <code>${items[1].description}</code> - Second item's description<br>
+              • <em>...and so on for items[0] through items[9]</em><br><br>
+              <strong>Notes:</strong><br>
+              • Leave empty for automatic Discord detection or n8n compatibility<br>
+              • Custom payloads override automatic platform detection<br>
+              • JSON templates will be parsed automatically<br>
+              • Use valid JSON syntax for structured data<br>
+              • Item variables work with all feed types (email, web scraping, API)</small>
+            </details>
           </div>
         </details>
         <br><br>
@@ -1299,6 +1342,97 @@
       webhookFields.style.display = webhookEnabled ? 'block' : 'none';
     }
 
+    function loadWebhookTemplate() {
+      const selector = document.getElementById('templateSelector');
+      const textarea = document.getElementById('webhookCustomPayload');
+      const platform = selector.value;
+      
+      const templates = {
+        discord: `{
+  "content": "\${feedName} updated with \${itemCount} item(s)",
+  "embeds": [{
+    "title": "\${feedName} - Feed Update",
+    "description": "\${itemCount} item(s) in feed",
+    "color": 5814783,
+    "timestamp": "\${timestamp}",
+    "fields": [
+      {
+        "name": "📄 \${firstItem.title}",
+        "value": "**Author:** \${firstItem.author}\\n**Published:** \${firstItem.pubDate}\\n**Link:** [\${firstItem.link}](\${firstItem.link})\\n\\n\${firstItem.description}",
+        "inline": false
+      }
+    ],
+    "footer": {
+      "text": "Feed Type: \${feedType} | Feed ID: \${feedId}"
+    }
+  }]
+}`,
+        slack: `{
+  "text": "\${feedName} updated with \${itemCount} item(s)",
+  "attachments": [
+    {
+      "color": "good",
+      "title": "\${firstItem.title}",
+      "title_link": "\${firstItem.link}",
+      "text": "\${firstItem.description}",
+      "fields": [
+        {"title": "Author", "value": "\${firstItem.author}", "short": true},
+        {"title": "Published", "value": "\${firstItem.pubDate}", "short": true},
+        {"title": "Feed Type", "value": "\${feedType}", "short": true},
+        {"title": "Total Items", "value": "\${itemCount}", "short": true}
+      ],
+      "footer": "\${feedName}",
+      "ts": "\${timestamp}"
+    }
+  ]
+}`,
+        teams: `{
+  "@type": "MessageCard",
+  "@context": "http://schema.org/extensions",
+  "themeColor": "0076D7",
+  "summary": "\${feedName} - \${firstItem.title}",
+  "sections": [
+    {
+      "activityTitle": "\${firstItem.title}",
+      "activitySubtitle": "\${feedName} Feed Update",
+      "text": "\${firstItem.description}",
+      "facts": [
+        {"name": "Author:", "value": "\${firstItem.author}"},
+        {"name": "Published:", "value": "\${firstItem.pubDate}"},
+        {"name": "Feed Type:", "value": "\${feedType}"},
+        {"name": "Total Items:", "value": "\${itemCount}"}
+      ]
+    }
+  ],
+  "potentialAction": [
+    {
+      "@type": "OpenUri",
+      "name": "View Item",
+      "targets": [
+        {"os": "default", "uri": "\${firstItem.link}"}
+      ]
+    }
+  ]
+}`,
+        generic: `{
+  "message": "\${feedName} updated with \${itemCount} items",
+  "feed_id": "\${feedId}",
+  "feed_name": "\${feedName}",
+  "feed_type": "\${feedType}",
+  "item_count": \${itemCount},
+  "timestamp": "\${timestamp}",
+  "data": "\${data}"
+}`,
+        custom: ''
+      };
+      
+      if (templates[platform] !== undefined) {
+        textarea.value = templates[platform];
+        // Reset selector to default after loading
+        selector.value = '';
+      }
+    }
+
     function getFormData() {
       const feedType = document.getElementById('feedType').value;
       const data = {
@@ -1473,6 +1607,7 @@
       data.webhookFormat = document.getElementById('webhookFormat').value;
       data.webhookNewItemsOnly = document.getElementById('webhookNewItemsOnly').checked;
       data.webhookHeaders = document.getElementById('webhookHeaders').value;
+      data.webhookCustomPayload = document.getElementById('webhookCustomPayload').value;
 
       const cookies = [];
       const cookieNames = document.getElementsByName("cookieNames[]");
@@ -1714,6 +1849,7 @@
         setVal('webhookFormat', config.webhook.format, 'xml');
         setVal('webhookNewItemsOnly', config.webhook.newItemsOnly, true, 'checkbox');
         setVal('webhookHeaders', config.webhook.headers, '{}');
+        setVal('webhookCustomPayload', config.webhook.customPayload, '');
         toggleWebhookFields(); // Show/hide webhook fields based on enabled state
       }
     }
@@ -1944,6 +2080,7 @@
       setVal('webhookFormat', 'xml');
       setVal('webhookNewItemsOnly', true, true, 'checkbox');
       setVal('webhookHeaders', '{}');
+      setVal('webhookCustomPayload', '');
       toggleWebhookFields(); // Hide webhook fields
 
       document.getElementById('feedType').value = 'webScraping'; // Reset to default
