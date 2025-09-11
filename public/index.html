@@ -704,6 +704,34 @@
             Strict Mode
             <span class="tooltip" data-tooltip="Reject feed items missing expected fields.">ℹ️</span>
           </label>
+          
+          <hr>
+          <h3>n8n Webhook Settings 🪝</h3>
+          <label>
+            <input type="checkbox" name="webhookEnabled" id="webhookEnabled" onchange="toggleWebhookFields()" />
+            Enable Webhook Notifications
+            <span class="tooltip" data-tooltip="Send POST notifications to n8n when feed items are added">ℹ️</span>
+          </label>
+          
+          <div id="webhookFields" style="display: none;">
+            <label for="webhookUrl">Webhook URL:</label>
+            <input type="url" name="webhookUrl" id="webhookUrl" placeholder="https://your-n8n-instance.com/webhook/your-webhook-id" />
+            
+            <label for="webhookFormat">Webhook Format:</label>
+            <select name="webhookFormat" id="webhookFormat">
+              <option value="xml">XML (RSS Format)</option>
+              <option value="json">JSON (Parsed Data)</option>
+            </select>
+            
+            <label>
+              <input type="checkbox" name="webhookNewItemsOnly" id="webhookNewItemsOnly" checked />
+              Send Only New Items
+              <span class="tooltip" data-tooltip="Only trigger webhook when new items are detected">ℹ️</span>
+            </label>
+            
+            <label for="webhookHeaders">Webhook Headers (JSON format):</label>
+            <textarea name="webhookHeaders" id="webhookHeaders" rows="3" placeholder='{"Authorization": "Bearer your-token", "Content-Type": "application/json"}'>{}</textarea>
+          </div>
         </details>
         <br><br>
         <div role="group">
@@ -1265,6 +1293,12 @@
       container.appendChild(rowDiv);
     }
 
+    function toggleWebhookFields() {
+      const webhookEnabled = document.getElementById('webhookEnabled').checked;
+      const webhookFields = document.getElementById('webhookFields');
+      webhookFields.style.display = webhookEnabled ? 'block' : 'none';
+    }
+
     function getFormData() {
       const feedType = document.getElementById('feedType').value;
       const data = {
@@ -1432,6 +1466,13 @@
       data.reverse = document.getElementById('reverse').checked;
       data.advanced = document.getElementById('advanced').checked;
       data.strict = document.getElementById('strict').checked;
+
+      // Webhook options
+      data.webhookEnabled = document.getElementById('webhookEnabled').checked;
+      data.webhookUrl = document.getElementById('webhookUrl').value;
+      data.webhookFormat = document.getElementById('webhookFormat').value;
+      data.webhookNewItemsOnly = document.getElementById('webhookNewItemsOnly').checked;
+      data.webhookHeaders = document.getElementById('webhookHeaders').value;
 
       const cookies = [];
       const cookieNames = document.getElementsByName("cookieNames[]");
@@ -1665,6 +1706,16 @@
       setVal('reverse', config.reverse, false, 'checkbox');
       setVal('advanced', config.advanced, false, 'checkbox');
       setVal('strict', config.strict, false, 'checkbox');
+
+      // Populate Webhook Options
+      if (config.webhook) {
+        setVal('webhookEnabled', config.webhook.enabled, false, 'checkbox');
+        setVal('webhookUrl', config.webhook.url, '');
+        setVal('webhookFormat', config.webhook.format, 'xml');
+        setVal('webhookNewItemsOnly', config.webhook.newItemsOnly, true, 'checkbox');
+        setVal('webhookHeaders', config.webhook.headers, '{}');
+        toggleWebhookFields(); // Show/hide webhook fields based on enabled state
+      }
     }
 
     function setVal(id, value, defaultValue = '', type = 'text') {
@@ -1886,6 +1937,14 @@
       setVal('reverse', false, false, 'checkbox');
       setVal('advanced', false, false, 'checkbox');
       setVal('strict', false, false, 'checkbox');
+
+      // Clear Webhook Options
+      setVal('webhookEnabled', false, false, 'checkbox');
+      setVal('webhookUrl', '');
+      setVal('webhookFormat', 'xml');
+      setVal('webhookNewItemsOnly', true, true, 'checkbox');
+      setVal('webhookHeaders', '{}');
+      toggleWebhookFields(); // Hide webhook fields
 
       document.getElementById('feedType').value = 'webScraping'; // Reset to default
       handleFeedTypeChange(); // Ensure UI reflects the cleared state and default feedType

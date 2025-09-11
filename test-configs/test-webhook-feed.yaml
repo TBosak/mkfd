@@ -1,0 +1,10 @@
+feedId: test-webhook-feed
+feedName: Test Webhook Feed
+feedType: webScraping
+webhook:
+  enabled: true
+  url: https://httpbin.org/post
+  format: json
+  newItemsOnly: true
+  headers:
+    Authorization: Bearer test-token

@@ -85,6 +85,53 @@ async function fetchDataAndUpdateFeed(feedConfig: any) {
     if (rssXml) {
       const rssFilePath = join(rssDir, `${feedConfig.feedId}.xml`);
       await writeFile(rssFilePath, rssXml, "utf8");
+      
+      // Handle webhook if configured
+      if (feedConfig.webhook?.enabled && feedConfig.webhook?.url) {
+        try {
+          const { sendWebhook, createWebhookPayload, createJsonWebhookPayload, getNewItemsFromRSS } = await import("../utilities/webhook.utility");
+          const { getPreviousFeedHistory, storeFeedHistory } = await import("../utilities/feed-history.utility");
+          
+          let shouldSendWebhook = true;
+          let webhookRssXml = rssXml;
+          
+          // Check if only new items should be sent
+          if (feedConfig.webhook.newItemsOnly) {
+            const previousRss = await getPreviousFeedHistory(feedConfig.feedId);
+            const newItemsRss = getNewItemsFromRSS(rssXml, previousRss);
+            
+            if (!newItemsRss) {
+              shouldSendWebhook = false; // No new items
+            } else {
+              webhookRssXml = newItemsRss;
+            }
+          }
+          
+          if (shouldSendWebhook) {
+            // Create webhook payload
+            const payload = feedConfig.webhook.format === "json"
+              ? createJsonWebhookPayload(feedConfig, webhookRssXml, "automatic")
+              : createWebhookPayload(feedConfig, webhookRssXml, "automatic");
+
+            // Send webhook
+            const success = await sendWebhook(feedConfig.webhook, payload);
+            
+            if (success) {
+              console.log(`Webhook sent successfully for feed ${feedConfig.feedId}`);
+            } else {
+              console.warn(`Webhook failed for feed ${feedConfig.feedId}`);
+            }
+          }
+          
+          // Store current RSS for future comparison
+          await storeFeedHistory(feedConfig.feedId, rssXml);
+          
+        } catch (webhookError) {
+          console.error(`Webhook error for feed ${feedConfig.feedId}:`, webhookError.message);
+          // Don't fail the entire feed update if webhook fails
+        }
+      }
+      
       self.postMessage({ status: "done", feedId: feedConfig.feedId });
     } else {
       self.postMessage({ status: "error", feedId: feedConfig.feedId, error: "RSS XML could not be generated." });

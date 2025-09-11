@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Test Feed</title>
+    <description>Test feed for webhook functionality</description>
+    <link>https://example.com</link>
+    <lastBuildDate>Thu, 11 Sep 2025 09:56:07 GMT</lastBuildDate>
+    <item>
+      <title>Test Item 1</title>
+      <description>This is test item 1</description>
+      <link>https://example.com/item1</link>
+      <guid>item-1</guid>
+      <pubDate>Thu, 11 Sep 2025 09:56:07 GMT</pubDate>
+    </item>
+    <item>
+      <title>Test Item 2</title>
+      <description>This is test item 2</description>
+      <link>https://example.com/item2</link>
+      <guid>item-2</guid>
+      <pubDate>Thu, 11 Sep 2025 09:56:07 GMT</pubDate>
+    </item>
+  </channel>
+</rss>
