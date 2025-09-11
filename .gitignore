@@ -166,6 +166,7 @@ dist
 .yarn/unplugged
 .yarn/build-state.yml
 .yarn/install-state.gz
-.pnp.\*
+.pnp.*
 public/feeds/
 configs/
+feed-history/

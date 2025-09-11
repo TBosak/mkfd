@@ -445,6 +445,11 @@ class ImapWatcher {
               rss,
             );
             console.log("[IMAP] RSS Feed regenerated");
+            
+            // Handle webhook if configured
+            if (this.config.webhook?.enabled && this.config.webhook?.url) {
+              this.sendWebhookNotification(rss);
+            }
           } else {
             console.log("[IMAP] No valid emails found.");
           }
@@ -467,6 +472,124 @@ class ImapWatcher {
     if (this.imap) {
       console.log("[IMAP] Stopping watcher...");
       this.imap.end();
+    }
+  }
+
+  private async sendWebhookNotification(rssXml: string): Promise<void> {
+    try {
+      // Note: We need to use require() since this is a Node.js process, not Bun
+      const axios = require('axios');
+      const fs = require('fs');
+      const path = require('path');
+      
+      if (!this.config.webhook?.enabled || !this.config.webhook?.url) {
+        return;
+      }
+
+      let shouldSendWebhook = true;
+      let webhookRssXml = rssXml;
+      
+      // Check if only new items should be sent
+      if (this.config.webhook.newItemsOnly) {
+        const historyPath = path.join(__dirname, "../feed-history", `${this.config.feedId}.xml`);
+        let previousRss = null;
+        
+        try {
+          if (fs.existsSync(historyPath)) {
+            previousRss = fs.readFileSync(historyPath, "utf8");
+          }
+        } catch (err) {
+          console.warn("[IMAP] Could not read feed history:", err.message);
+        }
+        
+        // Simple new item detection - compare RSS content
+        if (previousRss && previousRss.trim() === rssXml.trim()) {
+          shouldSendWebhook = false;
+          console.log("[IMAP] No changes detected, skipping webhook");
+        }
+      }
+      
+      if (shouldSendWebhook) {
+        const payload = {
+          feedId: this.config.feedId,
+          feedName: this.config.feedName,
+          feedType: this.config.feedType,
+          timestamp: new Date().toISOString(),
+          triggerType: "automatic",
+          itemCount: (rssXml.match(/<item>/g) || []).length,
+          data: this.config.webhook.format === "xml" ? rssXml : this.parseRssToJson(rssXml),
+          metadata: {
+            lastBuildDate: new Date().toISOString(),
+            feedUrl: `public/feeds/${this.config.feedId}.xml`,
+            siteUrl: this.config.config?.host,
+          },
+        };
+
+        const axiosConfig: any = {
+          method: "POST",
+          url: this.config.webhook.url,
+          headers: {
+            "Content-Type": this.config.webhook.format === "xml" 
+              ? "application/xml" 
+              : "application/json",
+            ...this.config.webhook.headers,
+          },
+          timeout: 10000,
+          data: payload,
+        };
+
+        const response = await axios(axiosConfig);
+        
+        if (response.status >= 200 && response.status < 300) {
+          console.log(`[IMAP] Webhook sent successfully to ${this.config.webhook.url}`);
+          
+          // Store current RSS for future comparison
+          try {
+            const historyDir = path.join(__dirname, "../feed-history");
+            if (!fs.existsSync(historyDir)) {
+              fs.mkdirSync(historyDir, { recursive: true });
+            }
+            fs.writeFileSync(path.join(historyDir, `${this.config.feedId}.xml`), rssXml, "utf8");
+          } catch (err) {
+            console.warn("[IMAP] Could not store feed history:", err.message);
+          }
+        } else {
+          console.warn(`[IMAP] Webhook failed with status ${response.status}`);
+        }
+      }
+    } catch (error) {
+      console.error(`[IMAP] Webhook error:`, error.message);
+    }
+  }
+
+  private parseRssToJson(rssXml: string): any {
+    try {
+      const cheerio = require('cheerio');
+      const $ = cheerio.load(rssXml, { xmlMode: true });
+      
+      const channel = $("channel");
+      const items = $("item").map((_, item) => {
+        const $item = $(item);
+        return {
+          title: $item.find("title").text(),
+          description: $item.find("description").text(),
+          link: $item.find("link").text(),
+          pubDate: $item.find("pubDate").text(),
+          guid: $item.find("guid").text(),
+          author: $item.find("author").text(),
+        };
+      }).get();
+
+      return {
+        title: channel.find("title").text(),
+        description: channel.find("description").text(),
+        link: channel.find("link").text(),
+        lastBuildDate: channel.find("lastBuildDate").text(),
+        items,
+      };
+    } catch (error) {
+      console.error("[IMAP] Error parsing RSS XML to JSON:", error);
+      return { items: [] };
     }
   }
 }
