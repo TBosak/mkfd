@@ -364,10 +364,21 @@ app.post("/", async (ctx) => {
       user: extract("emailUsername"),
       encryptedPassword: encrypt(extract("emailPassword"), encryptionKey),
       folder: extract("emailFolder"),
+      emailCount: parseInt(extract("emailCount", "10")) || 10,
     };
     feedOptions.feedLanguage = "en"; 
     feedOptions.feedDescription = `Emails from folder: ${emailConfigData.folder}`;
   }
+
+  // Webhook configuration
+  const webhookConfig = {
+    enabled: extractBool("webhookEnabled"),
+    url: extract("webhookUrl", ""),
+    format: extract("webhookFormat", "xml") as "xml" | "json",
+    newItemsOnly: extractBool("webhookNewItemsOnly", true),
+    headers: extractJson("webhookHeaders"),
+    customPayload: extract("webhookCustomPayload", "").trim() || undefined,
+  };
 
   const finalFeedConfig = {
     feedId,
@@ -379,6 +390,7 @@ app.post("/", async (ctx) => {
     advanced: extractBool("advanced"), 
     headers: extractJson("headers"),   
     cookies: cookies.length > 0 ? cookies : undefined, 
+    webhook: webhookConfig.enabled && webhookConfig.url ? webhookConfig : undefined,
     
     config: feedType === "email" ? emailConfigData : configData, 
     ...(feedType === "webScraping" && { article: articleData }), 
@@ -647,6 +659,28 @@ app.get("/feeds", async (ctx) => {
           function confirmDelete(feedId) {
             return confirm("Are you sure you want to delete this feed?");
           }
+          
+          async function triggerWebhook(feedId) {
+            try {
+              const response = await fetch('/trigger-webhook', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ feedId })
+              });
+              
+              const result = await response.json();
+              
+              if (response.ok) {
+                alert('Webhook triggered successfully!\\n\\nFeed: ' + feedId + '\\nWebhook URL: ' + result.webhookUrl + '\\nItems sent: ' + result.itemCount);
+              } else {
+                alert('Webhook failed: ' + result.error);
+              }
+            } catch (error) {
+              alert('Error triggering webhook: ' + error.message);
+            }
+          }
         </script>
         <header style="text-align:center;"><h1>Active RSS Feeds</h1></header>
         <div>
@@ -677,6 +711,7 @@ app.get("/feeds", async (ctx) => {
     }
 
     // Build the card for this feed
+    const hasWebhook = config.webhook?.enabled && config.webhook?.url;
     response += `
       <article>
         <header>
@@ -685,14 +720,20 @@ app.get("/feeds", async (ctx) => {
         <p><strong>Feed ID:</strong> ${feedId}</p>
         <p><strong>Build Time:</strong> ${lastBuildDate}</p>
         <p><strong>Feed Type:</strong> ${feedType}</p>
+        ${hasWebhook ? `<p><strong>Webhook:</strong> ✅ Enabled</p>` : '<p><strong>Webhook:</strong> ❌ Disabled</p>'}
         <footer>
         <div class="grid">
             <a href="public/feeds/${feedId}.xml" style="margin-right: auto;line-height:3em;">View Feed</a>
+            ${hasWebhook ? `
+            <button onclick="triggerWebhook('${feedId}')" class="outline">
+              🪝 Trigger Webhook
+            </button>
+            ` : ''}
             <form action="/delete-feed" method="POST" style="display:inline;" onsubmit="return confirmDelete('${feedId}')">
               <input type="hidden" name="feedId" value="${feedId}">
               <button type="submit" style="width:25%;margin-left:auto;float:right;" class="outline contrast">Delete</button>
+            </form>
           </div>
-          </form>
         </footer>
       </article>
     `;
@@ -824,6 +865,66 @@ app.post("/delete-feed", async (c) => {
     return c.redirect("/feeds");
   } else {
     return c.text("Failed to delete feed.", 500);
+  }
+});
+
+app.post("/trigger-webhook", async (c) => {
+  const { feedId } = await c.req.json();
+
+  if (!feedId) {
+    return c.json({ error: "Feed ID is required" }, 400);
+  }
+
+  try {
+    const sanitizedFeedId = basename(feedId as string);
+    const configPath = join(configsDir, `${sanitizedFeedId}.yaml`);
+    
+    // Check if feed exists
+    if (!existsSync(configPath)) {
+      return c.json({ error: "Feed not found" }, 404);
+    }
+
+    // Load feed configuration
+    const yamlContent = await readFile(configPath, "utf8");
+    const feedConfig = yaml.load(yamlContent) as any;
+
+    if (!feedConfig.webhook?.enabled || !feedConfig.webhook?.url) {
+      return c.json({ error: "Webhook not configured for this feed" }, 400);
+    }
+
+    // Read current RSS feed
+    const rssPath = join(feedPath, `${sanitizedFeedId}.xml`);
+    if (!existsSync(rssPath)) {
+      return c.json({ error: "RSS feed not generated yet" }, 404);
+    }
+
+    const rssXml = await readFile(rssPath, "utf8");
+    
+    // Import webhook utilities
+    const { sendWebhook, createWebhookPayload, createJsonWebhookPayload } = await import("./utilities/webhook.utility");
+    
+    // Create webhook payload
+    const payload = feedConfig.webhook.format === "json"
+      ? createJsonWebhookPayload(feedConfig, rssXml, "manual")
+      : createWebhookPayload(feedConfig, rssXml, "manual");
+
+    // Send webhook
+    const success = await sendWebhook(feedConfig.webhook, payload);
+
+    if (success) {
+      return c.json({ 
+        message: "Webhook triggered successfully", 
+        feedId: sanitizedFeedId,
+        webhookUrl: feedConfig.webhook.url,
+        itemCount: payload.itemCount
+      });
+    } else {
+      return c.json({ error: "Failed to send webhook" }, 500);
+    }
+
+  } catch (error) {
+    console.error("Error triggering webhook:", error);
+    return c.json({ error: "Internal server error" }, 500);
   }
 });
 

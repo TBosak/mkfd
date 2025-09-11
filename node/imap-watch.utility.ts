@@ -5,7 +5,7 @@ import Imap from "node-imap";
 import libmime from "libmime";
 import minimist from "minimist";
 import RSS from "rss";
-import { existsSync, readFileSync, writeFileSync } from "fs";
+import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
 import { simpleParser } from "mailparser";
 import { decrypt } from "../utilities/security.utility.ts";
 import { fileURLToPath } from "url";
@@ -62,6 +62,7 @@ interface RSSItemOptions {
 }
 
 interface RSSFeedOptions {
+    webhook: any;
     title: string;                      // Title of the feed
     description: string;                // Description of the feed
     feed_url: string;                   // URL of the RSS feed itself (where it will be published)
@@ -207,7 +208,7 @@ class ImapWatcher {
       this.fetchRecentStartupEmails();
 
       this.imap.on("mail", (n) => {
-        console.log(`[IMAP] New mail event: ${n}`);
+        console.log(`[IMAP] New mail event received for feed ${this.config.feedId}: ${n} new email(s)`);
         this.fetchNewEmails();
       });
 
@@ -438,15 +439,23 @@ class ImapWatcher {
             .map((result) => (result as PromiseFulfilledResult<Email>).value);
 
           if (emails.length > 0) {
-            console.log("[IMAP] Recent emails fetched, updating RSS...");
+            console.log(`[IMAP] Recent emails fetched for feed ${this.config.feedId}, updating RSS with ${emails.length} emails...`);
             const rss = buildRSSFromEmailFolder(emails, this.config);
             writeFileSync(
               path.join(__dirname, "../public/feeds", `${this.config.feedId}.xml`),
               rss,
             );
-            console.log("[IMAP] RSS Feed regenerated");
+            console.log(`[IMAP] RSS Feed regenerated for feed ${this.config.feedId}`);
+            
+            // Handle webhook if configured
+            if (this.config.webhook?.enabled && this.config.webhook?.url) {
+              console.log(`[IMAP] Calling webhook handler for feed ${this.config.feedId}`);
+              this.handleWebhook(rss);
+            } else {
+              console.log(`[IMAP] Webhook not configured for feed ${this.config.feedId} - enabled: ${this.config.webhook?.enabled}, url: ${!!this.config.webhook?.url}`);
+            }
           } else {
-            console.log("[IMAP] No valid emails found.");
+            console.log(`[IMAP] No valid emails found for feed ${this.config.feedId}`);
           }
         });
         console.log("[IMAP] Completed processing new emails.");
@@ -469,6 +478,97 @@ class ImapWatcher {
       this.imap.end();
     }
   }
+
+  private async handleWebhook(rssXml: string): Promise<void> {
+    try {
+      console.log(`[IMAP] Webhook handler called for feed ${this.config.feedId}`);
+      
+      if (!this.config.webhook?.enabled || !this.config.webhook?.url) {
+        console.log(`[IMAP] Webhook not configured for feed ${this.config.feedId} - enabled: ${this.config.webhook?.enabled}, url: ${!!this.config.webhook?.url}`);
+        return;
+      }
+      
+      console.log(`[IMAP] Webhook configured for feed ${this.config.feedId} - URL: ${this.config.webhook.url}, format: ${this.config.webhook.format}, newItemsOnly: ${this.config.webhook.newItemsOnly}`);
+
+      let shouldSendWebhook = true;
+      let webhookRssXml = rssXml;
+      
+      // Check if only new items should be sent
+      if (this.config.webhook.newItemsOnly) {
+        const historyPath = path.join(__dirname, "../feed-history", `${this.config.feedId}.xml`);
+        let previousRss = null;
+        
+        try {
+          if (existsSync(historyPath)) {
+            previousRss = readFileSync(historyPath, "utf8");
+          }
+        } catch (err) {
+          console.warn("[IMAP] Could not read feed history:", err.message);
+        }
+        
+        // Use centralized new item detection
+        try {
+          const { getNewItemsFromRSS } = await import("../utilities/webhook.utility.ts");
+          const newItemsRss = getNewItemsFromRSS(rssXml, previousRss);
+          
+          if (!newItemsRss) {
+            shouldSendWebhook = false;
+            console.log(`[IMAP] No new items detected for feed ${this.config.feedId}, skipping webhook`);
+          } else {
+            webhookRssXml = newItemsRss;
+            console.log(`[IMAP] New items detected for feed ${this.config.feedId}, will send webhook`);
+          }
+        } catch (importErr) {
+          console.warn("[IMAP] Could not import webhook utilities, falling back to simple comparison:", importErr.message);
+          // Fallback to simple comparison
+          if (previousRss && previousRss.trim() === rssXml.trim()) {
+            shouldSendWebhook = false;
+            console.log("[IMAP] No changes detected, skipping webhook");
+          }
+        }
+      }
+      
+      if (shouldSendWebhook) {
+        try {
+          // Use centralized webhook system
+          const { sendWebhook, createWebhookPayload, createJsonWebhookPayload } = await import("../utilities/webhook.utility.ts");
+          
+          const payload = this.config.webhook.format === "json"
+            ? createJsonWebhookPayload(this.config, webhookRssXml, "automatic")
+            : createWebhookPayload(this.config, webhookRssXml, "automatic");
+
+          const success = await sendWebhook(this.config.webhook, payload);
+          
+          if (success) {
+            console.log(`[IMAP] Webhook sent successfully for feed ${this.config.feedId} to ${this.config.webhook.url}`);
+            
+            // Store current RSS for future comparison using centralized history utility
+            try {
+              const { storeFeedHistory } = await import("../utilities/feed-history.utility.ts");
+              await storeFeedHistory(this.config.feedId, rssXml);
+              console.log(`[IMAP] Feed history stored for feed ${this.config.feedId}`);
+            } catch (historyErr) {
+              console.warn(`[IMAP] Could not store feed history for feed ${this.config.feedId}:`, historyErr.message);
+              // Fallback to manual file storage
+              const historyDir = path.join(__dirname, "../feed-history");
+              if (!existsSync(historyDir)) {
+                mkdirSync(historyDir, { recursive: true });
+              }
+              writeFileSync(path.join(historyDir, `${this.config.feedId}.xml`), rssXml, "utf8");
+              console.log(`[IMAP] Feed history stored manually for feed ${this.config.feedId}`);
+            }
+          } else {
+            console.warn(`[IMAP] Webhook failed for feed ${this.config.feedId} to ${this.config.webhook.url}`);
+          }
+        } catch (webhookErr) {
+          console.error(`[IMAP] Error using centralized webhook system:`, webhookErr.message);
+        }
+      }
+    } catch (error) {
+      console.error(`[IMAP] Webhook error:`, error.message);
+    }
+  }
+
 }
 
 export function buildRSSFromEmailFolder(emails: Email[], feedSetup: RSSFeedOptions): string {
@@ -591,9 +691,16 @@ const completeFeedConfig: RSSFeedOptions = {
     feedImage: rawConfig.feedImage,
     generator: rawConfig.generator,
     config: imapOriginalConfig,
+    webhook: rawConfig.webhook, // Pass through webhook configuration
 };
 
 console.log("[IMAP Node Watcher] ImapWatcher will attempt to connect to host:", completeFeedConfig.config?.host, "port:", completeFeedConfig.config?.port);
+console.log("[IMAP Node Watcher] Webhook configuration:", JSON.stringify({
+    enabled: completeFeedConfig.webhook?.enabled,
+    url: completeFeedConfig.webhook?.url ? '[REDACTED]' : undefined,
+    format: completeFeedConfig.webhook?.format,
+    newItemsOnly: completeFeedConfig.webhook?.newItemsOnly
+}, null, 2));
 
 const watcher = new ImapWatcher(completeFeedConfig); 
 
