@@ -597,7 +597,7 @@ export function buildRSSFromEmailFolder(emails: Email[], feedSetup: RSSFeedOptio
     return content
       .replace(/]]>/g, ']]&gt;') // Escape CDATA closing sequence
       .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // Remove invalid XML characters
-      .replace(/&(?!(?:amp|lt|gt|quot|apos);)/g, '&amp;'); // Escape unescaped ampersands
+      .replace(/&(?!(?:amp|lt|gt|quot|apos|nbsp);)/g, '&amp;'); // Escape unescaped ampersands
   };
 
   emails.forEach((email) => {
