@@ -601,43 +601,21 @@ export function buildRSSFromEmailFolder(emails: Email[], feedSetup: RSSFeedOptio
   };
 
   emails.forEach((email) => {
-    let descriptionText: string | undefined = email.textBody;
-    let contentEncodedHtml: string | undefined = email.htmlBody || email.textBody;
+    let descriptionHtml: string | undefined = email.htmlBody || email.textBody;
 
     if (email.htmlBody) {
       const $ = cheerio.load(email.htmlBody);
       // Remove script, style tags, and linked stylesheets
       $('script, style, link[rel="stylesheet"]').remove();
 
-      // For descriptionText, if email.textBody was not good:
-      if (!descriptionText || descriptionText.trim() === "") {
-        // Prefer text from <body>, fallback to :root
-        const textSource = $('body').length ? $('body') : $(':root');
-        let extractedText = textSource.text();
-        
-        // Normalize all whitespace (including newlines) to single spaces and trim
-        descriptionText = extractedText.replace(/\s+/g, ' ').trim();
-      }
-
-      // For contentEncodedHtml, get the HTML content after removals
+      // For descriptionHtml, get the HTML content after removals
       // Prefer HTML from <body>, fallback to :root
-      contentEncodedHtml = ($('body').length ? $('body') : $(':root')).html() || $.html();
+      descriptionHtml = ($('body').length ? $('body') : $(':root')).html() || $.html();
     }
-    
-    // Fallback for descriptionText if it's still empty after all attempts
-    if (!descriptionText || descriptionText.trim() === "") {
-      descriptionText = "(No descriptive content)";
-    }
-
-    // Sanitize both description and content for XML
-    descriptionText = sanitizeForXML(descriptionText || "");
-    contentEncodedHtml = sanitizeForXML(contentEncodedHtml || "");
-
 
     const itemOptions: RSSItemOptions = {
       title: sanitizeForXML(email.subject || "(No Subject)"),
-      description: descriptionText,
-      contentEncoded: contentEncodedHtml,
+      description: sanitizeForXML(descriptionHtml || ""),
       author: sanitizeForXML(email.from || ""), 
       date: email.date ? new Date(email.date) : new Date(),
       guid: email.messageId || email.UID.toString(), // Use Message-ID as GUID, fallback to UID
