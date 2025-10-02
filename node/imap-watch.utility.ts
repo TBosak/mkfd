@@ -35,11 +35,6 @@ interface RSSEnclosureOptions {
     type: string;   // MIME type of the media file (e.g., "audio/mpeg")
 }
 
-interface RSSSourceOptions {
-    title: string; // Title of the original source
-    url: string;   // URL of the original source
-}
-
 interface RSSItemOptions {
     title: string;                    // Title of the item
     description?: string;               // Synopsis of the item (often shown in feed readers)
@@ -49,14 +44,10 @@ interface RSSItemOptions {
     author?: string;                    // Email address or name of the author
     date: Date | string;                // Publication date of the item
     lat?: number;                       // Latitude for geo-tagging
-    long?: number;                      // Longitude for geo-tagging
-    comments?: string;                  // URL to comments page for the item
+    long?: number;                      // Longitude for geo-tagging 
     enclosure?: RSSEnclosureOptions;    // Media object attached to the item
-    source?: RSSSourceOptions;          // Original source of the item if republished
-    contentEncoded?: string;          // Full content of the item, often HTML (CDATA recommended)
-    summary?: string;                   // Similar to description, can be a more detailed summary
     contributors?: string[];            // Array of contributor names
-    customElements?: Record<string, any>[]; // For adding custom XML elements
+    custom_elements?: Record<string, any>[]; // For adding custom XML elements
     // Specific to CSSTarget/Scraping context, not directly used by RSS library but part of the unified model
     guidIsPermaLink?: boolean; 
 }
@@ -67,8 +58,7 @@ interface RSSFeedOptions {
     description: string;                // Description of the feed
     feed_url: string;                   // URL of the RSS feed itself (where it will be published)
     site_url: string;                   // URL of the main website the feed is for
-    image_url?: string;                 // DEPRECATED by RSS library, use feedImage instead. URL to an image for the feed (usually a logo)
-    feedImage?: RSSImageOptions;        // Detailed image options for the feed
+    image_url?: RSSImageOptions;        //  URL to an image for the feed (usually a logo)
     docs?: string;                      // URL to documentation for the XML format of the feed (e.g., RSS 2.0 spec)
     author?: string;                    // DEPRECATED by RSS library. Author of the feed content.
     managingEditor?: string;            // Email of person responsible for editorial content
@@ -79,20 +69,9 @@ interface RSSFeedOptions {
     pubDate?: Date | string;            // Publication date for the content in the feed (often current time or last item's date)
     lastBuildDate?: Date | string;      // The last time the content of the feed changed
     ttl?: number;                       // Time To Live: minutes the feed can be cached before refreshing
-    rating?: string;                    // PICS rating for the feed
-    skipHours?: number[];               // Hours of the day (0-23) when aggregators should skip updating
-    skipDays?: string[];                // Days of the week (e.g., "Monday") when aggregators should skip updating
-    customNamespace?: Record<string, string>; // e.g. { 'dc': 'http://purl.org/dc/elements/1.1/' }
-    customElements?: Record<string, any>[]; // For adding custom XML elements at the feed level
+    custom_namespaces?: Record<string, string>; // e.g. { 'dc': 'http://purl.org/dc/elements/1.1/' }
+    custom_elements?: Record<string, any>[]; // For adding custom XML elements at the feed level
     generator?: string;                 // Name of the program used to generate the feed
-    // Cloud options (for feed notifications, rarely used now)
-    cloud?: {
-        domain: string;
-        port: number;
-        path: string;
-        registerProcedure: string;
-        protocol: "xml-rpc" | "soap" | "http-post";
-    };
     // Not directly part of standard RSS spec but from our models
     feedId?: string;
     feedName?: string; // Often same as title
@@ -577,6 +556,7 @@ export function buildRSSFromEmailFolder(emails: Email[], feedSetup: RSSFeedOptio
     description: feedSetup.description || `Email feed from ${feedSetup.config?.folder || 'folder'}`,
     feed_url: feedSetup.feed_url, 
     site_url: feedSetup.site_url || feedSetup.feed_url, 
+    image_url: feedSetup.image_url,
     language: feedSetup.language || "en",
     pubDate: feedSetup.pubDate || new Date(),
     lastBuildDate: new Date(),
@@ -586,9 +566,8 @@ export function buildRSSFromEmailFolder(emails: Email[], feedSetup: RSSFeedOptio
     generator: feedSetup.generator || "MkFD IMAP Email Watcher",
     ttl: feedSetup.ttl,
     categories: feedSetup.categories,
-    feedImage: feedSetup.feedImage, 
-    customElements: feedSetup.customElements,
-    customNamespace: feedSetup.customNamespace,
+    custom_elements: feedSetup.custom_elements,
+    custom_namespaces: feedSetup.custom_namespaces,
   });
 
   // Helper function to sanitize content for XML/RSS
@@ -632,7 +611,7 @@ export function buildRSSFromEmailFolder(emails: Email[], feedSetup: RSSFeedOptio
     // Sanitize both description and content for XML
     descriptionText = sanitizeForXML(descriptionText || "");
     contentEncodedHtml = sanitizeForXML(contentEncodedHtml || "");
-
+    
 
     const itemOptions: RSSItemOptions = {
       title: sanitizeForXML(email.subject || "(No Subject)"),
@@ -685,10 +664,7 @@ const completeFeedConfig: RSSFeedOptions = {
     pubDate: rawConfig.pubDate,
     lastBuildDate: rawConfig.lastBuildDate,
     ttl: rawConfig.ttl,
-    rating: rawConfig.rating,
-    skipHours: rawConfig.skipHours,
-    skipDays: rawConfig.skipDays,
-    feedImage: rawConfig.feedImage,
+    image_url: rawConfig.image_url,
     generator: rawConfig.generator,
     config: imapOriginalConfig,
     webhook: rawConfig.webhook, // Pass through webhook configuration
