@@ -612,11 +612,9 @@ export function buildRSSFromEmailFolder(emails: Email[], feedSetup: RSSFeedOptio
     descriptionText = sanitizeForXML(descriptionText || "");
     contentEncodedHtml = sanitizeForXML(contentEncodedHtml || "");
     
-
     const itemOptions: RSSItemOptions = {
       title: sanitizeForXML(email.subject || "(No Subject)"),
       description: descriptionText,
-      contentEncoded: contentEncodedHtml,
       author: sanitizeForXML(email.from || ""), 
       date: email.date ? new Date(email.date) : new Date(),
       guid: email.messageId || email.UID.toString(), // Use Message-ID as GUID, fallback to UID
@@ -630,7 +628,9 @@ export function buildRSSFromEmailFolder(emails: Email[], feedSetup: RSSFeedOptio
         length: email.attachments[0].size,
         type: email.attachments[0].contentType,
       } : undefined,
-      custom_elements: []
+      custom_elements: [
+        { 'content:encoded': {_cdata: contentEncodedHtml} }, 
+      ]
     };
     // Remove enclosure if its URL could not be formed
     if (itemOptions.enclosure && !itemOptions.enclosure.url) {
