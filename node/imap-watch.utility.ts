@@ -630,14 +630,7 @@ export function buildRSSFromEmailFolder(emails: Email[], feedSetup: RSSFeedOptio
         length: email.attachments[0].size,
         type: email.attachments[0].contentType,
       } : undefined,
-      customElements: [
-        { 'email:to': Array.isArray(email.to) ? email.to.join(', ') : email.to },
-        { 'email:cc': Array.isArray(email.cc) ? email.cc.join(', ') : email.cc },
-      ].filter(el => Object.values(el)[0] !== undefined).map(el => {
-        const key = Object.keys(el)[0];
-        const value = Object.values(el)[0];
-        return { [key]: sanitizeForXML(String(value)) };
-      }) 
+      custom_elements: []
     };
     // Remove enclosure if its URL could not be formed
     if (itemOptions.enclosure && !itemOptions.enclosure.url) {
