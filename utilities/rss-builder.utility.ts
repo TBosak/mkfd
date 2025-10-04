@@ -1,8 +1,8 @@
 import * as cheerio from "cheerio";
-import RSS from "rss";
+import { Feed } from "feed";
 import CSSTarget from "../models/csstarget.model";
 import { CSSTargetFields } from "../models/csstarget.model";
-import { RSSFeedOptions, RSSItemOptions } from "../models/rss-feed.model";
+import { RSSFeedOptions, RSSItemOptions, Author, Category } from "../models/rss-feed.model";
 import { ApiMapping } from "../models/api-mapping.model";
 import {
   processDates,
@@ -36,51 +36,100 @@ export async function buildRSS(res: any, feedConfig: any): Promise<string> {
             article.description?.titleCase,
             article.description?.stripHtml
           ),
-          url: processLinksAbsolute(
+          link: processLinksAbsolute(
             await extractField($, el, article.link, advanced, false, true),
             article.link?.stripHtml,
             article.link?.isRelative,
             article.link?.baseUrl
-          ),
-          author: processWords(
-            await extractField($, el, article.author, advanced),
-            article.author?.titleCase,
-            article.author?.stripHtml
           ),
           date: processDates(
             await extractField($, el, article.date, advanced),
             article.date?.stripHtml,
             article.date?.dateFormat
           ),
-          enclosure: await processEnclosure($, el, article.enclosure, advanced, article.enclosure?.baseUrl || apiConfig?.baseUrl || feedConfig?.feedUrl || ''),
-          content: processWords(
-            await extractField($, el, article.content, advanced),
-            article.content?.titleCase,
-            article.content?.stripHtml
-          ),
-          content_encoded: processWords(
-            await extractField($, el, article.contentEncoded, advanced),
-            article.contentEncoded?.titleCase,
-            article.contentEncoded?.stripHtml
-          ),
-          summary: processWords(
-            await extractField($, el, article.summary, advanced),
-            article.summary?.titleCase,
-            article.summary?.stripHtml
-          ),
           guid: await extractField($, el, article.guid, advanced),
-          categories: (await extractField($, el, article.categories, advanced))?.split(',').map(c => c.trim()).filter(Boolean),
-          contributors: (await extractField($, el, article.contributors, advanced))?.split(',').map(c => c.trim()).filter(Boolean),
-          lat: parseFloat(await extractField($, el, article.lat, advanced) || '0'),
-          long: parseFloat(await extractField($, el, article.long, advanced) || '0'),
         };
 
-        if (article.source) {
-          itemData.source = {
-            url: await extractField($, el, article.source.url, advanced),
-            title: await extractField($, el, article.source.title, advanced)
-          };
+        // Handle author (convert to Author array)
+        const authorName = processWords(
+          await extractField($, el, article.author, advanced),
+          article.author?.titleCase,
+          article.author?.stripHtml
+        );
+        if (authorName) {
+          itemData.author = [{ name: authorName }];
         }
+
+        // Handle categories (convert to Category array)
+        const categoryNames = (await extractField($, el, article.categories, advanced))?.split(',').map(c => c.trim()).filter(Boolean);
+        if (categoryNames && categoryNames.length > 0) {
+          itemData.category = categoryNames.map(name => ({ name }));
+        }
+
+        // Handle contributors (convert to Author array)
+        const contributorNames = (await extractField($, el, article.contributors, advanced))?.split(',').map(c => c.trim()).filter(Boolean);
+        if (contributorNames && contributorNames.length > 0) {
+          itemData.contributor = contributorNames.map(name => ({ name }));
+        }
+
+        // Handle enclosure
+        const enclosure = await processEnclosure($, el, article.enclosure, advanced, article.enclosure?.baseUrl || apiConfig?.baseUrl || feedConfig?.feedUrl || '');
+        if (enclosure) {
+          itemData.enclosure = enclosure;
+        }
+
+        // Handle content (now a standard field in feed package)
+        const content = processWords(
+          await extractField($, el, article.content, advanced),
+          article.content?.titleCase,
+          article.content?.stripHtml
+        );
+        if (content) {
+          itemData.content = content;
+        }
+
+        // Handle content:encoded and other extensions
+        const extensions: any[] = [];
+
+        const contentEncoded = processWords(
+          await extractField($, el, article.contentEncoded, advanced),
+          article.contentEncoded?.titleCase,
+          article.contentEncoded?.stripHtml
+        );
+        if (contentEncoded) {
+          extensions.push({
+            name: 'content:encoded',
+            objects: contentEncoded
+          });
+        }
+
+        const summary = processWords(
+          await extractField($, el, article.summary, advanced),
+          article.summary?.titleCase,
+          article.summary?.stripHtml
+        );
+        if (summary) {
+          extensions.push({
+            name: 'summary',
+            objects: summary
+          });
+        }
+
+        if (article.source) {
+          const sourceUrl = await extractField($, el, article.source.url, advanced);
+          const sourceTitle = await extractField($, el, article.source.title, advanced);
+          if (sourceUrl || sourceTitle) {
+            extensions.push({
+              name: 'source',
+              objects: { url: sourceUrl, title: sourceTitle }
+            });
+          }
+        }
+
+        if (extensions.length > 0) {
+          itemData.extensions = extensions;
+        }
+
         if (itemData.guid === undefined || itemData.guid === ''){
           itemData.guid = Bun.hash(JSON.stringify(itemData)).toString();
         }
@@ -97,85 +146,143 @@ export async function buildRSS(res: any, feedConfig: any): Promise<string> {
       input.reverse();
     }
 
+    const serverUrl = feedConfig.serverUrl || process.env.SERVER_URL || 'http://localhost:5000';
     const feedOptions: RSSFeedOptions = {
+      id: `${serverUrl}/public/feeds/${feedConfig.feedId}.xml`,
       title: await extractField($, null, article.feedTitle, advanced) || apiConfig?.title || $("title")?.first().text()?.trim() || 'Untitled Feed',
-      site_url: apiConfig.baseUrl || '',
+      link: apiConfig.baseUrl || '',
       description: await extractField($, null, article.feedDescription, advanced) || $('meta[property="og:description"]').first().attr("content") || $('meta[name="description"]').first().attr("content") || '',
       generator: "Generated by mkfd",
       language: await extractField($, null, article.feedLanguage, advanced) || $('html').first().attr('lang') || undefined,
-      copyright: await extractField($, null, article.feedCopyright, advanced),
-      managingEditor: await extractField($, null, article.feedManagingEditor, advanced),
-      webMaster: await extractField($, null, article.feedWebMaster, advanced),
-      categories: (await extractField($, null, article.feedCategories, advanced))?.split(',').map(c => c.trim()).filter(Boolean),
+      copyright: await extractField($, null, article.feedCopyright, advanced) || '',
       ttl: parseInt(await extractField($, null, article.feedTtl, advanced) || '60'), // Default to 60 minutes
-      rating: await extractField($, null, article.feedRating, advanced),
-      skipDays: (await extractField($, null, article.feedSkipDays, advanced))?.split(',').map(d => d.trim()).filter(Boolean),
-      skipHours: (await extractField($, null, article.feedSkipHours, advanced))?.split(',').map(h => parseInt(h.trim())).filter(h => !isNaN(h) && h >=0 && h <=23 ),
-      pubDate: new Date(),
-      lastBuildDate: new Date(),
+      updated: new Date(),
+      feedLinks: {
+        rss: `${serverUrl}/public/feeds/${feedConfig.feedId}.xml`
+      }
     };
 
     if (article.feedImage) {
-      const imageUrl = await extractField($, null, article.feedImage.url, advanced);
+      const imageUrl = await extractField($, null, article.feedImage, advanced);
       if(imageUrl){
-        feedOptions.image = {
-          url: imageUrl,
-          title: await extractField($, null, article.feedImage.title, advanced) || feedOptions.title,
-          link: await extractField($, null, article.feedImage.link, advanced) || feedOptions.site_url,
-          width: parseInt(await extractField($, null, article.feedImage.width, advanced) || '0'),
-          height: parseInt(await extractField($, null, article.feedImage.height, advanced) || '0'),
-          description: await extractField($, null, article.feedImage.description, advanced)
-        };
+        feedOptions.image = imageUrl;
       }
     }
 
-    const feed = new RSS(feedOptions);
+    const feed = new Feed(feedOptions);
 
-    for (const item of input) {
-      feed.item(item);
+    // Add custom extensions for RSS 2.0 fields not natively supported by feed package
+    // These fields are valid RSS 2.0 elements but the feed package doesn't include them
+    // in its FeedOptions interface. We add them as extensions to maintain full RSS 2.0 compliance.
+    const managingEditor = await extractField($, null, article.feedManagingEditor, advanced);
+    if (managingEditor) {
+      feed.addExtension({
+        name: 'managingEditor',
+        objects: managingEditor
+      });
     }
 
-    return feed.xml({ indent: true });
+    const webMaster = await extractField($, null, article.feedWebMaster, advanced);
+    if (webMaster) {
+      feed.addExtension({
+        name: 'webMaster',
+        objects: webMaster
+      });
+    }
+
+    const skipDays = await extractField($, null, article.feedSkipDays, advanced);
+    if (skipDays) {
+      feed.addExtension({
+        name: 'skipDays',
+        objects: { day: skipDays.split(',').map(d => d.trim()).filter(Boolean) }
+      });
+    }
+
+    const skipHours = await extractField($, null, article.feedSkipHours, advanced);
+    if (skipHours) {
+      feed.addExtension({
+        name: 'skipHours',
+        objects: { hour: skipHours.split(',').map(h => h.trim()).filter(Boolean) }
+      });
+    }
+
+    for (const item of input) {
+      feed.addItem(item);
+    }
+
+    return feed.rss2();
   }
   // Fallback if article or iterator is not defined
-  return new RSS({ title: apiConfig?.title || 'Error: Feed not configured correctly', site_url: apiConfig.baseUrl || '' }).xml({ indent: true });
+  const serverUrl = feedConfig.serverUrl || process.env.SERVER_URL || 'http://localhost:5000';
+  const fallbackFeed = new Feed({
+    id: `${serverUrl}/public/feeds/${feedConfig.feedId}.xml`,
+    title: apiConfig?.title || 'Error: Feed not configured correctly',
+    link: apiConfig.baseUrl || '',
+    copyright: ''
+  });
+  return fallbackFeed.rss2();
 }
 
 export function buildRSSFromApiData(apiData: any, feedConfig: any): string {
   const mapping = feedConfig.apiMapping as ApiMapping;
   const config = feedConfig.config as ApiConfig;
 
+  const serverUrl = feedConfig.serverUrl || process.env.SERVER_URL || 'http://localhost:5000';
   const feedOptions: RSSFeedOptions = {
+    id: `${serverUrl}/public/feeds/${feedConfig.feedId}.xml`,
     title: get(apiData, mapping.feedTitle, "") || config.title || "API RSS Feed",
-    site_url: config.baseUrl || '',
-    feed_url: config.baseUrl + (config.route || ""),
+    link: config.baseUrl || '',
     description: get(apiData, mapping.feedDescription, "RSS feed generated from API data"),
     generator: "Generated by mkfd",
     language: get(apiData, mapping.feedLanguage, ""),
-    copyright: get(apiData, mapping.feedCopyright, ""),
-    managingEditor: get(apiData, mapping.feedManagingEditor, ""),
-    webMaster: get(apiData, mapping.feedWebMaster, ""),
-    categories: get(apiData, mapping.feedCategories, "").split(',').filter(Boolean).map((c: string) => c.trim()),
+    copyright: get(apiData, mapping.feedCopyright, "") || '',
     ttl: parseInt(get(apiData, mapping.feedTtl, "60") || '60'),
-    rating: get(apiData, mapping.feedRating, ""),
-    skipDays: get(apiData, mapping.feedSkipDays, "").split(',').filter(Boolean).map((d: string) => d.trim()),
-    skipHours: get(apiData, mapping.feedSkipHours, "").split(',').filter(Boolean).map((h: string) => parseInt(h.trim())).filter((h: number) => !isNaN(h) && h >=0 && h <=23),
-    pubDate: new Date(get(apiData, mapping.feedPubDate, "") || Date.now()),
-    lastBuildDate: new Date(get(apiData, mapping.feedLastBuildDate, "") || Date.now())
+    updated: new Date(get(apiData, mapping.feedPubDate, "") || Date.now()),
+    feedLinks: {
+      rss: `${serverUrl}/public/feeds/${feedConfig.feedId}.xml`
+    }
   };
 
-  if (mapping.feedImage && get(apiData, mapping.feedImage.url, "")) {
-    feedOptions.image = {
-      url: get(apiData, mapping.feedImage.url, ""),
-      title: get(apiData, mapping.feedImage.title, "") || feedOptions.title,
-      link: get(apiData, mapping.feedImage.link, "") || feedOptions.site_url,
-      width: parseInt(get(apiData, mapping.feedImage.width, "0") || '0'),
-      height: parseInt(get(apiData, mapping.feedImage.height, "0") || '0'),
-      description: get(apiData, mapping.feedImage.description, "")
-    };
+  if (mapping.feedImageUrl && get(apiData, mapping.feedImageUrl, "")) {
+    feedOptions.image = get(apiData, mapping.feedImageUrl, "");
   }
 
-  const feed = new RSS(feedOptions);
+  const feed = new Feed(feedOptions);
+
+  // Add custom extensions for RSS 2.0 fields not natively supported by feed package
+  // These fields are valid RSS 2.0 elements but the feed package doesn't include them
+  // in its FeedOptions interface. We add them as extensions to maintain full RSS 2.0 compliance.
+  const managingEditor = get(apiData, mapping.feedManagingEditor, "");
+  if (managingEditor) {
+    feed.addExtension({
+      name: 'managingEditor',
+      objects: managingEditor
+    });
+  }
+
+  const webMaster = get(apiData, mapping.feedWebMaster, "");
+  if (webMaster) {
+    feed.addExtension({
+      name: 'webMaster',
+      objects: webMaster
+    });
+  }
+
+  const skipDays = get(apiData, mapping.feedSkipDays, "");
+  if (skipDays) {
+    feed.addExtension({
+      name: 'skipDays',
+      objects: { day: skipDays.split(',').map((d: string) => d.trim()).filter(Boolean) }
+    });
+  }
+
+  const skipHours = get(apiData, mapping.feedSkipHours, "");
+  if (skipHours) {
+    feed.addExtension({
+      name: 'skipHours',
+      objects: { hour: skipHours.split(',').map((h: string) => h.trim()).filter(Boolean) }
+    });
+  }
 
   const itemsPath = mapping.items || "";
   var items = get(apiData, itemsPath, []);
@@ -192,48 +299,92 @@ export function buildRSSFromApiData(apiData: any, feedConfig: any): string {
     const itemData: RSSItemOptions = {
       title: get(item, mapping.title, ""),
       description: get(item, mapping.description, ""),
-      url: get(item, mapping.link, ""),
-      author: get(item, mapping.author, ""),
+      link: get(item, mapping.link, ""),
       date: get(item, mapping.date, "") || new Date(),
-      content: get(item, mapping.content, ""),
-      content_encoded: get(item, mapping.contentEncoded, ""),
-      summary: get(item, mapping.summary, ""),
       guid: get(item, mapping.guid, undefined),
-      guid_isPermaLink: mapping.guidIsPermaLink ? get(item, mapping.guidIsPermaLink, "false").toLowerCase() === "true" : undefined,
-      categories: get(item, mapping.categories, "").split(',').filter(Boolean).map((c:string) => c.trim()),
-      contributors: get(item, mapping.contributors, "").split(',').filter(Boolean).map((c:string) => c.trim()),
-      lat: parseFloat(get(item, mapping.lat, "0") || '0'),
-      long: parseFloat(get(item, mapping.long, "0") || '0'),
     };
+
     if (itemData.guid === undefined || itemData.guid === ''){
       itemData.guid = Bun.hash(JSON.stringify(itemData)).toString();
+    }
+
+    const authorName = get(item, mapping.author, "");
+    if (authorName) {
+      itemData.author = [{ name: authorName }];
+    }
+
+    const categoryNames = get(item, mapping.categories, "").split(',').filter(Boolean).map((c:string) => c.trim());
+    if (categoryNames.length > 0) {
+      itemData.category = categoryNames.map(name => ({ name }));
+    }
+
+    const contributorNames = get(item, mapping.contributors, "").split(',').filter(Boolean).map((c:string) => c.trim());
+    if (contributorNames.length > 0) {
+      itemData.contributor = contributorNames.map(name => ({ name }));
     }
 
     if (mapping.enclosure && get(item, mapping.enclosure.url, "")) {
       itemData.enclosure = {
         url: get(item, mapping.enclosure.url, ""),
-        size: parseInt(get(item, mapping.enclosure.size, "0") || '0'),
+        length: parseInt(get(item, mapping.enclosure.size, "0") || '0'),
         type: get(item, mapping.enclosure.type, "application/octet-stream")
       };
     }
 
+    const content = get(item, mapping.content, "");
+    if (content) {
+      itemData.content = content;
+    }
+
+    const extensions: any[] = [];
+
+    const contentEncoded = get(item, mapping.contentEncoded, "");
+    if (contentEncoded) {
+      extensions.push({
+        name: 'content:encoded',
+        objects: contentEncoded
+      });
+    }
+
+    const summary = get(item, mapping.summary, "");
+    if (summary) {
+      extensions.push({
+        name: 'summary',
+        objects: summary
+      });
+    }
+
     if (mapping.source) {
-      itemData.source = {
-        url: get(item, mapping.source.url, ""),
-        title: get(item, mapping.source.title, "")
-      };
+      const sourceUrl = get(item, mapping.source.url, "");
+      const sourceTitle = get(item, mapping.source.title, "");
+      if (sourceUrl || sourceTitle) {
+        extensions.push({
+          name: 'source',
+          objects: { url: sourceUrl, title: sourceTitle }
+        });
+      }
     }
 
     if (mapping.customElements) {
-      itemData.custom_elements = Object.entries(mapping.customElements).map(([key, path]) => ({
-        [key]: get(item, path, "")
-      }));
+      Object.entries(mapping.customElements).forEach(([key, path]) => {
+        const value = get(item, path as string, "");
+        if (value) {
+          extensions.push({
+            name: key,
+            objects: value
+          });
+        }
+      });
     }
 
-    feed.item(itemData);
+    if (extensions.length > 0) {
+      itemData.extensions = extensions;
+    }
+
+    feed.addItem(itemData);
   });
 
-  return feed.xml({ indent: true });
+  return feed.rss2();
 }
 
 async function processEnclosure(
@@ -263,7 +414,7 @@ async function processEnclosure(
 
   const enclosure: RSSItemOptions['enclosure'] = {
     url: url.startsWith("//") ? "http:" + url : url,
-    size: 0,
+    length: 0,
     type: "application/octet-stream"
   };
 
@@ -279,7 +430,7 @@ async function processEnclosure(
         return undefined;
       }
       const contentType = response.headers.get("content-type");
-      enclosure.size = parseInt(contentLength || "0");
+      enclosure.length = parseInt(contentLength || "0");
       enclosure.type = contentType || "application/octet-stream";
     }
   } catch (err) {

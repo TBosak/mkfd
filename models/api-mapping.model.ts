@@ -34,24 +34,15 @@ export interface ApiMapping {
   // Feed level fields
   feedTitle?: string;
   feedDescription?: string;
-  feedImage?: {
-    url: string;
-    title: string;
-    link: string;
-    width?: string;
-    height?: string;
-    description?: string;
-  };
+  feedImageUrl?: string;
   feedLanguage?: string;
   feedCopyright?: string;
   feedManagingEditor?: string;
   feedWebMaster?: string;
   feedCategories?: string;
   feedTtl?: string;
-  feedRating?: string;
   feedSkipDays?: string;
   feedSkipHours?: string;
-  feedLastBuildDate?: string;
   feedPubDate?: string;
 
   // Custom fields

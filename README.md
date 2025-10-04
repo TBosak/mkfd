@@ -101,6 +101,7 @@ Some websites structure content across multiple layers:
 - [x] Add ALL possible RSS fields to models
 - [x] Add option for parallel iterators
 - [ ] Scraping how-to video
+- [ ] Email feed how-to video
 - [x] Add feed preview pane
 - [ ] Store/compare feed data to enable timestamping feed items
 - [x] Create dockerfile
@@ -112,6 +113,7 @@ Some websites structure content across multiple layers:
   - [x] Nested link follower/drilldown functionality for each feed item property
   - [x] Adjust date parser logic with overrides from an optional date format input
   - [x] Add selector suggestion engine
+- [ ] Front-end redesign (react + shadcn)
 - [ ] Amass contributors
 
 <br>
