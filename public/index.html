@@ -538,11 +538,6 @@
             <label for="feedTtlAttribute">Feed TTL Attribute (optional):</label>
             <input type="text" name="feedTtlAttribute" id="feedTtlAttribute" /><br><br>
 
-            <label for="feedRatingSelector">Feed Rating Selector:</label>
-            <input type="text" name="feedRatingSelector" id="feedRatingSelector" /><br><br>
-            <label for="feedRatingAttribute">Feed Rating Attribute (optional):</label>
-            <input type="text" name="feedRatingAttribute" id="feedRatingAttribute" /><br><br>
-
             <label for="feedSkipDaysSelector">Skip Days Selector (comma-separated, e.g., Monday,Tuesday):</label>
             <input type="text" name="feedSkipDaysSelector" id="feedSkipDaysSelector" /><br><br>
             <label for="feedSkipDaysAttribute">Skip Days Attribute (optional):</label>
@@ -558,30 +553,6 @@
             <label for="feedImageUrlAttribute">Feed Image URL Attribute (optional):</label>
             <input type="text" name="feedImageUrlAttribute" id="feedImageUrlAttribute" /><br><br>
 
-            <label for="feedImageTitleSelector">Feed Image Title Selector:</label>
-            <input type="text" name="feedImageTitleSelector" id="feedImageTitleSelector" /><br><br>
-            <label for="feedImageTitleAttribute">Feed Image Title Attribute (optional):</label>
-            <input type="text" name="feedImageTitleAttribute" id="feedImageTitleAttribute" /><br><br>
-
-            <label for="feedImageLinkSelector">Feed Image Link Selector:</label>
-            <input type="text" name="feedImageLinkSelector" id="feedImageLinkSelector" /><br><br>
-            <label for="feedImageLinkAttribute">Feed Image Link Attribute (optional):</label>
-            <input type="text" name="feedImageLinkAttribute" id="feedImageLinkAttribute" /><br><br>
-
-            <label for="feedImageWidthSelector">Feed Image Width Selector:</label>
-            <input type="text" name="feedImageWidthSelector" id="feedImageWidthSelector" /><br><br>
-            <label for="feedImageWidthAttribute">Feed Image Width Attribute (optional):</label>
-            <input type="text" name="feedImageWidthAttribute" id="feedImageWidthAttribute" /><br><br>
-
-            <label for="feedImageHeightSelector">Feed Image Height Selector:</label>
-            <input type="text" name="feedImageHeightSelector" id="feedImageHeightSelector" /><br><br>
-            <label for="feedImageHeightAttribute">Feed Image Height Attribute (optional):</label>
-            <input type="text" name="feedImageHeightAttribute" id="feedImageHeightAttribute" /><br><br>
-
-            <label for="feedImageDescriptionSelector">Feed Image Description Selector:</label>
-            <input type="text" name="feedImageDescriptionSelector" id="feedImageDescriptionSelector" /><br><br>
-            <label for="feedImageDescriptionAttribute">Feed Image Description Attribute (optional):</label>
-            <input type="text" name="feedImageDescriptionAttribute" id="feedImageDescriptionAttribute" /><br><br>
           </details>
           <br><br>
         </div>
@@ -656,24 +627,12 @@
           <input type="text" name="apiFeedCategories" id="apiFeedCategories" /><br><br>
           <label for="apiFeedTtl">Feed TTL (Time To Live in minutes) JSON Path:</label>
           <input type="text" name="apiFeedTtl" id="apiFeedTtl" /><br><br>
-          <label for="apiFeedRating">Feed Rating JSON Path:</label>
-          <input type="text" name="apiFeedRating" id="apiFeedRating" /><br><br>
           <label for="apiFeedSkipDays">Skip Days JSON Path (comma-separated string):</label>
           <input type="text" name="apiFeedSkipDays" id="apiFeedSkipDays" /><br><br>
           <label for="apiFeedSkipHours">Skip Hours JSON Path (comma-separated string of numbers 0-23):</label>
           <input type="text" name="apiFeedSkipHours" id="apiFeedSkipHours" /><br><br>
           <label for="apiFeedImageUrl">Feed Image URL JSON Path:</label>
           <input type="text" name="apiFeedImageUrl" id="apiFeedImageUrl" /><br><br>
-          <label for="apiFeedImageTitle">Feed Image Title JSON Path:</label>
-          <input type="text" name="apiFeedImageTitle" id="apiFeedImageTitle" /><br><br>
-          <label for="apiFeedImageLink">Feed Image Link JSON Path:</label>
-          <input type="text" name="apiFeedImageLink" id="apiFeedImageLink" /><br><br>
-          <label for="apiFeedImageWidth">Feed Image Width JSON Path:</label>
-          <input type="text" name="apiFeedImageWidth" id="apiFeedImageWidth" /><br><br>
-          <label for="apiFeedImageHeight">Feed Image Height JSON Path:</label>
-          <input type="text" name="apiFeedImageHeight" id="apiFeedImageHeight" /><br><br>
-          <label for="apiFeedImageDescription">Feed Image Description JSON Path:</label>
-          <input type="text" name="apiFeedImageDescription" id="apiFeedImageDescription" /><br><br>
           <label for="apiFeedPubDate">Feed Publication Date JSON Path:</label>
           <input type="text" name="apiFeedPubDate" id="apiFeedPubDate" /><br><br>
           <label for="apiFeedLastBuildDate">Feed Last Build Date JSON Path:</label>
@@ -1237,8 +1196,6 @@
         document.getElementById("feedCategoriesScrapingAttribute").value = selectors.feedCategories?.attribute || '';
         document.getElementById("feedTtlSelector").value = selectors.feedTtl?.selector || '';
         document.getElementById("feedTtlAttribute").value = selectors.feedTtl?.attribute || '';
-        document.getElementById("feedRatingSelector").value = selectors.feedRating?.selector || '';
-        document.getElementById("feedRatingAttribute").value = selectors.feedRating?.attribute || '';
         document.getElementById("feedSkipDaysSelector").value = selectors.feedSkipDays?.selector || '';
         document.getElementById("feedSkipDaysAttribute").value = selectors.feedSkipDays?.attribute || '';
         document.getElementById("feedSkipHoursSelector").value = selectors.feedSkipHours?.selector || '';
@@ -1246,16 +1203,6 @@
         // Feed image fields
         document.getElementById("feedImageUrlSelector").value = selectors.feedImage?.url?.selector || '';
         document.getElementById("feedImageUrlAttribute").value = selectors.feedImage?.url?.attribute || '';
-        document.getElementById("feedImageTitleSelector").value = selectors.feedImage?.title?.selector || '';
-        document.getElementById("feedImageTitleAttribute").value = selectors.feedImage?.title?.attribute || '';
-        document.getElementById("feedImageLinkSelector").value = selectors.feedImage?.link?.selector || '';
-        document.getElementById("feedImageLinkAttribute").value = selectors.feedImage?.link?.attribute || '';
-        document.getElementById("feedImageWidthSelector").value = selectors.feedImage?.width?.selector || '';
-        document.getElementById("feedImageWidthAttribute").value = selectors.feedImage?.width?.attribute || '';
-        document.getElementById("feedImageHeightSelector").value = selectors.feedImage?.height?.selector || '';
-        document.getElementById("feedImageHeightAttribute").value = selectors.feedImage?.height?.attribute || '';
-        document.getElementById("feedImageDescriptionSelector").value = selectors.feedImage?.description?.selector || '';
-        document.getElementById("feedImageDescriptionAttribute").value = selectors.feedImage?.description?.attribute || '';
 
         if (selectors.date?.dateFormat) {
           const format = selectors.date.dateFormat;
@@ -1511,24 +1458,12 @@
         data.feedCategoriesScrapingAttribute = document.getElementById('feedCategoriesScrapingAttribute')?.value;
         data.feedTtlSelector = document.getElementById('feedTtlSelector')?.value;
         data.feedTtlAttribute = document.getElementById('feedTtlAttribute')?.value;
-        data.feedRatingSelector = document.getElementById('feedRatingSelector')?.value;
-        data.feedRatingAttribute = document.getElementById('feedRatingAttribute')?.value;
         data.feedSkipDaysSelector = document.getElementById('feedSkipDaysSelector')?.value;
         data.feedSkipDaysAttribute = document.getElementById('feedSkipDaysAttribute')?.value;
         data.feedSkipHoursSelector = document.getElementById('feedSkipHoursSelector')?.value;
         data.feedSkipHoursAttribute = document.getElementById('feedSkipHoursAttribute')?.value;
         data.feedImageUrlSelector = document.getElementById('feedImageUrlSelector')?.value;
         data.feedImageUrlAttribute = document.getElementById('feedImageUrlAttribute')?.value;
-        data.feedImageTitleSelector = document.getElementById('feedImageTitleSelector')?.value;
-        data.feedImageTitleAttribute = document.getElementById('feedImageTitleAttribute')?.value;
-        data.feedImageLinkSelector = document.getElementById('feedImageLinkSelector')?.value;
-        data.feedImageLinkAttribute = document.getElementById('feedImageLinkAttribute')?.value;
-        data.feedImageWidthSelector = document.getElementById('feedImageWidthSelector')?.value;
-        data.feedImageWidthAttribute = document.getElementById('feedImageWidthAttribute')?.value;
-        data.feedImageHeightSelector = document.getElementById('feedImageHeightSelector')?.value;
-        data.feedImageHeightAttribute = document.getElementById('feedImageHeightAttribute')?.value;
-        data.feedImageDescriptionSelector = document.getElementById('feedImageDescriptionSelector')?.value;
-        data.feedImageDescriptionAttribute = document.getElementById('feedImageDescriptionAttribute')?.value;
         // Note: feedPubDate and feedLastBuildDate are not typically scraped directly for web scraping.
         // They are usually set by the server when the feed is generated or based on item dates.
 
@@ -1572,15 +1507,9 @@
         data.apiFeedPubDate = document.getElementById('apiFeedPubDate')?.value;
         data.apiFeedLastBuildDate = document.getElementById('apiFeedLastBuildDate')?.value;
         data.apiFeedTtl = document.getElementById('apiFeedTtl')?.value;
-        data.apiFeedRating = document.getElementById('apiFeedRating')?.value;
         data.apiFeedSkipDays = document.getElementById('apiFeedSkipDays')?.value;
         data.apiFeedSkipHours = document.getElementById('apiFeedSkipHours')?.value;
         data.apiFeedImageUrl = document.getElementById('apiFeedImageUrl')?.value;
-        data.apiFeedImageTitle = document.getElementById('apiFeedImageTitle')?.value;
-        data.apiFeedImageLink = document.getElementById('apiFeedImageLink')?.value;
-        data.apiFeedImageWidth = document.getElementById('apiFeedImageWidth')?.value;
-        data.apiFeedImageHeight = document.getElementById('apiFeedImageHeight')?.value;
-        data.apiFeedImageDescription = document.getElementById('apiFeedImageDescription')?.value;
 
       } else if (feedType === 'email') {
         data.emailHost = document.getElementById('emailHost').value;
@@ -1734,8 +1663,6 @@
         setVal('feedCategoriesScrapingAttribute', config.feedCategoriesScrapingAttribute);
         setVal('feedTtlSelector', config.feedTtlSelector);
         setVal('feedTtlAttribute', config.feedTtlAttribute);
-        setVal('feedRatingSelector', config.feedRatingSelector);
-        setVal('feedRatingAttribute', config.feedRatingAttribute);
         setVal('feedSkipDaysSelector', config.feedSkipDaysSelector);
         setVal('feedSkipDaysAttribute', config.feedSkipDaysAttribute);
         setVal('feedSkipHoursSelector', config.feedSkipHoursSelector);
@@ -1793,15 +1720,9 @@
         setVal('apiFeedPubDate', config.apiFeedPubDate);
         setVal('apiFeedLastBuildDate', config.apiFeedLastBuildDate);
         setVal('apiFeedTtl', config.apiFeedTtl);
-        setVal('apiFeedRating', config.apiFeedRating);
         setVal('apiFeedSkipDays', config.apiFeedSkipDays);
         setVal('apiFeedSkipHours', config.apiFeedSkipHours);
         setVal('apiFeedImageUrl', config.apiFeedImageUrl);
-        setVal('apiFeedImageTitle', config.apiFeedImageTitle);
-        setVal('apiFeedImageLink', config.apiFeedImageLink);
-        setVal('apiFeedImageWidth', config.apiFeedImageWidth);
-        setVal('apiFeedImageHeight', config.apiFeedImageHeight);
-        setVal('apiFeedImageDescription', config.apiFeedImageDescription);
 
       } else if (feedType === 'email') {
         setVal('emailHost', config.emailHost);
@@ -1991,8 +1912,6 @@
       setVal('feedCategoriesScrapingAttribute');
       setVal('feedTtlSelector');
       setVal('feedTtlAttribute');
-      setVal('feedRatingSelector');
-      setVal('feedRatingAttribute');
       setVal('feedSkipDaysSelector');
       setVal('feedSkipDaysAttribute');
       setVal('feedSkipHoursSelector');
@@ -2046,15 +1965,9 @@
       setVal('apiFeedPubDate');
       setVal('apiFeedLastBuildDate');
       setVal('apiFeedTtl');
-      setVal('apiFeedRating');
       setVal('apiFeedSkipDays');
       setVal('apiFeedSkipHours');
       setVal('apiFeedImageUrl');
-      setVal('apiFeedImageTitle');
-      setVal('apiFeedImageLink');
-      setVal('apiFeedImageWidth');
-      setVal('apiFeedImageHeight');
-      setVal('apiFeedImageDescription');
 
 
       // Clear Email fields

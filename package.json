@@ -13,6 +13,7 @@
     "bun-types": "^0.1.0",
     "cheerio": "^1.0.0",
     "dayjs": "^1.11.13",
+    "feed": "^5.1.0",
     "hono": "^4.6.8",
     "hono-sessions": "^0.7.0",
     "js-yaml": "^4.1.0",
@@ -22,14 +23,13 @@
     "node-imap": "^0.9.6",
     "patchright": "^1.51.3",
     "readline": "^1.3.0",
-    "rss": "1.2.2",
     "uuid": "^11.0.2",
     "xmldom": "^0.6.0"
   },
   "devDependencies": {
     "@types/bun": "^1.1.12",
     "@types/cheerio": "0.22.31",
-    "@types/xml": "1.0.8",
-    "@types/node-imap": "^0.9.3"
+    "@types/node-imap": "^0.9.3",
+    "@types/xml": "1.0.8"
   }
 }

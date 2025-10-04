@@ -4,7 +4,7 @@ import path from "path";
 import Imap from "node-imap";
 import libmime from "libmime";
 import minimist from "minimist";
-import RSS from "rss";
+import { Feed } from "feed";
 import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
 import { simpleParser } from "mailparser";
 import { decrypt } from "../utilities/security.utility.ts";
@@ -12,81 +12,95 @@ import { fileURLToPath } from "url";
 import { dirname } from "path";
 import * as cheerio from "cheerio";
 
+// Type definitions (inline to avoid ES module issues in Node.js worker)
+interface Author {
+  name?: string;
+  email?: string;
+  link?: string;
+  avatar?: string;
+}
+
+interface Category {
+  name?: string;
+  domain?: string;
+  scheme?: string;
+  term?: string;
+}
+
+interface Enclosure {
+  url: string;
+  type?: string;
+  length?: number;
+  title?: string;
+  duration?: number;
+}
+
+interface Extension {
+  name: string;
+  objects: any;
+}
+
+interface RSSItemOptions {
+  title: string;
+  id?: string;
+  link: string;
+  date: Date;
+  description?: string;
+  content?: string;
+  category?: Category[];
+  guid?: string;
+  image?: string | Enclosure;
+  audio?: string | Enclosure;
+  video?: string | Enclosure;
+  enclosure?: Enclosure;
+  author?: Author[];
+  contributor?: Author[];
+  published?: Date;
+  copyright?: string;
+  extensions?: Extension[];
+}
+
+interface RSSFeedOptions {
+  feedId?: string;
+  feedName?: string;
+  feedType?: string;
+  config?: any;
+  webhook?: any;
+  refreshTime?: number;
+  reverse?: boolean;
+  strict?: boolean;
+  advanced?: boolean;
+  headers?: any;
+  cookies?: any;
+  article?: any;
+  apiMapping?: any;
+  serverUrl?: string;
+    id: string;
+  title: string;
+  updated?: Date;
+  generator?: string;
+  language?: string;
+  ttl?: number;
+  feed?: string;
+  feedLinks?: any;
+  hub?: string;
+  docs?: string;
+  podcast?: boolean;
+  category?: string;
+  author?: Author;
+  link?: string;
+  description?: string;
+  image?: string;
+  favicon?: string;
+  copyright: string;
+}
+
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 const args = minimist(process.argv.slice(2));
 const encryptionKey: string = args.key || "";
 const configHash: string = args.hash || "";
-
-// --- Embedded RSS Model Definitions ---
-interface RSSImageOptions {
-    url: string;         // URL of the feed image
-    title: string;       // Title of the image (alt text)
-    link: string;        // Link the image points to (usually the feed's homepage)
-    width?: number;      // Width of the image in pixels
-    height?: number;     // Height of the image in pixels
-    description?: string; // Description of the image
-}
-
-interface RSSEnclosureOptions {
-    url: string;    // URL of the media file
-    length: number; // Length of the media file in bytes
-    type: string;   // MIME type of the media file (e.g., "audio/mpeg")
-}
-
-interface RSSItemOptions {
-    title: string;                    // Title of the item
-    description?: string;               // Synopsis of the item (often shown in feed readers)
-    url?: string;                       // URL of the full item (HTML page or media file)
-    guid?: string;                      // Globally unique identifier for the item (can be URL, hash, etc.)
-    categories?: string[];              // Array of category names item belongs to
-    author?: string;                    // Email address or name of the author
-    date: Date | string;                // Publication date of the item
-    lat?: number;                       // Latitude for geo-tagging
-    long?: number;                      // Longitude for geo-tagging 
-    enclosure?: RSSEnclosureOptions;    // Media object attached to the item
-    contributors?: string[];            // Array of contributor names
-    custom_elements?: Record<string, any>[]; // For adding custom XML elements
-    // Specific to CSSTarget/Scraping context, not directly used by RSS library but part of the unified model
-    guidIsPermaLink?: boolean; 
-}
-
-interface RSSFeedOptions {
-    webhook: any;
-    title: string;                      // Title of the feed
-    description: string;                // Description of the feed
-    feed_url: string;                   // URL of the RSS feed itself (where it will be published)
-    site_url: string;                   // URL of the main website the feed is for
-    image_url?: RSSImageOptions;        //  URL to an image for the feed (usually a logo)
-    docs?: string;                      // URL to documentation for the XML format of the feed (e.g., RSS 2.0 spec)
-    author?: string;                    // DEPRECATED by RSS library. Author of the feed content.
-    managingEditor?: string;            // Email of person responsible for editorial content
-    webMaster?: string;                 // Email of person responsible for technical issues
-    copyright?: string;                 // Copyright notice for content in the feed
-    language?: string;                  // Language the feed is written in (e.g., "en-us")
-    categories?: string[];              // Array of category names the feed belongs to
-    pubDate?: Date | string;            // Publication date for the content in the feed (often current time or last item's date)
-    lastBuildDate?: Date | string;      // The last time the content of the feed changed
-    ttl?: number;                       // Time To Live: minutes the feed can be cached before refreshing
-    custom_namespaces?: Record<string, string>; // e.g. { 'dc': 'http://purl.org/dc/elements/1.1/' }
-    custom_elements?: Record<string, any>[]; // For adding custom XML elements at the feed level
-    generator?: string;                 // Name of the program used to generate the feed
-    // Not directly part of standard RSS spec but from our models
-    feedId?: string;
-    feedName?: string; // Often same as title
-    feedType?: "webScraping" | "api" | "email";
-    refreshTime?: number; // In minutes
-    reverse?: boolean;
-    strict?: boolean;
-    advanced?: boolean;
-    headers?: Record<string, string>;
-    cookies?: Array<{ name: string; value: string }>;
-    config?: any; // Holds type-specific config (ApiConfig, CSSTarget base, EmailConfig)
-    article?: any; // For web scraping, holds CSSTargets for item fields
-    apiMapping?: any; // For API feeds, holds paths for item and feed fields
-}
-// --- End Embedded RSS Model Definitions ---
 
 export interface Email {
   UID: number;
@@ -551,23 +565,20 @@ class ImapWatcher {
 }
 
 export function buildRSSFromEmailFolder(emails: Email[], feedSetup: RSSFeedOptions): string {
-  const feed = new RSS({
+  const feed = new Feed({
+    id: feedSetup.id,
     title: feedSetup.feedName || feedSetup.title || "Email Feed",
+    link: feedSetup.link || feedSetup.id,
     description: feedSetup.description || `Email feed from ${feedSetup.config?.folder || 'folder'}`,
-    feed_url: feedSetup.feed_url, 
-    site_url: feedSetup.site_url || feedSetup.feed_url, 
-    image_url: feedSetup.image_url,
+    image: feedSetup.image,
     language: feedSetup.language || "en",
-    pubDate: feedSetup.pubDate || new Date(),
-    lastBuildDate: new Date(),
-    managingEditor: feedSetup.managingEditor,
-    webMaster: feedSetup.webMaster,
-    copyright: feedSetup.copyright,
+    updated: new Date(),
+    copyright: feedSetup.copyright || '',
     generator: feedSetup.generator || "MkFD IMAP Email Watcher",
     ttl: feedSetup.ttl,
-    categories: feedSetup.categories,
-    custom_elements: feedSetup.custom_elements,
-    custom_namespaces: feedSetup.custom_namespaces,
+    feedLinks: {
+      rss: feedSetup.id
+    }
   });
 
   // Helper function to sanitize content for XML/RSS
@@ -615,49 +626,56 @@ export function buildRSSFromEmailFolder(emails: Email[], feedSetup: RSSFeedOptio
     const itemOptions: RSSItemOptions = {
       title: sanitizeForXML(email.subject || "(No Subject)"),
       description: descriptionText,
-      author: sanitizeForXML(email.from || ""), 
       date: email.date ? new Date(email.date) : new Date(),
       guid: email.messageId || email.UID.toString(), // Use Message-ID as GUID, fallback to UID
-      url: undefined, // Email items generally don't have a direct public URL by default
-      categories: email.headers?.get('keywords') ? String(email.headers.get('keywords')).split(',').map(k => sanitizeForXML(k.trim())) : undefined,
-      enclosure: email.attachments && email.attachments.length > 0 && email.attachments[0].content && email.attachments[0].size && email.attachments[0].contentType ? {
-        // For local/internal use, CID linking might work if the RSS reader processes related MIME parts.
-        // For external/public RSS, attachments need to be hosted and linked via a public URL.
-        // This placeholder will use CID, assuming a capable reader or internal use.
-        url: email.attachments[0].filename ? `cid:${sanitizeForXML(email.attachments[0].filename)}` : (email.attachments[0].contentId ? `cid:${sanitizeForXML(email.attachments[0].contentId)}` : undefined),
-        length: email.attachments[0].size,
-        type: email.attachments[0].contentType,
-      } : undefined,
-      custom_elements: [
-        { 'content:encoded': {_cdata: contentEncodedHtml} }, 
-      ]
+      link: email.messageId ? `mailto:${email.messageId}` : `mailto:${email.UID}`, // Email items use mailto: scheme
+      content: contentEncodedHtml, // Content is now a standard field
     };
-    // Remove enclosure if its URL could not be formed
-    if (itemOptions.enclosure && !itemOptions.enclosure.url) {
-        delete itemOptions.enclosure;
+
+    // Handle author (convert to Author array)
+    const authorName = sanitizeForXML(email.from || "");
+    if (authorName) {
+      itemOptions.author = [{ name: authorName }];
     }
-    feed.item(itemOptions);
+
+    // Handle categories (convert to Category array)
+    const keywords = email.headers?.get('keywords') ? String(email.headers.get('keywords')).split(',').map(k => sanitizeForXML(k.trim())) : [];
+    if (keywords.length > 0) {
+      itemOptions.category = keywords.map(name => ({ name }));
+    }
+
+    // Add enclosure if present
+    if (email.attachments && email.attachments.length > 0 && email.attachments[0].content && email.attachments[0].size && email.attachments[0].contentType) {
+      const enclosureUrl = email.attachments[0].filename ? `cid:${sanitizeForXML(email.attachments[0].filename)}` : (email.attachments[0].contentId ? `cid:${sanitizeForXML(email.attachments[0].contentId)}` : undefined);
+      if (enclosureUrl) {
+        itemOptions.enclosure = {
+          url: enclosureUrl,
+          length: email.attachments[0].size,
+          type: email.attachments[0].contentType,
+        };
+      }
+    }
+
+    feed.addItem(itemOptions);
   });
 
-  return feed.xml({ indent: true });
+  return feed.rss2();
 }
 
+const serverUrl = rawConfig.serverUrl || process.env.SERVER_URL || 'http://localhost:5000';
 const completeFeedConfig: RSSFeedOptions = {
-    feed_url: `${rawConfig.feedId}.xml`, 
-    site_url: rawConfig.site_url || 'mailto:' + (imapOriginalConfig.user || ''), 
+    id: `${serverUrl}/public/feeds/${rawConfig.feedId}.xml`,
+    link: rawConfig.link || 'mailto:' + (imapOriginalConfig.user || ''),
     title: rawConfig.feedName || `Email Feed: ${imapOriginalConfig.folder}`,
     description: rawConfig.description || `Emails from ${imapOriginalConfig.user || 'unknown user'}/${imapOriginalConfig.folder}`,
+    copyright: rawConfig.copyright || '',
     feedId: rawConfig.feedId,
     feedName: rawConfig.feedName,
-    feedType: rawConfig.feedType, 
+    feedType: rawConfig.feedType,
     language: rawConfig.language,
-    copyright: rawConfig.copyright,
-    managingEditor: rawConfig.managingEditor,
-    webMaster: rawConfig.webMaster,
-    pubDate: rawConfig.pubDate,
-    lastBuildDate: rawConfig.lastBuildDate,
+    updated: rawConfig.updated || new Date(),
     ttl: rawConfig.ttl,
-    image_url: rawConfig.image_url,
+    image: rawConfig.image,
     generator: rawConfig.generator,
     config: imapOriginalConfig,
     webhook: rawConfig.webhook, // Pass through webhook configuration
