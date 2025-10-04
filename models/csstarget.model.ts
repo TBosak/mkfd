@@ -101,21 +101,13 @@ export interface CSSTargetFields {
   // Feed level fields
   feedTitle?: CSSTarget;
   feedDescription?: CSSTarget;
-  feedImage?: {
-    url: CSSTarget;
-    title: CSSTarget;
-    link: CSSTarget;
-    width?: CSSTarget;
-    height?: CSSTarget;
-    description?: CSSTarget;
-  };
+  feedImage?: CSSTarget;
   feedLanguage?: CSSTarget;
   feedCopyright?: CSSTarget;
   feedManagingEditor?: CSSTarget;
   feedWebMaster?: CSSTarget;
   feedCategories?: CSSTarget;
   feedTtl?: CSSTarget;
-  feedRating?: CSSTarget;
   feedSkipDays?: CSSTarget;
   feedSkipHours?: CSSTarget;
 }

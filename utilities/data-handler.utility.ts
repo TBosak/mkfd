@@ -55,13 +55,18 @@ export function processDates(
   date?: any,
   removeHtml?: boolean,
   userDateFormat?: string,
-) {
+): Date {
   let result = date ?? "";
   if (removeHtml) result = stripHtml(result);
 
+  // If already a Date object, return it
+  if (result instanceof Date) {
+    return result;
+  }
+
   if (userDateFormat) {
     const parsed = dayjs(result, userDateFormat);
-    if (parsed.isValid()) return parsed.toDate().toLocaleString();
+    if (parsed.isValid()) return parsed.toDate();
   }
 
   const patterns = [
@@ -106,12 +111,18 @@ export function processDates(
     if (match) {
       const parsedDate = parseDate(match[0], type);
       if (parsedDate && !isNaN(parsedDate.getTime())) {
-        return parsedDate.toLocaleString();
+        return parsedDate;
       }
     }
   }
 
-  return result;
+  // Fallback: try to parse with Date constructor or return current date
+  const fallbackDate = new Date(result);
+  if (!isNaN(fallbackDate.getTime())) {
+    return fallbackDate;
+  }
+
+  return new Date();
 }
 
 export function get(obj, path, defaultValue) {

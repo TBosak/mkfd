@@ -240,12 +240,11 @@ app.post("/", async (ctx) => {
     feedLastBuildDate: "",
     feedCategories: [] as string[], 
     feedDocs: "https://www.rssboard.org/rss-specification", 
-    feedGenerator: "MkFD Feed Generator", 
-    feedTtl: undefined as number | undefined, 
-    feedRating: "",
-    feedSkipHours: [] as number[], 
-    feedSkipDays: [] as string[], 
-    feedImage: undefined as { url: string; title: string; link: string; width?: number; height?: number; description?: string } | undefined,
+    feedGenerator: "MkFD Feed Generator",
+    feedTtl: undefined as number | undefined,
+    feedSkipHours: [] as number[],
+    feedSkipDays: [] as string[],
+    feedImage: undefined as string | undefined,
   };
 
   if (feedType === "webScraping") {
@@ -284,25 +283,16 @@ app.post("/", async (ctx) => {
 
     const feedTtlScraped = extract("feedTtlSelector") ? `${extract("feedTtlSelector")}${extract("feedTtlAttribute", "") ? `|attr:${extract("feedTtlAttribute")}` : ""}` : "";
     if (feedTtlScraped) feedOptions.feedTtl = Number(feedTtlScraped); 
-    
-    feedOptions.feedRating = extract("feedRatingSelector") ? `${extract("feedRatingSelector")}${extract("feedRatingAttribute", "") ? `|attr:${extract("feedRatingAttribute")}` : ""}` : "";
-    
+
     const skipDaysScraped = extract("feedSkipDaysSelector") ? `${extract("feedSkipDaysSelector")}${extract("feedSkipDaysAttribute", "") ? `|attr:${extract("feedSkipDaysAttribute")}` : ""}` : "";
-    if (skipDaysScraped) feedOptions.feedSkipDays = [skipDaysScraped]; 
+    if (skipDaysScraped) feedOptions.feedSkipDays = [skipDaysScraped];
 
     const skipHoursScraped = extract("feedSkipHoursSelector") ? `${extract("feedSkipHoursSelector")}${extract("feedSkipHoursAttribute", "") ? `|attr:${extract("feedSkipHoursAttribute")}` : ""}` : "";
-    if (skipHoursScraped) feedOptions.feedSkipHours = [Number(skipHoursScraped)]; 
+    if (skipHoursScraped) feedOptions.feedSkipHours = [Number(skipHoursScraped)];
 
     const imgUrlSel = extract("feedImageUrlSelector");
     if (imgUrlSel) {
-      feedOptions.feedImage = {
-        url: `${imgUrlSel}${extract("feedImageUrlAttribute", "") ? `|attr:${extract("feedImageUrlAttribute")}` : ""}`,
-        title: extract("feedImageTitleSelector") ? `${extract("feedImageTitleSelector")}${extract("feedImageTitleAttribute", "") ? `|attr:${extract("feedImageTitleAttribute")}` : ""}` : "",
-        link: extract("feedImageLinkSelector") ? `${extract("feedImageLinkSelector")}${extract("feedImageLinkAttribute", "") ? `|attr:${extract("feedImageLinkAttribute")}` : ""}` : "",
-        width: extract("feedImageWidthSelector") ? Number(`${extract("feedImageWidthSelector")}${extract("feedImageWidthAttribute", "") ? `|attr:${extract("feedImageWidthAttribute")}` : ""}`) : undefined,
-        height: extract("feedImageHeightSelector") ? Number(`${extract("feedImageHeightSelector")}${extract("feedImageHeightAttribute", "") ? `|attr:${extract("feedImageHeightAttribute")}` : ""}`) : undefined,
-        description: extract("feedImageDescriptionSelector") ? `${extract("feedImageDescriptionSelector")}${extract("feedImageDescriptionAttribute", "") ? `|attr:${extract("feedImageDescriptionAttribute")}` : ""}` : "",
-      };
+      feedOptions.feedImage = `${imgUrlSel}${extract("feedImageUrlAttribute", "") ? `|attr:${extract("feedImageUrlAttribute")}` : ""}`;
     }
 
   } else if (feedType === "api") {
@@ -343,18 +333,11 @@ app.post("/", async (ctx) => {
       feedManagingEditorPath: extract("apiFeedManagingEditor"),
       feedWebMasterPath: extract("apiFeedWebMaster"),
       feedPubDatePath: extract("apiFeedPubDate"),
-      feedLastBuildDatePath: extract("apiFeedLastBuildDate"),
-      feedCategoriesPath: extract("apiFeedCategories"), 
-      feedTtlPath: extract("apiFeedTtl"), 
-      feedRatingPath: extract("apiFeedRating"),
-      feedSkipHoursPath: extract("apiFeedSkipHours"), 
-      feedSkipDaysPath: extract("apiFeedSkipDays"),   
-      feedImageUrlPath: extract("apiFeedImageUrl"),
-      feedImageTitlePath: extract("apiFeedImageTitle"),
-      feedImageLinkPath: extract("apiFeedImageLink"),
-      feedImageWidthPath: extract("apiFeedImageWidth"), 
-      feedImageHeightPath: extract("apiFeedImageHeight"), 
-      feedImageDescriptionPath: extract("apiFeedImageDescription"),
+      feedCategoriesPath: extract("apiFeedCategories"),
+      feedTtlPath: extract("apiFeedTtl"),
+      feedSkipHoursPath: extract("apiFeedSkipHours"),
+      feedSkipDaysPath: extract("apiFeedSkipDays"),
+      feedImageUrl: extract("apiFeedImageUrl"),
     };
 
   } else if (feedType === "email") {
@@ -479,10 +462,9 @@ app.post("/preview", async (ctx) => {
         feedDocs: "https://www.rssboard.org/rss-specification",
         feedGenerator: "MkFD Preview Generator",
         feedTtl: undefined as number | undefined,
-        feedRating: "",
         feedSkipHours: [] as number[],
         feedSkipDays: [] as string[],
-        feedImage: undefined as { url: string; title: string; link: string; width?: number; height?: number; description?: string } | undefined,
+        feedImage: undefined as string | undefined,
     };
 
     if (feedType === "webScraping") {
@@ -522,7 +504,6 @@ app.post("/preview", async (ctx) => {
         if (feedCategoriesPreview) feedOptions.feedCategories = feedCategoriesPreview.split(',').map(s => s.trim());
         const feedTtlPreview = extract("feedTtlSelector");
         if (feedTtlPreview) feedOptions.feedTtl = Number(feedTtlPreview);
-        feedOptions.feedRating = extract("feedRatingSelector");
         const skipDaysPreview = extract("feedSkipDaysSelector");
         if (skipDaysPreview) feedOptions.feedSkipDays = skipDaysPreview.split(',').map(s => s.trim());
         const skipHoursPreview = extract("feedSkipHoursSelector");
@@ -530,14 +511,7 @@ app.post("/preview", async (ctx) => {
 
         const imgUrlPreview = extract("feedImageUrlSelector");
         if (imgUrlPreview) {
-            feedOptions.feedImage = {
-                url: imgUrlPreview,
-                title: extract("feedImageTitleSelector"),
-                link: extract("feedImageLinkSelector"),
-                width: extract("feedImageWidthSelector") ? Number(extract("feedImageWidthSelector")) : undefined,
-                height: extract("feedImageHeightSelector") ? Number(extract("feedImageHeightSelector")) : undefined,
-                description: extract("feedImageDescriptionSelector"),
-            };
+            feedOptions.feedImage = imgUrlPreview;
         }
     } else if (feedType === "api") {
         configData = {
@@ -582,15 +556,9 @@ app.post("/preview", async (ctx) => {
             feedLastBuildDatePath: extract("apiFeedLastBuildDate"),
             feedCategoriesPath: extract("apiFeedCategories"),
             feedTtlPath: extract("apiFeedTtl"),
-            feedRatingPath: extract("apiFeedRating"),
             feedSkipHoursPath: extract("apiFeedSkipHours"),
             feedSkipDaysPath: extract("apiFeedSkipDays"),
-            feedImageUrlPath: extract("apiFeedImageUrl"),
-            feedImageTitlePath: extract("apiFeedImageTitle"),
-            feedImageLinkPath: extract("apiFeedImageLink"),
-            feedImageWidthPath: extract("apiFeedImageWidth"),
-            feedImageHeightPath: extract("apiFeedImageHeight"),
-            feedImageDescriptionPath: extract("apiFeedImageDescription"),
+            feedImageUrl: extract("apiFeedImageUrl"),
         };
         // For API previews, feedOptions are largely derived by rss-builder from apiMappingData paths
     }
