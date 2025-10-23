@@ -898,7 +898,12 @@ app.post("/trigger-webhook", async (c) => {
 
 app.post("/imap/folders", async (c) => {
   const config = await c.req.json<Config>();
-  console.log("IMAP config:", config);
+  console.log("IMAP config:", {
+    host: config.host,
+    port: config.port,
+    user: config.user,
+    password: config.password ? '[REDACTED]' : undefined
+  });
   const folders = await listImapFolders(config);
   console.log("IMAP folders:", folders);
   return c.json({ folders });
