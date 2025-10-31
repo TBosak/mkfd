@@ -199,6 +199,10 @@ class ImapWatcher {
       await this.connect();
       await this.openBox(this.config.config?.folder || "INBOX");
       this.fetchRecentStartupEmails();
+      this.imap.removeAllListeners("mail");
+      this.imap.removeAllListeners("close");
+      this.imap.removeAllListeners("error");
+      this.imap.setMaxListeners(20);
 
       this.imap.on("mail", (n) => {
         console.log(`[IMAP] New mail event received for feed ${this.config.feedId}: ${n} new email(s)`);
@@ -350,12 +354,12 @@ class ImapWatcher {
 
     this.imap.search(["ALL"], (err, results) => {
       if (err || !results || results.length === 0) {
-        console.error("[IMAP] Error or no emails found:", err);
+        console.log("[IMAP] No emails found:", err?.message || "Empty mailbox");
         return;
       }
 
       const emailLimit = this.config.config?.emailCount || 10;
-      const recentUids = results.sort((a, b) => a - b).slice(-emailLimit);
+      const recentUids = results.sort((a, b) => b - a).slice(0, emailLimit).reverse();
       const fetch = this.imap.fetch(recentUids, { bodies: [""], struct: true });
       const tasks: Promise<Email>[] = [];
 
