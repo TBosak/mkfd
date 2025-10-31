@@ -51,6 +51,22 @@ docker run -p 5000:5000 -v /local/mount/path:/app/configs -e PASSKEY=your_passke
 
 If you don't supply the keys and cookie secret, the app will prompt you for them (just make sure to run docker with "it" flag to get an interactive shell). Make sure to reuse your encryption key for email feeds.
 
+### 🏥 Auto-restart on Failure
+
+The Docker image includes a healthcheck that monitors the application every 5 minutes. You can configure Docker to automatically restart the container if the healthcheck fails:
+
+```bash
+docker run -p 5000:5000 -v /local/mount/path:/app/configs \
+  --restart=unless-stopped \
+  -e PASSKEY=your_passkey \
+  -e COOKIE_SECRET=your_cookie_secret \
+  -e ENCRYPTION_KEY=your_encryption_key \
+  -e SSL=true/false \
+  tbosk/mkfd:latest
+```
+
+Alternatively, use [Autoheal](https://github.com/willfarrell/docker-autoheal) to automatically restart unhealthy containers in docker-compose setups.
+
 ## 📧 Email Feeds
 
 Mkfd supports email feeds via IMAP. You can use any email provider that supports IMAP, such as Gmail, Yahoo, or Outlook. To set up an email feed, you need to provide the following information:
@@ -64,6 +80,18 @@ Mkfd supports email feeds via IMAP. You can use any email provider that supports
 The encryption key is used to encrypt your password before storing it in the yaml config file. This is important for security reasons, as it prevents anyone from accessing your password in plain text. Make sure to use an encryption key that is at least 16 characters long.
 
 Email feeds do not refresh on intervals. The process runs continuously and updates when a new email is received.
+
+### Memory Allocation
+
+Email feeds run in a separate Node.js process with a default memory allocation of 4GB. If you have large mailboxes or need different memory settings, you can override this by setting the `NODE_OPTIONS` environment variable:
+
+```bash
+# Increase to 8GB
+NODE_OPTIONS="--max-old-space-size=8192" bun run index.ts
+
+# Docker example
+docker run -e NODE_OPTIONS="--max-old-space-size=8192" -p 5000:5000 ... tbosk/mkfd:latest
+```
 
 ## 🖼️ GUI
 
