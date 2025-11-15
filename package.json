@@ -4,6 +4,7 @@
   "type": "module",
   "version": "2.0.3",
   "scripts": {
+    "build": "cd frontend && bun run build",
     "start": "bun run index.ts",
     "dev": "bun run index.ts --watch --passkey=admin123 --cookieSecret=a18c1fd2211edd76a18c1fd2211edd76 --encryptionKey=a18c1fd2211edd76"
   },

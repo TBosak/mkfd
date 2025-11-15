@@ -51,6 +51,27 @@ docker run -p 5000:5000 -v /local/mount/path:/app/configs -e PASSKEY=your_passke
 
 If you don't supply the keys and cookie secret, the app will prompt you for them (just make sure to run docker with "it" flag to get an interactive shell). Make sure to reuse your encryption key for email feeds.
 
+### 🐙 Docker Compose
+
+For easier deployment, use the provided `docker-compose.yml`:
+
+1. Copy `.env.example` to `.env` and fill in your values:
+```bash
+cp .env.example .env
+# Edit .env with your preferred editor
+```
+
+2. Start the application:
+```bash
+docker-compose up -d
+```
+
+The docker-compose setup includes:
+- Automatic restart policy
+- Health monitoring
+- Volume mount for configs
+- Optional autoheal service (uncomment in docker-compose.yml to enable)
+
 ### 🏥 Auto-restart on Failure
 
 The Docker image includes a healthcheck that monitors the application every 5 minutes. You can configure Docker to automatically restart the container if the healthcheck fails:
