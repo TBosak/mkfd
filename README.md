@@ -116,7 +116,7 @@ docker run -e NODE_OPTIONS="--max-old-space-size=8192" -p 5000:5000 ... tbosk/mk
 
 ## 🖼️ GUI
 
-![mkfdgui](https://github.com/user-attachments/assets/620d4f1f-15a6-4120-8265-6ba07aa4aa27)
+<img width="1788" height="1879" alt="image" src="https://github.com/user-attachments/assets/7c3cd96d-e66f-4193-834e-ba4553cb8261" />
 
 ---
 
