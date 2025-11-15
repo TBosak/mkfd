@@ -1,0 +1,37 @@
+# Frontend source code (only built files in /public are needed)
+frontend/node_modules
+frontend/src
+frontend/.vite
+frontend/*.config.ts
+frontend/*.config.js
+frontend/tsconfig.json
+frontend/tsconfig.node.json
+frontend/index.html
+frontend/components.json
+frontend/package.json
+frontend/bun.lockb
+
+# Git and version control
+.git
+.gitignore
+.gitmodules
+
+# Documentation
+README.md
+*.md
+
+# Environment files
+.env
+.env.example
+
+# Cache and temp files
+node_modules/.cache
+.DS_Store
+*.log
+
+# TrueNAS folder if present
+truenas/
+
+# Build artifacts that shouldn't be in Docker
+dist/
+build/
