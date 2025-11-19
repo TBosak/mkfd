@@ -1168,7 +1168,7 @@ function parseDrillChain(
       .map((s) => s.toLowerCase())
       .join(
         "",
-      )}DrillChain\[(\d+)\]\[(selector|attribute|isRelative|baseUrl|stripHtml)\]$`,
+      )}DrillChain\\[(\\d+)\\]\\[(selector|attribute|isRelative|baseUrl|stripHtml)\\]$`,
     "i",
   );
   const tempStore: Record<string, Record<string, string>> = {};
