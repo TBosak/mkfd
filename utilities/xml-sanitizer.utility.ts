@@ -7,11 +7,11 @@ export function sanitizeForXML(content: string | undefined): string {
 
   return content
     // First, decode any existing HTML entities to avoid double-encoding
-    .replace(/&amp;/g, '&')
     .replace(/&lt;/g, '<')
     .replace(/&gt;/g, '>')
     .replace(/&quot;/g, '"')
     .replace(/&apos;/g, "'")
+    .replace(/&amp;/g, '&')
     // Remove invalid XML characters (control characters except tab, newline, carriage return)
     .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '')
     // Escape CDATA closing sequence
