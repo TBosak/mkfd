@@ -170,3 +170,6 @@ dist
 public/feeds/
 configs/
 feed-history/
+truenas/
+extensions/
+.claude/settings.local.json

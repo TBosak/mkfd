@@ -3,6 +3,8 @@ import dayjs from "dayjs";
 import * as cheerio from "cheerio";
 import customParseFormat from "dayjs/plugin/customParseFormat";
 import { Browser, chromium, Cookie, Page } from "patchright";
+import { getChromiumLaunchOptions } from "./chrome-extensions.utility";
+import { getRandomUserAgent } from "./user-agents.utility";
 import { discoverUrl, looksLikeUrl } from "./rss-builder.utility";
 
 dayjs.extend(customParseFormat);
@@ -147,7 +149,7 @@ export async function resolveDrillChain(
     stripHtml: boolean;
   }>,
   useAdvanced: boolean = false,
-  expectUrl: boolean = false
+  expectUrl: boolean = false,
 ): Promise<string> {
   if (!chain || chain.length === 0) return "";
 
@@ -156,12 +158,33 @@ export async function resolveDrillChain(
   let page: Page | null = null;
 
   try {
-    if (startingHtmlOrUrl.startsWith("http://") || startingHtmlOrUrl.startsWith("https://")) {
+    if (
+      startingHtmlOrUrl.startsWith("http://") ||
+      startingHtmlOrUrl.startsWith("https://")
+    ) {
       if (useAdvanced) {
-        browser = await chromium.launch({ headless: true });
-        const context = await browser.newContext();
+        browser = await chromium.launch(
+          getChromiumLaunchOptions({
+            headless: true,
+            timeout: 60000, // 1 minute timeout
+          }),
+        );
+        const userAgent = getRandomUserAgent();
+        const context = await browser.newContext({ userAgent });
+        await context.addInitScript(() => {
+          Object.defineProperty(navigator, "webdriver", {
+            get: () => undefined,
+          });
+        });
         page = await context.newPage();
-        await page.goto(startingHtmlOrUrl, { waitUntil: "networkidle" });
+        try {
+          await page.goto(startingHtmlOrUrl, {
+            waitUntil: "networkidle",
+            timeout: 10000, // 10 second timeout for networkidle
+          });
+        } catch {
+          // If networkidle times out, page is likely already loaded
+        }
         currentHtml = await page.content();
       } else {
         try {
@@ -171,8 +194,12 @@ export async function resolveDrillChain(
           });
           currentHtml = resp.data;
         } catch (err) {
-          console.warn('resolveDrillChain: Skipped large or failed fetch for', startingHtmlOrUrl, err.message);
-          return '';
+          console.warn(
+            "resolveDrillChain: Skipped large or failed fetch for",
+            startingHtmlOrUrl,
+            err.message,
+          );
+          return "";
         }
       }
     } else {
@@ -181,26 +208,34 @@ export async function resolveDrillChain(
 
     let finalValue = "";
 
+    console.log(`[DrillChain] Processing ${chain.length} step(s)`);
     for (let i = 0; i < chain.length; i++) {
       const { selector, attribute, isRelative, baseUrl } = chain[i];
+      console.log(`[DrillChain] Step ${i + 1}: selector="${selector}", attribute="${attribute}"`);
       const $ = cheerio.load(currentHtml);
       const el = $(selector).first();
       if (!el || el.length === 0) {
+        console.log(`[DrillChain] Step ${i + 1}: Selector not found, breaking`);
         finalValue = "";
         break;
       }
+      console.log(`[DrillChain] Step ${i + 1}: Selector found`);
 
-      const rawValue = attribute ? (el.attr(attribute) ?? "") : (chain[i].stripHtml ? (el.text() ?? "") : (el.html() ?? ""));
+      const rawValue = attribute
+        ? (el.attr(attribute) ?? "")
+        : chain[i].stripHtml
+          ? (el.text() ?? "")
+          : (el.html() ?? "");
 
       if (i === chain.length - 1) {
         let val = rawValue;
-      
+
         if (expectUrl && !looksLikeUrl(val)) {
-          const $frag = cheerio.load(val);          // rawValue might be HTML
+          const $frag = cheerio.load(val); // rawValue might be HTML
           const mined = discoverUrl($frag, $frag.root());
           if (mined) val = mined;
         }
-      
+
         finalValue = val;
       } else {
         let absoluteUrl = rawValue;
@@ -209,11 +244,20 @@ export async function resolveDrillChain(
             baseUrl.endsWith("/") || rawValue.startsWith("/")
               ? baseUrl + rawValue
               : `${baseUrl}/${rawValue}`;
+          console.log(`[DrillChain] Resolved relative URL: ${rawValue} -> ${absoluteUrl}`);
         }
 
         if (useAdvanced && browser && page) {
           try {
-            await page.goto(absoluteUrl, { waitUntil: "networkidle" });
+            console.log(`[DrillChain] Navigating to: ${absoluteUrl}`);
+            try {
+              await page.goto(absoluteUrl, {
+                waitUntil: "networkidle",
+                timeout: 10000, // 10 second timeout for networkidle
+              });
+            } catch {
+              // If networkidle times out, continue with current page state
+            }
             currentHtml = await page.content();
           } catch {
             finalValue = "";
@@ -227,8 +271,12 @@ export async function resolveDrillChain(
             });
             currentHtml = resp.data;
           } catch (err) {
-            console.warn('resolveDrillChain: Skipped large or failed fetch for', absoluteUrl, err.message);
-            finalValue = '';
+            console.warn(
+              "resolveDrillChain: Skipped large or failed fetch for",
+              absoluteUrl,
+              err.message,
+            );
+            finalValue = "";
             break;
           }
         }
@@ -241,14 +289,17 @@ export async function resolveDrillChain(
   }
 }
 
-export function parseCookiesForPlaywright(cookieString: string, domain: string): Cookie[] {
-  return cookieString.split(";").map(part => {
+export function parseCookiesForPlaywright(
+  cookieString: string,
+  domain: string,
+): Cookie[] {
+  return cookieString.split(";").map((part) => {
     const [name, ...valuePieces] = part.trim().split("=");
     return {
       name,
       value: valuePieces.join("="),
-      domain,          // or supply `url: feedConfig.config.baseUrl`
-      path: "/"
+      domain, // or supply `url: feedConfig.config.baseUrl`
+      path: "/",
     } as Cookie;
   });
 }
