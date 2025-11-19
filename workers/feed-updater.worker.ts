@@ -191,7 +191,8 @@ async function fetchDataAndUpdateFeed(feedConfig: any) {
     }
   } catch (error) {
     console.error(
-      `Error fetching/processing data for feedId ${feedConfig.feedId}:`,
+      "Error fetching/processing data for feedId %s:",
+      feedConfig.feedId,
       error.message,
       error.stack,
     );
