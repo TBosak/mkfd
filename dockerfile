@@ -21,7 +21,4 @@ EXPOSE 5000
 
 VOLUME ["/app/configs"]
 
-HEALTHCHECK --interval=5m --timeout=10s --start-period=1m --retries=3 \
-  CMD curl -f http://localhost:5000/ || exit 1
-
 CMD ["bun", "run", "index.ts"]

@@ -1,14 +1,2005 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="UTF-8" />
-    <link rel="icon" type="image/x-icon" href="/public/logo.ico" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Feed Builder</title>
-    <script type="module" crossorigin src="/public/assets/index.js"></script>
-    <link rel="stylesheet" crossorigin href="/public/assets/index.css">
-  </head>
-  <body>
-    <div id="root"></div>
-  </body>
+
+<head>
+  <meta charset="UTF-8" />
+  <title>Feed Builder</title>
+  <link rel="icon" href="/public/logo.ico" />
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css" />
+  <style>
+    #autoFillSelectorsBtn {
+      width: 100%;
+    }
+
+    summary {
+      font-weight: bold;
+    }
+
+    .hidden {
+      display: none;
+    }
+
+    #playgroundBtn.floating-btn {
+      transform: scale(0.8);
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      z-index: 9999;
+      background: #fff;
+    }
+
+    #selectorActions.floating-btn:not(.hidden) {
+      position: fixed;
+      top: 1.5rem;
+      left: 0;
+      z-index: 10000;
+      background: white;
+      border-top-right-radius: 10px;
+      border-bottom-right-radius: 10px;
+      border: 2px solid #ccc;
+      border-left: none;
+      padding: 0.5rem 0.5rem 0.5rem 0.5rem;
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0.5rem;
+      box-shadow: 2px 4px 10px rgba(0, 0, 0, 0.10);
+      width: 180px;
+      min-width: 180px;
+      max-width: 180px;
+      height: 80vh;
+      max-height: 80vh;
+      overflow-y: auto;
+      opacity: 0.98;
+    }
+    #selectorActions:not(.hidden) {
+      width: 48px;
+      height: 48px;
+      min-width: 48px;
+      min-height: 48px;
+      max-width: 48px;
+      max-height: 48px;
+      background: rgba(255,255,255,0.7);
+      border-radius: 50%;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.10);
+      padding: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      left: 1.5rem;
+      top: 1.5rem;
+      transform: none;
+      z-index: 10000;
+      overflow: visible;
+    }
+    #selectorActions #selectorActionsContent {
+      display: flex;
+      flex-direction: column;
+      align-items: stretch;
+      gap: 0.25em;
+      width: 100%;
+      overflow-x: hidden;
+    }
+    #selectorActions #selectorActionsContent button {
+      width: 100%;
+      min-width: 120px;
+      padding: 0.5em 0.5em;
+      margin: 0;
+      border-radius: 6px;
+      white-space: nowrap;
+      overflow: hidden;
+      text-overflow: ellipsis;
+      line-height: 0px;
+    }
+
+    #titleDrillContainer,
+    #descriptionDrillContainer,
+    #linkDrillContainer,
+    #enclosureDrillContainer,
+    #authorDrillContainer,
+    #dateDrillContainer {
+      margin-top: 1em;
+    }
+
+    .small {
+      transform: scale(0.75);
+    }
+  </style>
+</head>
+
+<body>
+  <button type="button" id="playgroundBtn" class="outline hidden">🪄 Selector Playground</button>
+  <div id="selectorActions" class="hidden" style="text-align:center;">
+    <div id="selectorActionsContent">
+      <button data-field="itemSelector" class="contrast small">Item</button>
+      <button data-field="titleSelector" class="contrast small">Title</button>
+      <button data-field="descriptionSelector" class="contrast small">Description</button>
+      <button data-field="linkSelector" class="contrast small">Link</button>
+      <button data-field="enclosureSelector" class="contrast small">Enclosure</button>
+      <button data-field="authorSelector" class="contrast small">Author</button>
+      <button data-field="dateSelector" class="contrast small">Date</button>
+      <button data-field="contentEncodedSelector" class="contrast small">Content Encoded</button>
+      <button data-field="summarySelector" class="contrast small">Summary</button>
+      <button data-field="guidSelector" class="contrast small">GUID</button>
+      <button data-field="categoriesSelector" class="contrast small">Item Categories</button>
+      <button data-field="contributorsSelector" class="contrast small">Contributors</button>
+      <button data-field="latSelector" class="contrast small">Latitude</button>
+      <button data-field="longSelector" class="contrast small">Longitude</button>
+      <button data-field="sourceUrlSelector" class="contrast small">Source URL</button>
+      <button data-field="sourceTitleSelector" class="contrast small">Source Title</button>
+      <button id="closePlaygroundBtn" class="small">Close</button>
+    </div>
+  </div>
+  <article id="form">
+    <header style="text-align: center">
+      <img style="margin-top: 2em; margin-bottom: 2em" height="10%" width="10%" src="public/logo.png" />
+      <h1>Feed Builder</h1>
+      <p>Enter details below to create a new RSS feed</p>
+    </header>
+    <main style="padding-left: 30vw; padding-right: 30vw">
+      <form action="/" method="post">
+        <label for="feedName">Feed Name 🏷️:</label>
+        <input type="text" name="feedName" id="feedName" required /><br><br>
+        <div id="urlDiv">
+          <label for="feedUrl">Target URL 🌐:</label>
+          <input type="text" name="feedUrl" id="feedUrl" />
+          <button type="button" id="autoFillSelectorsBtn" class="outline contrast">🦄 Suggest Selectors</button>
+        </div>
+        <br>
+        <br>
+        <label for="feedType">Feed Type 🛠️:</label>
+        <select name="feedType" id="feedType" value="webScraping">
+          <option value="webScraping">Web Scraping</option>
+          <option value="api">REST API Call</option>
+          <option value="email">Email</option>
+        </select><br><br>
+        <div id="emailScrapingFields" style="display: none">
+          <h3>Email Configuration ✉️</h3>
+          <label for="emailHost">IMAP Server:</label>
+          <input type="text" name="emailHost" id="emailHost" /><br><br>
+          <label for="emailPort">IMAP Port:</label>
+          <input type="text" name="emailPort" id="emailPort" /><br><br>
+          <label for="emailUsername">Username:</label>
+          <input type="text" name="emailUsername" id="emailUsername" /><br><br>
+          <label for="emailPassword">🔒 Password:</label>
+          <input type="password" name="emailPassword" id="emailPassword" /><br><br>
+          <label for="emailFolderFieldSet">Folder:</label>
+          <fieldset name="emailFolderFieldSet" role="group">
+            <select name="emailFolder" id="emailFolder"></select>
+            <input type="button" id="fetchFolders" value="Load Folder Options 📂" />
+          </fieldset>
+          <br><br>
+          <label for="emailCount">Max Emails in Feed:</label>
+          <input type="number" name="emailCount" id="emailCount" min="1" max="1000" value="10" />
+          <br><br>
+        </div>
+        <div id="webScrapingFields">
+          <h3>CSS Selectors for RSS Feed Items 🪄</h3>
+          <label for="itemSelector">Item Selector (Iterator):</label>
+          <input type="text" name="itemSelector" id="itemSelector" /><br><br>
+          <label for="titleSelector">Title Selector:</label>
+          <input type="text" name="titleSelector" id="titleSelector" /><br><br>
+          <label for="titleAttribute">Title Attribute:</label>
+          <input type="text" name="titleAttribute" id="titleAttribute" /><br><br>
+          <label for="titleIterator">Title Parent Iterator (optional):</label>
+          <input type="text" name="titleIterator" id="titleIterator" /><br><br>
+          <label>
+            <input type="checkbox" name="titleStripHtml" id="titleStripHtml" checked />
+            Strip HTML in Title
+            <span class="tooltip" data-tooltip="Recommended: Most feed readers expect plain text for titles.">ℹ️</span>
+          </label><br><br>
+          <label>
+            <input type="checkbox" name="titleTitleCase" id="titleTitleCase" />
+            Convert Title to Title Case
+          </label><br><br>
+          Title Drill Chain (Optional)
+          <span class="tooltip"
+            data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
+          <div id="titleDrillContainer"></div>
+          <button type="button" class="outline" id="titleAddButton" onclick="addDrillStep('title')">
+            🔗 Add Chain
+          </button>
+          <br><br>
+          <details>
+            <summary>Description</summary>
+            <label for="descriptionSelector">Description Selector:</label>
+            <input type="text" name="descriptionSelector" id="descriptionSelector" /><br><br>
+            <label for="descriptionAttribute">Description Attribute:</label>
+            <input type="text" name="descriptionAttribute" id="descriptionAttribute" /><br><br>
+            <label for="descriptionIterator">Description Parent Iterator (optional):</label>
+            <input type="text" name="descriptionIterator" id="descriptionIterator" /><br><br>
+            <label>
+              <input type="checkbox" name="descriptionStripHtml" id="descriptionStripHtml" />
+              Strip HTML in Description
+              <span class="tooltip" data-tooltip="Uncheck to allow HTML in descriptions (recommended for most feeds).">ℹ️</span>
+            </label><br><br>
+            <label>
+              <input type="checkbox" name="descriptionTitleCase" id="descriptionTitleCase" />
+              Convert Description to Title Case
+            </label><br><br>
+            Description Drill Chain (Optional)
+            <span class="tooltip"
+              data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
+            <div id="descriptionDrillContainer"></div>
+            <button type="button" class="outline" id="descriptionAddButton" onclick="addDrillStep('description')">
+              🔗 Add Chain
+            </button>
+          </details>
+          <br><br>
+          <details>
+            <summary>Link</summary>
+            <label for="linkSelector">Link Selector:</label>
+            <input type="text" name="linkSelector" id="linkSelector" /><br><br>
+            <label for="linkAttribute">Link Attribute:</label>
+            <input type="text" name="linkAttribute" id="linkAttribute" /><br><br>
+            <label for="linkIterator">Link Parent Iterator (optional):</label>
+            <input type="text" name="linkIterator" id="linkIterator" /><br><br>
+            <label>
+              <input type="checkbox" name="linkRelativeLink" id="linkRelativeLink" />
+              Relative Link?
+            </label><br><br>
+            <label style="display: none" id="linkBaseUrlLabel" for="linkBaseUrl">Base URL:</label>
+            <input style="display: none; margin-bottom: 1em;" type="text" name="linkBaseUrl" id="linkBaseUrl" />
+            Link Drill Chain (Optional)
+            <span class="tooltip"
+              data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
+            <div id="linkDrillContainer"></div>
+            <button type="button" class="outline" id="linkAddButton" onclick="addDrillStep('link')">
+              🔗 Add Chain
+            </button>
+          </details>
+          <br><br>
+          <details>
+            <summary>Enclosure (Image, Video, Etc.)</summary>
+            <label for="enclosureSelector">Enclosure Selector:</label>
+            <input type="text" name="enclosureSelector" id="enclosureSelector" /><br><br>
+            <label for="enclosureAttribute">Enclosure Attribute:</label>
+            <input type="text" name="enclosureAttribute" id="enclosureAttribute" /><br><br>
+            <label for="enclosureIterator">Enclosure Parent Iterator (optional):</label>
+            <input type="text" name="enclosureIterator" id="enclosureIterator" /><br><br>
+            <label>
+              <input type="checkbox" name="enclosureRelativeLink" id="enclosureRelativeLink" />
+              Relative Link?
+            </label><br><br>
+            <label style="display: none" id="enclosureBaseUrlLabel" for="enclosureBaseUrl">Base URL:</label>
+            <input style="display: none; margin-bottom: 1em;" type="text" name="enclosureBaseUrl"
+              id="enclosureBaseUrl" />
+            Enclosure Drill Chain (Optional)
+            <span class="tooltip"
+              data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
+            <div id="enclosureDrillContainer"></div>
+            <button type="button" class="outline" id="enclosureAddButton" onclick="addDrillStep('enclosure')">
+              🔗 Add Chain
+            </button>
+          </details>
+          <br><br>
+          <details>
+            <summary>Author</summary>
+            <label for="authorSelector">Author Selector:</label>
+            <input type="text" name="authorSelector" id="authorSelector" /><br><br>
+            <label for="authorAttribute">Author Attribute:</label>
+            <input type="text" name="authorAttribute" id="authorAttribute" /><br><br>
+            <label for="authorIterator">Author Parent Iterator (optional):</label>
+            <input type="text" name="authorIterator" id="authorIterator" /><br><br>
+            <label>
+              <input type="checkbox" name="authorStripHtml" id="authorStripHtml" checked />
+              Strip HTML in Author
+              <span class="tooltip" data-tooltip="Recommended: Most feed readers expect plain text for authors.">ℹ️</span>
+            </label><br><br>
+            <label>
+              <input type="checkbox" name="authorTitleCase" id="authorTitleCase" />
+              Convert Author to Title Case
+            </label>
+            <br><br>
+            Author Drill Chain (Optional)
+            <span class="tooltip"
+              data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
+            <div id="authorDrillContainer"></div>
+            <button type="button" class="outline" id="authorAddButton" onclick="addDrillStep('author')">
+              🔗 Add Chain
+            </button>
+          </details>
+          <br><br>
+          <details>
+            <summary>Date</summary>
+            <label for="dateSelector">Date Selector:</label>
+            <input type="text" name="dateSelector" id="dateSelector" /><br><br>
+            <label for="dateAttribute">Date Attribute:</label>
+            <input type="text" name="dateAttribute" id="dateAttribute" /><br><br>
+            <label for="dateIterator">Date Parent Iterator (optional):</label>
+            <input type="text" name="dateIterator" id="dateIterator" /><br><br>
+            <label for="dateFormat">Date Format (optional):</label>
+            <span class="tooltip"
+              data-tooltip="Most common formats (e.g., Unix timestamps, ISO) are auto-detected. Only specify if needed.">ℹ️</span>
+            <select name="dateFormat" id="dateFormat">
+              <option value="">Auto Detect</option>
+              <option value="DD/MM/YYYY">DD/MM/YYYY</option>
+              <option value="DD.MM.YYYY">DD.MM.YYYY</option>
+              <option value="MM/DD/YYYY">MM/DD/YYYY</option>
+              <option value="MM.DD.YYYY">MM.DD.YYYY</option>
+              <option value="other">Other (specify)</option>
+            </select><br><br>
+            <label for="customDateFormat" id="customDateFormatLabel" style="display: none;">Custom Date Format:</label>
+            <input type="text" name="customDateFormat" id="customDateFormat" placeholder="e.g. YYYY/MM/DD HH:mm"
+              style="display: none; margin-bottom: 1em;" />
+            Date Drill Chain (Optional)
+            <span class="tooltip"
+              data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
+            <div id="dateDrillContainer"></div>
+            <button type="button" class="outline" id="dateAddButton" onclick="addDrillStep('date')">
+              🔗 Add Chain
+            </button>
+          </details>
+          <br><br>
+          <details>
+            <summary>Content Encoded (CDATA)</summary>
+            <label for="contentEncodedSelector">Content Encoded Selector:</label>
+            <input type="text" name="contentEncodedSelector" id="contentEncodedSelector" /><br><br>
+            <label for="contentEncodedAttribute">Content Encoded Attribute:</label>
+            <input type="text" name="contentEncodedAttribute" id="contentEncodedAttribute" /><br><br>
+            <label for="contentEncodedIterator">Content Encoded Parent Iterator (optional):</label>
+            <input type="text" name="contentEncodedIterator" id="contentEncodedIterator" /><br><br>
+            <label>
+              <input type="checkbox" name="contentEncodedStripHtml" id="contentEncodedStripHtml" />
+              Strip HTML in Content Encoded
+              <span class="tooltip" data-tooltip="Uncheck to allow HTML in content:encoded (recommended for most feeds).">ℹ️</span>
+            </label><br><br>
+            <label>
+              <input type="checkbox" name="contentEncodedTitleCase" id="contentEncodedTitleCase" />
+              Convert Content Encoded to Title Case
+            </label><br><br>
+            Content Encoded Drill Chain (Optional)
+            <span class="tooltip"
+              data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
+            <div id="contentEncodedDrillContainer"></div>
+            <button type="button" class="outline" id="contentEncodedAddButton" onclick="addDrillStep('contentEncoded')">
+              🔗 Add Chain
+            </button>
+          </details>
+          <br><br>
+          <details>
+            <summary>Summary/Excerpt</summary>
+            <label for="summarySelector">Summary Selector:</label>
+            <input type="text" name="summarySelector" id="summarySelector" /><br><br>
+            <label for="summaryAttribute">Summary Attribute:</label>
+            <input type="text" name="summaryAttribute" id="summaryAttribute" /><br><br>
+            <label for="summaryIterator">Summary Parent Iterator (optional):</label>
+            <input type="text" name="summaryIterator" id="summaryIterator" /><br><br>
+            <label>
+              <input type="checkbox" name="summaryStripHtml" id="summaryStripHtml" checked />
+              Strip HTML in Summary
+              <span class="tooltip" data-tooltip="Recommended: Most feed readers expect plain text for summaries.">ℹ️</span>
+            </label><br><br>
+            <label>
+              <input type="checkbox" name="summaryTitleCase" id="summaryTitleCase" />
+              Convert Summary to Title Case
+            </label><br><br>
+            Summary Drill Chain (Optional)
+            <span class="tooltip"
+              data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
+            <div id="summaryDrillContainer"></div>
+            <button type="button" class="outline" id="summaryAddButton" onclick="addDrillStep('summary')">
+              🔗 Add Chain
+            </button>
+          </details>
+          <br><br>
+          <details>
+            <summary>GUID (Unique ID)</summary>
+            <label for="guidSelector">GUID Selector:</label>
+            <input type="text" name="guidSelector" id="guidSelector" /><br><br>
+            <label for="guidAttribute">GUID Attribute:</label>
+            <input type="text" name="guidAttribute" id="guidAttribute" /><br><br>
+            <label for="guidIterator">GUID Parent Iterator (optional):</label>
+            <input type="text" name="guidIterator" id="guidIterator" /><br><br>
+            <label>
+              <input type="checkbox" name="guidIsPermaLink" id="guidIsPermaLink" />
+              Is GUID a PermaLink?
+            </label><br><br>
+            GUID Drill Chain (Optional)
+            <span class="tooltip"
+              data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
+            <div id="guidDrillContainer"></div>
+            <button type="button" class="outline" id="guidAddButton" onclick="addDrillStep('guid')">
+              🔗 Add Chain
+            </button>
+          </details>
+          <br><br>
+          <details>
+            <summary>Item Categories (comma-separated)</summary>
+            <label for="categoriesSelector">Categories Selector:</label>
+            <input type="text" name="categoriesSelector" id="categoriesSelector" /><br><br>
+            <label for="categoriesAttribute">Categories Attribute:</label>
+            <input type="text" name="categoriesAttribute" id="categoriesAttribute" /><br><br>
+            <label for="categoriesIterator">Categories Parent Iterator (optional):</label>
+            <input type="text" name="categoriesIterator" id="categoriesIterator" /><br><br>
+            Categories Drill Chain (Optional)
+            <span class="tooltip"
+              data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
+            <div id="categoriesDrillContainer"></div>
+            <button type="button" class="outline" id="categoriesAddButton" onclick="addDrillStep('categories')">
+              🔗 Add Chain
+            </button>
+          </details>
+          <br><br>
+          <details>
+            <summary>Contributors (comma-separated)</summary>
+            <label for="contributorsSelector">Contributors Selector:</label>
+            <input type="text" name="contributorsSelector" id="contributorsSelector" /><br><br>
+            <label for="contributorsAttribute">Contributors Attribute:</label>
+            <input type="text" name="contributorsAttribute" id="contributorsAttribute" /><br><br>
+            <label for="contributorsIterator">Contributors Parent Iterator (optional):</label>
+            <input type="text" name="contributorsIterator" id="contributorsIterator" /><br><br>
+            Contributors Drill Chain (Optional)
+            <span class="tooltip"
+              data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
+            <div id="contributorsDrillContainer"></div>
+            <button type="button" class="outline" id="contributorsAddButton" onclick="addDrillStep('contributors')">
+              🔗 Add Chain
+            </button>
+          </details>
+          <br><br>
+          <details>
+            <summary>Geo Location (Latitude & Longitude)</summary>
+            <label for="latSelector">Latitude Selector:</label>
+            <input type="text" name="latSelector" id="latSelector" /><br><br>
+            <label for="latAttribute">Latitude Attribute:</label>
+            <input type="text" name="latAttribute" id="latAttribute" /><br><br>
+            <label for="latIterator">Latitude Parent Iterator (optional):</label>
+            <input type="text" name="latIterator" id="latIterator" /><br><br>
+            Latitude Drill Chain (Optional)
+            <span class="tooltip"
+              data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
+            <div id="latDrillContainer"></div>
+            <button type="button" class="outline" id="latAddButton" onclick="addDrillStep('lat')">
+              🔗 Add Chain
+            </button>
+            <br><br>
+            <label for="longSelector">Longitude Selector:</label>
+            <input type="text" name="longSelector" id="longSelector" /><br><br>
+            <label for="longAttribute">Longitude Attribute:</label>
+            <input type="text" name="longAttribute" id="longAttribute" /><br><br>
+            <label for="longIterator">Longitude Parent Iterator (optional):</label>
+            <input type="text" name="longIterator" id="longIterator" /><br><br>
+            Longitude Drill Chain (Optional)
+            <span class="tooltip"
+              data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
+            <div id="longDrillContainer"></div>
+            <button type="button" class="outline" id="longAddButton" onclick="addDrillStep('long')">
+              🔗 Add Chain
+            </button>
+          </details>
+          <br><br>
+          <details>
+            <summary>Item Source</summary>
+            <label for="sourceUrlSelector">Source URL Selector:</label>
+            <input type="text" name="sourceUrlSelector" id="sourceUrlSelector" /><br><br>
+            <label for="sourceUrlAttribute">Source URL Attribute:</label>
+            <input type="text" name="sourceUrlAttribute" id="sourceUrlAttribute" /><br><br>
+            <label for="sourceUrlIterator">Source URL Parent Iterator (optional):</label>
+            <input type="text" name="sourceUrlIterator" id="sourceUrlIterator" /><br><br>
+            <label>
+              <input type="checkbox" name="sourceUrlRelativeLink" id="sourceUrlRelativeLink" />
+              Relative Link?
+            </label><br><br>
+            <label style="display: none" id="sourceUrlBaseUrlLabel" for="sourceUrlBaseUrl">Base URL:</label>
+            <input style="display: none; margin-bottom: 1em;" type="text" name="sourceUrlBaseUrl" id="sourceUrlBaseUrl" />
+            Source URL Drill Chain (Optional)
+            <span class="tooltip"
+              data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
+            <div id="sourceUrlDrillContainer"></div>
+            <button type="button" class="outline" id="sourceUrlAddButton" onclick="addDrillStep('sourceUrl')">
+              🔗 Add Chain
+            </button>
+            <br><br>
+            <label for="sourceTitleSelector">Source Title Selector:</label>
+            <input type="text" name="sourceTitleSelector" id="sourceTitleSelector" /><br><br>
+            <label for="sourceTitleAttribute">Source Title Attribute:</label>
+            <input type="text" name="sourceTitleAttribute" id="sourceTitleAttribute" /><br><br>
+            <label for="sourceTitleIterator">Source Title Parent Iterator (optional):</label>
+            <input type="text" name="sourceTitleIterator" id="sourceTitleIterator" /><br><br>
+            Source Title Drill Chain (Optional)
+            <span class="tooltip"
+              data-tooltip="Use this to extract content that requires following links. Each step selects an element and (optionally) follows it to fetch the next layer.">ℹ️</span>
+            <div id="sourceTitleDrillContainer"></div>
+            <button type="button" class="outline" id="sourceTitleAddButton" onclick="addDrillStep('sourceTitle')">
+              🔗 Add Chain
+            </button>
+          </details>
+          <br><br>
+          <details>
+            <summary>Feed Level Information (Web Scraping)</summary>
+            <label for="feedLanguageSelector">Feed Language Selector:</label>
+            <input type="text" name="feedLanguageSelector" id="feedLanguageSelector" placeholder="e.g., html[lang]" /><br><br>
+            <label for="feedLanguageAttribute">Feed Language Attribute (optional, e.g., 'lang'):</label>
+            <input type="text" name="feedLanguageAttribute" id="feedLanguageAttribute" /><br><br>
+
+            <label for="feedCopyrightSelector">Feed Copyright Selector:</label>
+            <input type="text" name="feedCopyrightSelector" id="feedCopyrightSelector" /><br><br>
+            <label for="feedCopyrightAttribute">Feed Copyright Attribute (optional):</label>
+            <input type="text" name="feedCopyrightAttribute" id="feedCopyrightAttribute" /><br><br>
+
+            <label for="feedManagingEditorSelector">Managing Editor Selector:</label>
+            <input type="text" name="feedManagingEditorSelector" id="feedManagingEditorSelector" /><br><br>
+            <label for="feedManagingEditorAttribute">Managing Editor Attribute (optional):</label>
+            <input type="text" name="feedManagingEditorAttribute" id="feedManagingEditorAttribute" /><br><br>
+
+            <label for="feedWebMasterSelector">Webmaster Selector:</label>
+            <input type="text" name="feedWebMasterSelector" id="feedWebMasterSelector" /><br><br>
+            <label for="feedWebMasterAttribute">Webmaster Attribute (optional):</label>
+            <input type="text" name="feedWebMasterAttribute" id="feedWebMasterAttribute" /><br><br>
+
+            <label for="feedCategoriesScrapingSelector">Feed Categories Selector (comma-separated):</label>
+            <input type="text" name="feedCategoriesScrapingSelector" id="feedCategoriesScrapingSelector" /><br><br>
+            <label for="feedCategoriesScrapingAttribute">Feed Categories Attribute (optional):</label>
+            <input type="text" name="feedCategoriesScrapingAttribute" id="feedCategoriesScrapingAttribute" /><br><br>
+
+            <label for="feedTtlSelector">Feed TTL (Time To Live in minutes) Selector:</label>
+            <input type="number" name="feedTtlSelector" id="feedTtlSelector" /><br><br>
+            <label for="feedTtlAttribute">Feed TTL Attribute (optional):</label>
+            <input type="text" name="feedTtlAttribute" id="feedTtlAttribute" /><br><br>
+
+            <label for="feedSkipDaysSelector">Skip Days Selector (comma-separated, e.g., Monday,Tuesday):</label>
+            <input type="text" name="feedSkipDaysSelector" id="feedSkipDaysSelector" /><br><br>
+            <label for="feedSkipDaysAttribute">Skip Days Attribute (optional):</label>
+            <input type="text" name="feedSkipDaysAttribute" id="feedSkipDaysAttribute" /><br><br>
+
+            <label for="feedSkipHoursSelector">Skip Hours Selector (comma-separated, 0-23):</label>
+            <input type="text" name="feedSkipHoursSelector" id="feedSkipHoursSelector" /><br><br>
+            <label for="feedSkipHoursAttribute">Skip Hours Attribute (optional):</label>
+            <input type="text" name="feedSkipHoursAttribute" id="feedSkipHoursAttribute" /><br><br>
+
+            <label for="feedImageUrlSelector">Feed Image URL Selector:</label>
+            <input type="text" name="feedImageUrlSelector" id="feedImageUrlSelector" /><br><br>
+            <label for="feedImageUrlAttribute">Feed Image URL Attribute (optional):</label>
+            <input type="text" name="feedImageUrlAttribute" id="feedImageUrlAttribute" /><br><br>
+
+          </details>
+          <br><br>
+        </div>
+        <div id="apiFields" style="display: none">
+          <h3>API Configuration 📬</h3>
+          <label for="apiRoute">API Route (e.g. "/dog/breeds"):</label>
+          <input type="text" name="apiRoute" id="apiRoute" /><br><br>
+          <label for="apiMethod">HTTP Method:</label>
+          <select name="apiMethod" id="apiMethod">
+            <option value="GET">GET</option>
+            <option value="POST">POST</option>
+          </select><br><br>
+          <label for="apiParams">Query Parameters (JSON format):</label><br>
+          <textarea name="apiParams" id="apiParams" rows="5" cols="50">{}</textarea><br><br>
+          <label for="apiHeaders">HTTP Headers (JSON format):</label><br>
+          <textarea name="apiHeaders" id="apiHeaders" rows="5" cols="50">{}</textarea><br><br>
+          <label for="apiBody">Request Body (JSON format):</label><br>
+          <textarea name="apiBody" id="apiBody" rows="5" cols="50">{}</textarea><br><br>
+          <h3>API Response Mapping 🔗</h3>
+          <label for="apiItemsPath">Items Path (e.g., 'data.items'):</label>
+          <input type="text" name="apiItemsPath" id="apiItemsPath" /><br><br>
+          <label for="apiTitleField">Title Field:</label>
+          <input type="text" name="apiTitleField" id="apiTitleField" /><br><br>
+          <label for="apiDescriptionField">Description Field:</label>
+          <input type="text" name="apiDescriptionField" id="apiDescriptionField" /><br><br>
+          <label for="apiLinkField">Link Field:</label>
+          <input type="text" name="apiLinkField" id="apiLinkField" /><br><br>
+          <label for="apiDateField">Date Field:</label>
+          <input type="text" name="apiDateField" id="apiDateField" /><br><br>
+          <label for="apiDate">Date:</label>
+          <input type="text" name="apiDate" id="apiDate" /><br><br>
+          <label for="apiEnclosureUrl">Enclosure URL JSON Path:</label>
+          <input type="text" name="apiEnclosureUrl" id="apiEnclosureUrl" /><br><br>
+          <label for="apiEnclosureSize">Enclosure Size JSON Path:</label>
+          <input type="text" name="apiEnclosureSize" id="apiEnclosureSize" /><br><br>
+          <label for="apiEnclosureType">Enclosure Type JSON Path:</label>
+          <input type="text" name="apiEnclosureType" id="apiEnclosureType" /><br><br>
+          <label for="apiContentEncoded">Content Encoded JSON Path:</label>
+          <input type="text" name="apiContentEncoded" id="apiContentEncoded" /><br><br>
+          <label for="apiSummary">Summary JSON Path:</label>
+          <input type="text" name="apiSummary" id="apiSummary" /><br><br>
+          <label for="apiGuid">GUID JSON Path:</label>
+          <input type="text" name="apiGuid" id="apiGuid" /><br><br>
+          <label for="apiGuidIsPermaLink">GUID isPermaLink JSON Path (boolean):</label>
+          <input type="text" name="apiGuidIsPermaLink" id="apiGuidIsPermaLink" /><br><br>
+          <label for="apiCategories">Item Categories JSON Path (comma-separated string):</label>
+          <input type="text" name="apiCategories" id="apiCategories" /><br><br>
+          <label for="apiContributors">Contributors JSON Path (comma-separated string):</label>
+          <input type="text" name="apiContributors" id="apiContributors" /><br><br>
+          <label for="apiLat">Latitude JSON Path:</label>
+          <input type="text" name="apiLat" id="apiLat" /><br><br>
+          <label for="apiLong">Longitude JSON Path:</label>
+          <input type="text" name="apiLong" id="apiLong" /><br><br>
+          <label for="apiSourceUrl">Source URL JSON Path:</label>
+          <input type="text" name="apiSourceUrl" id="apiSourceUrl" /><br><br>
+          <label for="apiSourceTitle">Source Title JSON Path:</label>
+          <input type="text" name="apiSourceTitle" id="apiSourceTitle" /><br><br>
+          <h4>Feed Level Information (Optional)</h4>
+          <label for="apiFeedTitle">Feed Title JSON Path:</label>
+          <input type="text" name="apiFeedTitle" id="apiFeedTitle" /><br><br>
+          <label for="apiFeedDescription">Feed Description JSON Path:</label>
+          <input type="text" name="apiFeedDescription" id="apiFeedDescription" /><br><br>
+          <label for="apiFeedLanguage">Feed Language JSON Path:</label>
+          <input type="text" name="apiFeedLanguage" id="apiFeedLanguage" /><br><br>
+          <label for="apiFeedCopyright">Feed Copyright JSON Path:</label>
+          <input type="text" name="apiFeedCopyright" id="apiFeedCopyright" /><br><br>
+          <label for="apiFeedManagingEditor">Feed Managing Editor JSON Path:</label>
+          <input type="text" name="apiFeedManagingEditor" id="apiFeedManagingEditor" /><br><br>
+          <label for="apiFeedWebMaster">Feed Webmaster JSON Path:</label>
+          <input type="text" name="apiFeedWebMaster" id="apiFeedWebMaster" /><br><br>
+          <label for="apiFeedCategories">Feed Categories JSON Path (comma-separated string):</label>
+          <input type="text" name="apiFeedCategories" id="apiFeedCategories" /><br><br>
+          <label for="apiFeedTtl">Feed TTL (Time To Live in minutes) JSON Path:</label>
+          <input type="text" name="apiFeedTtl" id="apiFeedTtl" /><br><br>
+          <label for="apiFeedSkipDays">Skip Days JSON Path (comma-separated string):</label>
+          <input type="text" name="apiFeedSkipDays" id="apiFeedSkipDays" /><br><br>
+          <label for="apiFeedSkipHours">Skip Hours JSON Path (comma-separated string of numbers 0-23):</label>
+          <input type="text" name="apiFeedSkipHours" id="apiFeedSkipHours" /><br><br>
+          <label for="apiFeedImageUrl">Feed Image URL JSON Path:</label>
+          <input type="text" name="apiFeedImageUrl" id="apiFeedImageUrl" /><br><br>
+          <label for="apiFeedPubDate">Feed Publication Date JSON Path:</label>
+          <input type="text" name="apiFeedPubDate" id="apiFeedPubDate" /><br><br>
+          <label for="apiFeedLastBuildDate">Feed Last Build Date JSON Path:</label>
+          <input type="text" name="apiFeedLastBuildDate" id="apiFeedLastBuildDate" /><br><br>
+        </div>
+        <br><br>
+        <details>
+          <summary>Additional Options ⚙️</summary>
+          <label>Cookies:</label>
+          <div id="cookiesContainer"></div>
+          <button type="button" onclick="addCookieRow()" class="outline">Add Cookie 🍪</button>
+          <label for="headers">HTTP Headers (JSON format):</label>
+          <textarea name="headers" id="headers" rows="5" cols="50">{}</textarea>
+          <label for="refreshTime">Refresh Time (minutes):</label>
+          <input type="text" name="refreshTime" id="refreshTime" min="1" value="5" />
+          <label>
+            <input type="checkbox" name="reverse" id="reverse" />
+            Reverse Order
+          </label>
+          <label>
+            <input type="checkbox" name="advanced" id="advanced" />
+            Use Advanced Scraping
+            <span class="tooltip"
+              data-tooltip="Use for sites that lazy-load content. Launches a headless browser for deeper scraping.">ℹ️</span>
+          </label>
+          <label>
+            <input type="checkbox" name="strict" id="strict" />
+            Strict Mode
+            <span class="tooltip" data-tooltip="Reject feed items missing expected fields.">ℹ️</span>
+          </label>
+          
+          <hr>
+          <h3> Webhook Settings 🪝</h3>
+          <label>
+            <input type="checkbox" name="webhookEnabled" id="webhookEnabled" onchange="toggleWebhookFields()" />
+            Enable Webhook Notifications
+            <span class="tooltip" data-tooltip="Send POST notifications when feed items are added">ℹ️</span>
+          </label>
+          
+          <div id="webhookFields" style="display: none;">
+            <label for="webhookUrl">Webhook URL:</label>
+            <input type="url" name="webhookUrl" id="webhookUrl" placeholder="https://your-n8n-instance.com/webhook/your-webhook-id" />
+            
+            <label for="webhookFormat">Webhook Format:</label>
+            <select name="webhookFormat" id="webhookFormat">
+              <option value="xml">XML (RSS Format)</option>
+              <option value="json">JSON (Parsed Data)</option>
+            </select>
+            
+            <label>
+              <input type="checkbox" name="webhookNewItemsOnly" id="webhookNewItemsOnly" checked />
+              Send Only New Items
+              <span class="tooltip" data-tooltip="Only trigger webhook when new items are detected">ℹ️</span>
+            </label>
+            
+            <label for="webhookHeaders">Webhook Headers (JSON format):</label>
+            <textarea name="webhookHeaders" id="webhookHeaders" rows="3" placeholder='{"Authorization": "Bearer your-token", "Content-Type": "application/json"}'>{}</textarea>
+            
+            <details>
+              <summary>Advanced: Custom Payload Template</summary>
+              <label for="webhookCustomPayload">Custom Payload Template (optional):</label>
+              <span class="tooltip" data-tooltip="Use custom payload format for platforms other than Discord. Leave empty for auto-detection.">ℹ️</span>
+              <textarea name="webhookCustomPayload" id="webhookCustomPayload" rows="10" placeholder='Choose a template below or write your own...'></textarea>
+              
+              <div style="margin-top: 1em;">
+                <label><strong>Quick Templates:</strong></label>
+                <select id="templateSelector" onchange="loadWebhookTemplate()">
+                  <option value="">-- Select Platform Template --</option>
+                  <option value="discord">Discord</option>
+                  <option value="slack">Slack</option>
+                  <option value="teams">Microsoft Teams</option>
+                  <option value="generic">Generic (Simple JSON)</option>
+                  <option value="custom">Custom (Clear field)</option>
+                </select>
+              </div>
+              
+              <small style="margin-top: 1em; display: block;"><strong>Basic Variables:</strong><br>
+              • <code>${feedId}</code> - Unique feed identifier<br>
+              • <code>${feedName}</code> - Feed display name<br>  
+              • <code>${feedType}</code> - Type (webScraping, api, email)<br>
+              • <code>${itemCount}</code> - Number of items in feed<br>
+              • <code>${timestamp}</code> - ISO timestamp (2025-01-15T10:30:00.000Z)<br>
+              • <code>${data}</code> - Full RSS XML or parsed JSON data<br><br>
+              <strong>Individual Item Variables:</strong><br>
+              • <code>${firstItem.title}</code> - First item's title<br>
+              • <code>${firstItem.description}</code> - First item's description<br>
+              • <code>${firstItem.link}</code> - First item's link<br>
+              • <code>${firstItem.author}</code> - First item's author<br>
+              • <code>${firstItem.pubDate}</code> - First item's publication date<br>
+              • <code>${firstItem.category}</code> - First item's categories<br>
+              • <code>${items[0].title}</code> - Specific item by index (0-9)<br>
+              • <code>${items[1].description}</code> - Second item's description<br>
+              • <em>...and so on for items[0] through items[9]</em><br><br>
+              <strong>Notes:</strong><br>
+              • Leave empty for automatic Discord detection or n8n compatibility<br>
+              • Custom payloads override automatic platform detection<br>
+              • JSON templates will be parsed automatically<br>
+              • Use valid JSON syntax for structured data<br>
+              • Item variables work with all feed types (email, web scraping, API)</small>
+            </details>
+          </div>
+        </details>
+        <br><br>
+        <div role="group">
+          <button type="button" id="previewButton" class="outline contrast">🔎 Preview</button>
+          <button type="submit" class="outline contrast">🚀 Submit</button>
+        </div>
+      </form>
+    </main>
+    <footer>
+      <p style="float: left">
+        Created by <a href="https://github.com/TBosak">Tim Barani</a>
+      </p>
+      <a style="float: right" href="/feeds">View Active Feeds</a>
+    </footer>
+    <article id="preview" style="display: none">
+      <iframe id="previewFrame" style="width: 100%; height: 100%"></iframe>
+      <button onclick="document.getElementById('preview').style.display = 'none';" style="width: 100%"
+        class="outline contrast">
+        Hide
+      </button>
+    </article>
+    <article id="playgroundOverlay"
+      style="display: none; position: fixed; inset: 0; background: rgba(0, 0, 0, 0.5); z-index: 9999;">
+      <div
+        style="position: relative; width: 90%; height: 90%; margin: 2% auto; background: #fff; border-radius: 8px; overflow: hidden;">
+        <iframe id="playgroundIframe" style="width: 100%; height: 100%; border: 0"
+          sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-modals"></iframe>
+      </div>
+    </article>
+  </article>
+  <script>
+    let currentSelector = null;
+    const feedTypeSelect = document.getElementById("feedType");
+    const emailScrapingFields = document.getElementById("emailScrapingFields");
+    const webScrapingFields = document.getElementById("webScrapingFields");
+    const apiFields = document.getElementById("apiFields");
+    const playgroundBtn = document.getElementById("playgroundBtn");
+    const playgroundOverlay = document.getElementById("playgroundOverlay");
+    const playgroundIframe = document.getElementById("playgroundIframe");
+    const selectorActions = document.getElementById("selectorActions");
+    const feedUrlInput = document.getElementById("feedUrl");
+    const dateFormatSelect = document.getElementById("dateFormat");
+    const customDateFormatInput = document.getElementById("customDateFormat");
+    const customDateFormatLabel = document.getElementById("customDateFormatLabel");
+    const feedUrlDiv = document.getElementById("urlDiv");
+
+    const fields = [
+      'title', 'description', 'link', 'enclosure', 'author', 'date',
+      'contentEncoded', 'summary', 'guid', 'categories', 'contributors',
+      'lat', 'long', 'sourceUrl', 'sourceTitle'
+    ];
+
+    function getFeedRootUrl() {
+      try {
+        const url = new URL(document.getElementById("feedUrl").value.trim());
+        return url.origin;
+      } catch {
+        return "";
+      }
+    }
+    function isRelativeUrl(value) {
+      return value && (value.startsWith("/") || !/^https?:\/\//i.test(value));
+    }
+    document.addEventListener("DOMContentLoaded", function () {
+      dateFormatSelect.addEventListener("change", function () {
+        if (this.value === "other") {
+          customDateFormatInput.style.display = "block";
+          customDateFormatLabel.style.display = "block";
+          customDateFormatInput.required = true;
+        } else {
+          customDateFormatInput.style.display = "none";
+          customDateFormatLabel.style.display = "none";
+          customDateFormatInput.required = false;
+          customDateFormatInput.value = "";
+        }
+      });
+      feedUrlInput.addEventListener("input", function () {
+        const val = this.value.trim();
+        if (val.length > 0) {
+          playgroundBtn.classList.remove("hidden");
+          playgroundBtn.classList.add("floating-btn");
+        } else {
+          playgroundBtn.classList.remove("floating-btn");
+          playgroundBtn.classList.add("hidden");
+        }
+      });
+      document.getElementById("linkRelativeLink").addEventListener("change", function () {
+        const linkBaseUrl = document.getElementById("linkBaseUrl");
+        if (this.checked) {
+          linkBaseUrl.style.display = "block";
+          document.getElementById("linkBaseUrlLabel").style.display = "block";
+          const baseUrl = getFeedRootUrl();
+          linkBaseUrl.value = baseUrl;
+        } else {
+          linkBaseUrl.style.display = "none";
+          document.getElementById("linkBaseUrlLabel").style.display = "none";
+          linkBaseUrl.value = "";
+        }
+      });
+      document.getElementById("enclosureRelativeLink").addEventListener("change", function () {
+        const enclosureBaseUrl = document.getElementById("enclosureBaseUrl");
+        const enclosureBaseUrlLabel = document.getElementById("enclosureBaseUrlLabel");
+        if (this.checked) {
+          enclosureBaseUrl.style.display = "block";
+          if (enclosureBaseUrlLabel) enclosureBaseUrlLabel.style.display = "block";
+          const baseUrl = getFeedRootUrl();
+          enclosureBaseUrl.value = baseUrl;
+        } else {
+          enclosureBaseUrl.style.display = "none";
+          if (enclosureBaseUrlLabel) enclosureBaseUrlLabel.style.display = "none";
+          enclosureBaseUrl.value = "";
+        }
+      });
+      document.getElementById("sourceUrlRelativeLink").addEventListener("change", function () {
+        const sourceUrlBaseUrl = document.getElementById("sourceUrlBaseUrl");
+        const sourceUrlBaseUrlLabel = document.getElementById("sourceUrlBaseUrlLabel");
+        if (this.checked) {
+          sourceUrlBaseUrl.style.display = "block";
+          if (sourceUrlBaseUrlLabel) sourceUrlBaseUrlLabel.style.display = "block";
+          const baseUrl = getFeedRootUrl();
+          sourceUrlBaseUrl.value = baseUrl;
+        } else {
+          sourceUrlBaseUrl.style.display = "none";
+          if (sourceUrlBaseUrlLabel) sourceUrlBaseUrlLabel.style.display = "none";
+          sourceUrlBaseUrl.value = "";
+        }
+      });
+      feedTypeSelect.addEventListener("change", function () {
+        if (this.value === "webScraping") {
+          webScrapingFields.style.display = "block";
+          apiFields.style.display = "none";
+          emailScrapingFields.style.display = "none";
+          feedUrlDiv.style.display = "block";
+        } else if (this.value === "api") {
+          webScrapingFields.style.display = "none";
+          apiFields.style.display = "block";
+          emailScrapingFields.style.display = "none";
+          feedUrlDiv.style.display = "block";
+        } else if (this.value === "email") {
+          webScrapingFields.style.display = "none";
+          apiFields.style.display = "none";
+          emailScrapingFields.style.display = "block";
+          feedUrlInput.value = "";
+          feedUrlDiv.style.display = "none";
+        }
+      });
+      document.getElementById("previewButton").addEventListener("click", handlePreview);
+      function handlePreview() {
+        const form = document.querySelector("form");
+        const formData = new FormData(form);
+        const data = {};
+        formData.forEach((value, key) => {
+          if (data[key]) {
+            if (!Array.isArray(data[key])) {
+              data[key] = [data[key]];
+            }
+            data[key].push(value);
+          } else {
+            data[key] = value;
+          }
+        });
+        sendPreviewRequest(data);
+      }
+      document.getElementById("fetchFolders").addEventListener("click", () => {
+        const data = {
+          host: document.getElementById("emailHost").value,
+          port: parseInt(document.getElementById("emailPort").value),
+          user: document.getElementById("emailUsername").value,
+          password: document.getElementById("emailPassword").value,
+        };
+        fetch("/imap/folders", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        })
+          .then((res) => res.json())
+          .then((res) => {
+            const select = document.getElementById("emailFolder");
+            select.innerHTML = "";
+            res.folders.forEach((folder) => {
+              const option = document.createElement("option");
+              option.value = folder;
+              option.textContent = folder;
+              select.appendChild(option);
+            });
+          })
+          .catch((err) => {
+            alert("Failed to fetch folders. Check your credentials.");
+          });
+      });
+      function sendPreviewRequest(data) {
+        fetch("/preview", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        })
+          .then((response) => {
+            if (!response.ok) {
+              throw new Error("Network response was not ok");
+            }
+            return response.text();
+          })
+          .then((rssFeedXml) => {
+            displayPreview(rssFeedXml);
+          })
+          .catch((error) => {
+            alert("An error occurred while fetching the preview.");
+          });
+      }
+      function displayPreview(rssFeedXml) {
+        const preview = document.getElementById("preview");
+        const previewFrame = document.getElementById("previewFrame");
+        const blob = new Blob([rssFeedXml], { type: "xml" });
+        const blobUrl = URL.createObjectURL(blob);
+        previewFrame.src = blobUrl;
+        previewFrame.onload = () => {
+          URL.revokeObjectURL(blobUrl);
+        };
+        preview.style.display = "block";
+        window.scrollTo(0, preview.offsetTop);
+      }
+    });
+    playgroundBtn.addEventListener("click", () => {
+      const targetUrl = feedUrlInput.value.trim();
+      if (!targetUrl) {
+        alert("Please enter a target URL first.");
+        return;
+      }
+      playgroundOverlay.style.display = "block";
+      selectorActions.classList.remove("hidden");
+      selectorActions.classList.add("floating-btn");
+      playgroundIframe.src = `/proxy?url=${encodeURIComponent(targetUrl)}`;
+      playgroundBtn.classList.add("hidden");
+      playgroundBtn.classList.remove("floating-btn");
+    });
+    selectorActions.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const btn = e.target;
+      if (btn.id === "closePlaygroundBtn") {
+        playgroundOverlay.style.display = "none";
+        playgroundIframe.src = "";
+        playgroundBtn.classList.remove("hidden");
+        playgroundBtn.classList.add("floating-btn");
+        selectorActions.classList.add("hidden");
+        selectorActions.classList.remove("floating-btn");
+        return;
+      }
+      const field = btn.dataset.field;
+      if (field) {
+        if (!currentSelector) {
+          alert("No selector chosen yet!");
+        } else {
+          const input = document.getElementById(field);
+          if (input) {
+            input.value = currentSelector;
+            alert(`Set ${field} to: ${currentSelector}`);
+          }
+        }
+      }
+    });
+    window.addEventListener("message", function (event) {
+      if (!event.data) return;
+      if (event.data.type === "selectorUpdated") {
+        currentSelector = event.data.selector;
+      }
+    });
+    const drillStepIndices = {};
+    function addDrillStep(field) {
+      if (!drillStepIndices[field]) drillStepIndices[field] = 0;
+      const container = document.getElementById(`${field}DrillContainer`);
+      const index = drillStepIndices[field]++;
+      const step = drillTemplates(field, index);
+      container.appendChild(step);
+      const button = document.getElementById(`${field}AddButton`);
+      if (button) button.remove();
+    }
+    function drillTemplates(field, index) {
+      const step = document.createElement("div");
+      step.className = "drill-step";
+      step.style.border = "1px solid #ccc";
+      step.style.padding = "1em";
+      step.style.marginBottom = "1em";
+      const nestedContainerId = `${field}-nested-${generateUUID()}`;
+      step.innerHTML = `
+        <label>Selector:</label>
+        <input type="text" name="${field}DrillChain[${index}][selector]" />
+        <label>Attribute:</label>
+        <input type="text" name="${field}DrillChain[${index}][attribute]" />
+        <label>
+          <input type="checkbox"
+                 name="${field}DrillChain[${index}][stripHtml]"
+                 class="strip-html-toggle"
+                 data-field="${field}"
+                 data-nested="${nestedContainerId}" />
+          Strip HTML?
+        </label>
+        <label>
+          <input type="checkbox"
+                 name="${field}DrillChain[${index}][isRelative]"
+                 class="relative-toggle"
+                 data-field="${field}"
+                 data-nested="${nestedContainerId}" />
+          Relative?
+        </label>
+        <div class="relative-base-url hidden" style="margin-top: 0.5em;">
+          <label>Base URL:</label>
+          <input type="text" name="${field}DrillChain[${index}][baseUrl]" />
+        </div>
+        <div class="drill-nested" id="${nestedContainerId}">
+          <button type="button"
+                  class="outline small add-nested"
+                  data-field="${field}"
+                  data-target="${nestedContainerId}">
+            + Add Nested Step
+          </button>
+        </div>
+      `;
+      return step;
+    }
+    document.addEventListener("click", function (e) {
+      if (e.target.matches(".add-nested")) {
+        const field = e.target.dataset.field;
+        const targetId = e.target.dataset.target;
+        const target = document.getElementById(targetId);
+        if (!drillStepIndices[field]) drillStepIndices[field] = 0;
+        const index = drillStepIndices[field]++;
+        const newStep = drillTemplates(field, index);
+        target.insertBefore(newStep, e.target);
+        e.target.remove();
+      }
+    });
+    document.addEventListener("change", async function (e) {
+      if (!e.target.matches(".relative-toggle")) return;
+      const checkbox = e.target;
+      const wrapper = checkbox.closest(".drill-step");
+      const baseUrlDiv = wrapper.querySelector(".relative-base-url");
+      const baseUrlInput = baseUrlDiv?.querySelector("input");
+      const isChecked = checkbox.checked;
+      if (!baseUrlDiv || !baseUrlInput) return;
+      baseUrlDiv.classList.toggle("hidden", !isChecked);
+      if (isChecked && !baseUrlInput.value) {
+        const feedUrl = document.getElementById("feedUrl")?.value.trim();
+        if (!feedUrl) return;
+        try {
+          const res = await fetch("/utils/root-url", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ url: feedUrl }),
+          });
+          const data = await res.json();
+          if (data.origin) {
+            baseUrlInput.value = data.origin;
+          }
+        } catch { }
+      }
+    });
+    function generateUUID() {
+      return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function (c) {
+        const r = (Math.random() * 16) | 0;
+        const v = c === "x" ? r : (r & 0x3) | 0x8;
+        return v.toString(16);
+      });
+    }
+    document.getElementById("autoFillSelectorsBtn").addEventListener("click", async () => {
+      const feedUrl = document.getElementById("feedUrl").value.trim();
+      if (!feedUrl) {
+        alert("Please enter a feed URL first.");
+        return;
+      }
+
+      try {
+        const response = await fetch('/utils/suggest-selectors', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ url: feedUrl })
+        });
+
+        if (!response.ok) throw new Error('Failed to fetch selectors.');
+
+        const selectors = await response.json();
+
+        document.getElementById("itemSelector").value = selectors.iterator || '';
+
+        document.getElementById("titleSelector").value = selectors.title.selector || '';
+        document.getElementById("titleAttribute").value = selectors.title.attribute || '';
+
+        document.getElementById("descriptionSelector").value = selectors.description.selector || '';
+        document.getElementById("descriptionAttribute").value = selectors.description.attribute || '';
+
+        document.getElementById("linkSelector").value = selectors.link.selector || '';
+        document.getElementById("linkAttribute").value = selectors.link.attribute || '';
+        document.getElementById("linkBaseUrl").value = selectors.link.rootUrl || '';
+        document.getElementById("linkRelativeLink").checked = selectors.link.relativeLink || false;
+
+        if (document.getElementById("linkRelativeLink").checked) {
+          document.getElementById("linkBaseUrl").style.display = "block";
+          document.getElementById("linkBaseUrlLabel").style.display = "block";
+        } else {
+          document.getElementById("linkBaseUrl").style.display = "none";
+          document.getElementById("linkBaseUrlLabel").style.display = "none";
+        }
+
+        document.getElementById("enclosureSelector").value = selectors.enclosure.selector || '';
+        document.getElementById("enclosureAttribute").value = selectors.enclosure.attribute || '';
+        document.getElementById("enclosureBaseUrl").value = selectors.enclosure.rootUrl || '';
+        document.getElementById("enclosureRelativeLink").checked = selectors.enclosure.relativeLink || false;
+
+        if (document.getElementById("enclosureRelativeLink").checked) {
+          document.getElementById("enclosureBaseUrl").style.display = "block";
+          document.getElementById("enclosureBaseUrlLabel").style.display = "block";
+        } else {
+          document.getElementById("enclosureBaseUrl").style.display = "none";
+          document.getElementById("enclosureBaseUrlLabel").style.display = "none";
+        }
+
+        document.getElementById("dateSelector").value = selectors.date.selector || '';
+        document.getElementById("dateAttribute").value = selectors.date.attribute || '';
+        document.getElementById("customDateFormat").value = selectors.date.dateFormat || '';
+
+        document.getElementById("authorSelector").value = selectors.author.selector || '';
+        document.getElementById("authorAttribute").value = selectors.author.attribute || '';
+
+        document.getElementById("contentEncodedSelector").value = selectors.contentEncoded?.selector || '';
+        document.getElementById("contentEncodedAttribute").value = selectors.contentEncoded?.attribute || '';
+
+        document.getElementById("summarySelector").value = selectors.summary?.selector || '';
+        document.getElementById("summaryAttribute").value = selectors.summary?.attribute || '';
+
+        document.getElementById("guidSelector").value = selectors.guid?.selector || '';
+        document.getElementById("guidAttribute").value = selectors.guid?.attribute || '';
+
+        document.getElementById("categoriesSelector").value = selectors.categories?.selector || '';
+        document.getElementById("categoriesAttribute").value = selectors.categories?.attribute || '';
+
+        document.getElementById("contributorsSelector").value = selectors.contributors?.selector || '';
+        document.getElementById("contributorsAttribute").value = selectors.contributors?.attribute || '';
+
+        document.getElementById("latSelector").value = selectors.lat?.selector || '';
+        document.getElementById("latAttribute").value = selectors.lat?.attribute || '';
+
+        document.getElementById("longSelector").value = selectors.long?.selector || '';
+        document.getElementById("longAttribute").value = selectors.long?.attribute || '';
+
+        document.getElementById("sourceUrlSelector").value = selectors.source?.url?.selector || '';
+        document.getElementById("sourceUrlAttribute").value = selectors.source?.url?.attribute || '';
+
+        document.getElementById("sourceTitleSelector").value = selectors.source?.title?.selector || '';
+        document.getElementById("sourceTitleAttribute").value = selectors.source?.title?.attribute || '';
+
+        // Feed-level selectors
+        document.getElementById("feedLanguageSelector").value = selectors.feedLanguage?.selector || '';
+        document.getElementById("feedLanguageAttribute").value = selectors.feedLanguage?.attribute || '';
+        document.getElementById("feedCopyrightSelector").value = selectors.feedCopyright?.selector || '';
+        document.getElementById("feedCopyrightAttribute").value = selectors.feedCopyright?.attribute || '';
+        document.getElementById("feedManagingEditorSelector").value = selectors.feedManagingEditor?.selector || '';
+        document.getElementById("feedManagingEditorAttribute").value = selectors.feedManagingEditor?.attribute || '';
+        document.getElementById("feedWebMasterSelector").value = selectors.feedWebMaster?.selector || '';
+        document.getElementById("feedWebMasterAttribute").value = selectors.feedWebMaster?.attribute || '';
+        document.getElementById("feedCategoriesScrapingSelector").value = selectors.feedCategories?.selector || '';
+        document.getElementById("feedCategoriesScrapingAttribute").value = selectors.feedCategories?.attribute || '';
+        document.getElementById("feedTtlSelector").value = selectors.feedTtl?.selector || '';
+        document.getElementById("feedTtlAttribute").value = selectors.feedTtl?.attribute || '';
+        document.getElementById("feedSkipDaysSelector").value = selectors.feedSkipDays?.selector || '';
+        document.getElementById("feedSkipDaysAttribute").value = selectors.feedSkipDays?.attribute || '';
+        document.getElementById("feedSkipHoursSelector").value = selectors.feedSkipHours?.selector || '';
+        document.getElementById("feedSkipHoursAttribute").value = selectors.feedSkipHours?.attribute || '';
+        // Feed image fields
+        document.getElementById("feedImageUrlSelector").value = selectors.feedImage?.url?.selector || '';
+        document.getElementById("feedImageUrlAttribute").value = selectors.feedImage?.url?.attribute || '';
+
+        if (selectors.date?.dateFormat) {
+          const format = selectors.date.dateFormat;
+          const knownFormats = ['DD/MM/YYYY', 'MM/DD/YYYY', 'DD.MM.YYYY', 'MM.DD.YYYY'];
+
+          if (knownFormats.includes(format)) {
+            document.getElementById("dateFormat").value = format;
+          } else {
+            document.getElementById("dateFormat").value = "other";
+            document.getElementById("customDateFormat").value = format;
+            document.getElementById("customDateFormat").style.display = "block";
+            document.getElementById("customDateFormatLabel").style.display = "block";
+          }
+        }
+
+        alert("Selectors have been auto-filled successfully!");
+      } catch (error) {
+        console.error('Error:', error);
+        alert('An error occurred while auto-filling selectors.');
+      }
+    });
+
+    window.addEventListener('message', function (event) {
+      if (!event.data) return;
+
+      if (event.data.type === 'selectorUpdated') {
+        currentSelector = event.data.selector;
+        console.log("Updated currentSelector:", currentSelector);
+      }
+    });
+    function addCookieRow() {
+      const container = document.getElementById("cookiesContainer");
+
+      const rowDiv = document.createElement("div");
+      rowDiv.className = "cookieRow";
+      rowDiv.style = `
+    margin-bottom: 1em;
+    border: 1px solid #ccc;
+    border-radius: 5px;
+    position: relative;
+
+    padding: 1em;
+    padding-top: 2.5em; 
+    box-sizing: border-box;
+    `;
+
+      const removeBtn = document.createElement("button");
+      removeBtn.type = "button";
+      removeBtn.textContent = "X";
+      removeBtn.classList.add("contrast");
+      removeBtn.title = "Remove this cookie";
+      removeBtn.classList.add("outline");
+      removeBtn.style = `
+      position: absolute;
+      top: 0.25em;
+      right: 0.5em;
+      font-size: 1.5em;
+      cursor: pointer;
+      z-index: 999;
+      transform: scale(0.5);
+      transform-origin: top right;
+    `;
+      removeBtn.onclick = () => rowDiv.remove();
+
+      const keyInput = document.createElement("input");
+      keyInput.name = "cookieNames[]";
+      keyInput.placeholder = "Cookie name";
+      keyInput.style = "margin-right: 0.5em;";
+
+      const valueInput = document.createElement("input");
+      valueInput.name = "cookieValues[]";
+      valueInput.placeholder = "Cookie value";
+      valueInput.style = "margin-right: 0.5em;";
+
+      rowDiv.appendChild(removeBtn);
+      rowDiv.appendChild(keyInput);
+      rowDiv.appendChild(valueInput);
+      container.appendChild(rowDiv);
+    }
+
+    function toggleWebhookFields() {
+      const webhookEnabled = document.getElementById('webhookEnabled').checked;
+      const webhookFields = document.getElementById('webhookFields');
+      webhookFields.style.display = webhookEnabled ? 'block' : 'none';
+    }
+
+    function loadWebhookTemplate() {
+      const selector = document.getElementById('templateSelector');
+      const textarea = document.getElementById('webhookCustomPayload');
+      const platform = selector.value;
+      
+      const templates = {
+        discord: `{
+  "content": "\${feedName} updated with \${itemCount} item(s)",
+  "embeds": [{
+    "title": "\${feedName} - Feed Update",
+    "description": "\${itemCount} item(s) in feed",
+    "color": 5814783,
+    "timestamp": "\${timestamp}",
+    "fields": [
+      {
+        "name": "📄 \${firstItem.title}",
+        "value": "**Author:** \${firstItem.author}\\n**Published:** \${firstItem.pubDate}\\n**Link:** [\${firstItem.link}](\${firstItem.link})\\n\\n\${firstItem.description}",
+        "inline": false
+      }
+    ],
+    "footer": {
+      "text": "Feed Type: \${feedType} | Feed ID: \${feedId}"
+    }
+  }]
+}`,
+        slack: `{
+  "text": "\${feedName} updated with \${itemCount} item(s)",
+  "attachments": [
+    {
+      "color": "good",
+      "title": "\${firstItem.title}",
+      "title_link": "\${firstItem.link}",
+      "text": "\${firstItem.description}",
+      "fields": [
+        {"title": "Author", "value": "\${firstItem.author}", "short": true},
+        {"title": "Published", "value": "\${firstItem.pubDate}", "short": true},
+        {"title": "Feed Type", "value": "\${feedType}", "short": true},
+        {"title": "Total Items", "value": "\${itemCount}", "short": true}
+      ],
+      "footer": "\${feedName}",
+      "ts": "\${timestamp}"
+    }
+  ]
+}`,
+        teams: `{
+  "@type": "MessageCard",
+  "@context": "http://schema.org/extensions",
+  "themeColor": "0076D7",
+  "summary": "\${feedName} - \${firstItem.title}",
+  "sections": [
+    {
+      "activityTitle": "\${firstItem.title}",
+      "activitySubtitle": "\${feedName} Feed Update",
+      "text": "\${firstItem.description}",
+      "facts": [
+        {"name": "Author:", "value": "\${firstItem.author}"},
+        {"name": "Published:", "value": "\${firstItem.pubDate}"},
+        {"name": "Feed Type:", "value": "\${feedType}"},
+        {"name": "Total Items:", "value": "\${itemCount}"}
+      ]
+    }
+  ],
+  "potentialAction": [
+    {
+      "@type": "OpenUri",
+      "name": "View Item",
+      "targets": [
+        {"os": "default", "uri": "\${firstItem.link}"}
+      ]
+    }
+  ]
+}`,
+        generic: `{
+  "message": "\${feedName} updated with \${itemCount} items",
+  "feed_id": "\${feedId}",
+  "feed_name": "\${feedName}",
+  "feed_type": "\${feedType}",
+  "item_count": \${itemCount},
+  "timestamp": "\${timestamp}",
+  "data": "\${data}"
+}`,
+        custom: ''
+      };
+      
+      if (templates[platform] !== undefined) {
+        textarea.value = templates[platform];
+        // Reset selector to default after loading
+        selector.value = '';
+      }
+    }
+
+    function getFormData() {
+      const feedType = document.getElementById('feedType').value;
+      const data = {
+        feedName: document.getElementById('feedName').value,
+        feedType: feedType,
+      };
+
+      if (feedType === 'webScraping') {
+        data.feedUrl = document.getElementById('feedUrl').value;
+        data.itemSelector = document.getElementById('itemSelector').value;
+
+        fields.forEach(field => {
+          const selectorEl = document.getElementById(`${field}Selector`);
+          if (selectorEl) data[`${field}Selector`] = selectorEl.value;
+          const attributeEl = document.getElementById(`${field}Attribute`);
+          if (attributeEl) data[`${field}Attribute`] = attributeEl.value;
+          const iteratorEl = document.getElementById(`${field}Iterator`);
+          if (iteratorEl) data[`${field}Iterator`] = iteratorEl.value;
+
+          if (['title', 'description', 'author', 'contentEncoded', 'summary'].includes(field)) {
+            const stripHtmlEl = document.getElementById(`${field}StripHtml`);
+            if (stripHtmlEl) data[`${field}StripHtml`] = stripHtmlEl.checked;
+            const titleCaseEl = document.getElementById(`${field}TitleCase`);
+            if (titleCaseEl) data[`${field}TitleCase`] = titleCaseEl.checked;
+          }
+          if ([ 'link', 'enclosure', 'sourceUrl'].includes(field)) {
+            const relativeLinkEl = document.getElementById(`${field}RelativeLink`);
+            if (relativeLinkEl) data[`${field}RelativeLink`] = relativeLinkEl.checked;
+            const baseUrlEl = document.getElementById(`${field}BaseUrl`);
+            if (baseUrlEl) data[`${field}BaseUrl`] = baseUrlEl.value;
+          }
+          if (field === 'date') {
+            const dateFormatValue = document.getElementById('dateFormat')?.value;
+            if (dateFormatValue === 'other') {
+              data.dateFormat = document.getElementById('customDateFormat')?.value;
+            } else {
+              data.dateFormat = dateFormatValue;
+            }
+          }
+          if (field === 'guid') {
+            const guidIsPermaLinkEl = document.getElementById('guidIsPermaLink');
+            if (guidIsPermaLinkEl) data.guidIsPermaLink = guidIsPermaLinkEl.checked;
+          }
+
+          const drillContainer = document.getElementById(`${field}DrillContainer`);
+          if (drillContainer && drillContainer.children.length > 0) {
+            const drillSteps = [];
+            for (let i = 0; i < drillContainer.children.length; i++) {
+              const stepElement = drillContainer.children[i];
+              const step = {
+                selector: stepElement.querySelector('input[name*="[selector]"]')?.value,
+                attribute: stepElement.querySelector('input[name*="[attribute]"]')?.value,
+                isRelative: stepElement.querySelector('input[name*="[isRelative]"]')?.checked || false,
+                baseUrl: stepElement.querySelector('input[name*="[baseUrl]"]')?.value || '',
+                stripHtml: stepElement.querySelector('input[name*="[stripHtml]"]')?.checked || false,
+              };
+              if(step.selector) { // Only add drill step if selector is present
+                  drillSteps.push(step);
+              }
+            }
+            if (drillSteps.length > 0) {
+              data[`${field}DrillChain`] = drillSteps;
+            }
+          }
+        });
+        // Feed Level Web Scraping Fields
+        data.feedLanguageSelector = document.getElementById('feedLanguageSelector')?.value;
+        data.feedLanguageAttribute = document.getElementById('feedLanguageAttribute')?.value;
+        data.feedCopyrightSelector = document.getElementById('feedCopyrightSelector')?.value;
+        data.feedCopyrightAttribute = document.getElementById('feedCopyrightAttribute')?.value;
+        data.feedManagingEditorSelector = document.getElementById('feedManagingEditorSelector')?.value;
+        data.feedManagingEditorAttribute = document.getElementById('feedManagingEditorAttribute')?.value;
+        data.feedWebMasterSelector = document.getElementById('feedWebMasterSelector')?.value;
+        data.feedWebMasterAttribute = document.getElementById('feedWebMasterAttribute')?.value;
+        data.feedCategoriesScrapingSelector = document.getElementById('feedCategoriesScrapingSelector')?.value;
+        data.feedCategoriesScrapingAttribute = document.getElementById('feedCategoriesScrapingAttribute')?.value;
+        data.feedTtlSelector = document.getElementById('feedTtlSelector')?.value;
+        data.feedTtlAttribute = document.getElementById('feedTtlAttribute')?.value;
+        data.feedSkipDaysSelector = document.getElementById('feedSkipDaysSelector')?.value;
+        data.feedSkipDaysAttribute = document.getElementById('feedSkipDaysAttribute')?.value;
+        data.feedSkipHoursSelector = document.getElementById('feedSkipHoursSelector')?.value;
+        data.feedSkipHoursAttribute = document.getElementById('feedSkipHoursAttribute')?.value;
+        data.feedImageUrlSelector = document.getElementById('feedImageUrlSelector')?.value;
+        data.feedImageUrlAttribute = document.getElementById('feedImageUrlAttribute')?.value;
+        // Note: feedPubDate and feedLastBuildDate are not typically scraped directly for web scraping.
+        // They are usually set by the server when the feed is generated or based on item dates.
+
+      } else if (feedType === 'api') {
+        data.feedUrl = document.getElementById('feedUrl').value; // Base URL for API
+        data.apiRoute = document.getElementById('apiRoute')?.value;
+        data.apiItemsPath = document.getElementById('apiItemsPath')?.value;
+        data.apiMethod = document.getElementById('apiMethod')?.value || 'GET';
+        data.apiParams = document.getElementById('apiParams')?.value;
+        data.apiHeaders = document.getElementById('apiHeaders')?.value;
+        data.apiBody = document.getElementById('apiBody')?.value;
+
+        data.apiTitle = document.getElementById('apiTitleField')?.value || document.getElementById('apiTitle')?.value; // Prioritize new field
+        data.apiDescription = document.getElementById('apiDescriptionField')?.value || document.getElementById('apiDescription')?.value;
+        data.apiLink = document.getElementById('apiLinkField')?.value || document.getElementById('apiLink')?.value;
+        data.apiAuthor = document.getElementById('apiAuthor')?.value;
+        data.apiDate = document.getElementById('apiDateField')?.value || document.getElementById('apiDate')?.value;
+        data.apiEnclosureUrl = document.getElementById('apiEnclosureUrl')?.value;
+        data.apiEnclosureSize = document.getElementById('apiEnclosureSize')?.value;
+        data.apiEnclosureType = document.getElementById('apiEnclosureType')?.value;
+        data.apiContentEncoded = document.getElementById('apiContentEncoded')?.value;
+        data.apiSummary = document.getElementById('apiSummary')?.value;
+        data.apiGuid = document.getElementById('apiGuid')?.value;
+        data.apiGuidIsPermaLink = document.getElementById('apiGuidIsPermaLink')?.value; // This should ideally be a boolean path or a fixed value
+        data.apiCategories = document.getElementById('apiCategories')?.value;
+        data.apiContributors = document.getElementById('apiContributors')?.value;
+        data.apiLat = document.getElementById('apiLat')?.value;
+        data.apiLong = document.getElementById('apiLong')?.value;
+        data.apiSourceUrl = document.getElementById('apiSourceUrl')?.value;
+        data.apiSourceTitle = document.getElementById('apiSourceTitle')?.value;
+
+        // API Feed Level Fields
+        data.apiFeedTitle = document.getElementById('apiFeedTitle')?.value;
+        data.apiFeedDescription = document.getElementById('apiFeedDescription')?.value;
+        data.apiFeedLink = data.feedUrl; // API feed link is typically the base URL
+        data.apiFeedLanguage = document.getElementById('apiFeedLanguage')?.value;
+        data.apiFeedCopyright = document.getElementById('apiFeedCopyright')?.value;
+        data.apiFeedManagingEditor = document.getElementById('apiFeedManagingEditor')?.value;
+        data.apiFeedWebMaster = document.getElementById('apiFeedWebMaster')?.value;
+        data.apiFeedCategories = document.getElementById('apiFeedCategories')?.value; // Feed categories from API
+        data.apiFeedPubDate = document.getElementById('apiFeedPubDate')?.value;
+        data.apiFeedLastBuildDate = document.getElementById('apiFeedLastBuildDate')?.value;
+        data.apiFeedTtl = document.getElementById('apiFeedTtl')?.value;
+        data.apiFeedSkipDays = document.getElementById('apiFeedSkipDays')?.value;
+        data.apiFeedSkipHours = document.getElementById('apiFeedSkipHours')?.value;
+        data.apiFeedImageUrl = document.getElementById('apiFeedImageUrl')?.value;
+
+      } else if (feedType === 'email') {
+        data.emailHost = document.getElementById('emailHost').value;
+        data.emailPort = document.getElementById('emailPort').value;
+        data.emailUsername = document.getElementById('emailUsername').value;
+        data.emailPassword = document.getElementById('emailPassword').value;
+        data.emailFolder = document.getElementById('emailFolder').value;
+        data.emailCount = document.getElementById('emailCount').value;
+        // Email feed level info is generally set from email content or defaults
+        // For example, feed title could be `Emails from ${data.emailFolder}`
+        // Language, copyright, etc., might not be directly configurable here but set in backend.
+      }
+
+      // Additional Options (common to all feed types)
+      data.headers = document.getElementById('headers').value;
+      data.refreshTime = document.getElementById('refreshTime').value;
+      data.reverse = document.getElementById('reverse').checked;
+      data.advanced = document.getElementById('advanced').checked;
+      data.strict = document.getElementById('strict').checked;
+
+      // Webhook options
+      data.webhookEnabled = document.getElementById('webhookEnabled').checked;
+      data.webhookUrl = document.getElementById('webhookUrl').value;
+      data.webhookFormat = document.getElementById('webhookFormat').value;
+      data.webhookNewItemsOnly = document.getElementById('webhookNewItemsOnly').checked;
+      data.webhookHeaders = document.getElementById('webhookHeaders').value;
+      data.webhookCustomPayload = document.getElementById('webhookCustomPayload').value;
+
+      const cookies = [];
+      const cookieNames = document.getElementsByName("cookieNames[]");
+      const cookieValues = document.getElementsByName("cookieValues[]");
+      for (let i = 0; i < cookieNames.length; i++) {
+        if (cookieNames[i].value) { // Only add if name is present
+          cookies.push({
+            name: cookieNames[i].value,
+            value: cookieValues[i].value,
+          });
+        }
+      }
+      if (cookies.length > 0) {
+        data.cookies = cookies;
+      }
+      return data;
+    }
+
+    function populateForm(config) {
+      clearForm(); // Clear form first to reset all fields including drill chains
+      document.getElementById('feedName').value = config.feedName || '';
+      const feedType = config.feedType || 'webScraping';
+      document.getElementById('feedType').value = feedType;
+      handleFeedTypeChange(); // Ensure correct sections are shown based on feedType
+
+      if (feedType === 'webScraping') {
+        document.getElementById('feedUrl').value = config.feedUrl || '';
+        setVal('itemSelector', config.itemSelector);
+
+        fields.forEach(field => {
+          setVal(`${field}Selector`, config[`${field}Selector`]);
+          setVal(`${field}Attribute`, config[`${field}Attribute`]);
+          setVal(`${field}Iterator`, config[`${field}Iterator`]);
+
+          if (['title', 'description', 'author', 'contentEncoded', 'summary'].includes(field)) {
+            setVal(`${field}StripHtml`, config[`${field}StripHtml`], false, 'checkbox');
+            setVal(`${field}TitleCase`, config[`${field}TitleCase`], false, 'checkbox');
+          }
+          if (['link', 'enclosure', 'sourceUrl'].includes(field)) {
+            const isRelative = config[`${field}RelativeLink`] || false;
+            setVal(`${field}RelativeLink`, isRelative, false, 'checkbox');
+            setVal(`${field}BaseUrl`, config[`${field}BaseUrl`]);
+            const baseUrlInput = document.getElementById(`${field}BaseUrl`);
+            const baseUrlLabel = document.getElementById(`${field}BaseUrlLabel`);
+            if (baseUrlLabel) baseUrlLabel.style.display = isRelative ? 'block' : 'none';
+            if (baseUrlInput) baseUrlInput.style.display = isRelative ? 'block' : 'none';
+            if (isRelative && baseUrlInput && !baseUrlInput.value && config.feedUrl) {
+                 baseUrlInput.value = getFeedRootUrl(config.feedUrl);
+            } else if (isRelative && baseUrlInput && !baseUrlInput.value && document.getElementById('feedUrl').value) {
+                 baseUrlInput.value = getFeedRootUrl();
+            }
+          }
+          if (field === 'date') {
+            const dateFormatEl = document.getElementById('dateFormat');
+            const customDateFormatEl = document.getElementById('customDateFormat');
+            const customDateFormatLabelEl = document.getElementById('customDateFormatLabel');
+            if (config.dateFormat) {
+              const knownFormats = Array.from(dateFormatEl.options).map(opt => opt.value);
+              if (knownFormats.includes(config.dateFormat)) {
+                dateFormatEl.value = config.dateFormat;
+                if (customDateFormatEl) customDateFormatEl.style.display = 'none';
+                if (customDateFormatLabelEl) customDateFormatLabelEl.style.display = 'none';
+              } else {
+                dateFormatEl.value = 'other';
+                if (customDateFormatEl) {
+                  customDateFormatEl.value = config.dateFormat;
+                  customDateFormatEl.style.display = 'block';
+                }
+                if (customDateFormatLabelEl) customDateFormatLabelEl.style.display = 'block';
+              }
+            } else {
+              dateFormatEl.value = ''; // Default to Auto Detect
+              if (customDateFormatEl) customDateFormatEl.style.display = 'none';
+              if (customDateFormatLabelEl) customDateFormatLabelEl.style.display = 'none';
+            }
+          }
+          if (field === 'guid') {
+            setVal('guidIsPermaLink', config.guidIsPermaLink, false, 'checkbox');
+          }
+
+          const drillChain = config[`${field}DrillChain`];
+          const drillContainer = document.getElementById(`${field}DrillContainer`);
+          if (drillContainer) {
+            drillContainer.innerHTML = ''; // Clear existing before populating
+            if (drillChain && drillChain.length > 0) {
+              drillChain.forEach((step, idx) => {
+                // Ensure createDrillStepElement is defined and handles populating values
+                const stepElement = createDrillStepElement(field, idx, step);
+                drillContainer.appendChild(stepElement);
+              });
+            }
+            // Ensure the "Add Chain" button is correctly managed if it's part of createDrillStepElement logic
+             const addButtonExists = !!document.getElementById(`${field}AddButton`);
+             if (!addButtonExists && drillContainer.children.length === 0) { // Or some other logic to re-add if needed
+                const addButton = document.createElement('button');
+                addButton.type = 'button';
+                addButton.className = 'outline';
+                addButton.id = `${field}AddButton`;
+                addButton.textContent = '🔗 Add Chain';
+                addButton.onclick = function() { addDrillStep(field); };
+                // Append after the container or manage its position
+                const detailsElement = drillContainer.closest('details');
+                if (detailsElement) {
+                    detailsElement.appendChild(addButton);
+                } else {
+                    drillContainer.insertAdjacentElement('afterend', addButton);
+                }
+             } else if (addButtonExists && drillContainer.children.length > 0) {
+                document.getElementById(`${field}AddButton`)?.remove();
+             }
+
+          }
+        });
+        // Feed Level Web Scraping Fields
+        setVal('feedLanguageSelector', config.feedLanguageSelector);
+        setVal('feedLanguageAttribute', config.feedLanguageAttribute);
+        setVal('feedCopyrightSelector', config.feedCopyrightSelector);
+        setVal('feedCopyrightAttribute', config.feedCopyrightAttribute);
+        setVal('feedManagingEditorSelector', config.feedManagingEditorSelector);
+        setVal('feedManagingEditorAttribute', config.feedManagingEditorAttribute);
+        setVal('feedWebMasterSelector', config.feedWebMasterSelector);
+        setVal('feedWebMasterAttribute', config.feedWebMasterAttribute);
+        setVal('feedCategoriesScrapingSelector', config.feedCategoriesScrapingSelector);
+        setVal('feedCategoriesScrapingAttribute', config.feedCategoriesScrapingAttribute);
+        setVal('feedTtlSelector', config.feedTtlSelector);
+        setVal('feedTtlAttribute', config.feedTtlAttribute);
+        setVal('feedSkipDaysSelector', config.feedSkipDaysSelector);
+        setVal('feedSkipDaysAttribute', config.feedSkipDaysAttribute);
+        setVal('feedSkipHoursSelector', config.feedSkipHoursSelector);
+        setVal('feedSkipHoursAttribute', config.feedSkipHoursAttribute);
+        setVal('feedImageUrlSelector', config.feedImageUrlSelector);
+        setVal('feedImageUrlAttribute', config.feedImageUrlAttribute);
+        setVal('feedImageTitleSelector', config.feedImageTitleSelector);
+        setVal('feedImageTitleAttribute', config.feedImageTitleAttribute);
+        setVal('feedImageLinkSelector', config.feedImageLinkSelector);
+        setVal('feedImageLinkAttribute', config.feedImageLinkAttribute);
+        setVal('feedImageWidthSelector', config.feedImageWidthSelector);
+        setVal('feedImageWidthAttribute', config.feedImageWidthAttribute);
+        setVal('feedImageHeightSelector', config.feedImageHeightSelector);
+        setVal('feedImageHeightAttribute', config.feedImageHeightAttribute);
+        setVal('feedImageDescriptionSelector', config.feedImageDescriptionSelector);
+        setVal('feedImageDescriptionAttribute', config.feedImageDescriptionAttribute);
+
+      } else if (feedType === 'api') {
+        document.getElementById('feedUrl').value = config.feedUrl || ''; // Base URL for API
+        setVal('apiRoute', config.apiRoute);
+        setVal('apiItemsPath', config.apiItemsPath);
+        setVal('apiMethod', config.apiMethod, 'GET');
+        setVal('apiParams', config.apiParams, '{}');
+        setVal('apiHeaders', config.apiHeaders, '{}');
+        setVal('apiBody', config.apiBody, '{}');
+
+        // Item level - Using IDs from HTML directly
+        setVal('apiTitleField', config.apiTitle); 
+        setVal('apiDescriptionField', config.apiDescription);
+        setVal('apiLinkField', config.apiLink);
+        setVal('apiAuthor', config.apiAuthor);
+        setVal('apiDateField', config.apiDate);
+        setVal('apiEnclosureUrl', config.apiEnclosureUrl);
+        setVal('apiEnclosureSize', config.apiEnclosureSize);
+        setVal('apiEnclosureType', config.apiEnclosureType);
+        setVal('apiContentEncoded', config.apiContentEncoded);
+        setVal('apiSummary', config.apiSummary);
+        setVal('apiGuid', config.apiGuid);
+        setVal('apiGuidIsPermaLink', config.apiGuidIsPermaLink); 
+        setVal('apiCategories', config.apiCategories);
+        setVal('apiContributors', config.apiContributors);
+        setVal('apiLat', config.apiLat);
+        setVal('apiLong', config.apiLong);
+        setVal('apiSourceUrl', config.apiSourceUrl);
+        setVal('apiSourceTitle', config.apiSourceTitle);
+
+        // API Feed Level Fields
+        setVal('apiFeedTitle', config.apiFeedTitle);
+        setVal('apiFeedDescription', config.apiFeedDescription);
+        setVal('apiFeedLanguage', config.apiFeedLanguage);
+        setVal('apiFeedCopyright', config.apiFeedCopyright);
+        setVal('apiFeedManagingEditor', config.apiFeedManagingEditor);
+        setVal('apiFeedWebMaster', config.apiFeedWebMaster);
+        setVal('apiFeedCategories', config.apiFeedCategories);
+        setVal('apiFeedPubDate', config.apiFeedPubDate);
+        setVal('apiFeedLastBuildDate', config.apiFeedLastBuildDate);
+        setVal('apiFeedTtl', config.apiFeedTtl);
+        setVal('apiFeedSkipDays', config.apiFeedSkipDays);
+        setVal('apiFeedSkipHours', config.apiFeedSkipHours);
+        setVal('apiFeedImageUrl', config.apiFeedImageUrl);
+
+      } else if (feedType === 'email') {
+        setVal('emailHost', config.emailHost);
+        setVal('emailPort', config.emailPort);
+        setVal('emailUsername', config.emailUsername);
+        setVal('emailPassword', config.emailPassword);
+        setVal('emailCount', config.emailCount || 10);
+        const emailFolderEl = document.getElementById('emailFolder');
+        if (emailFolderEl && config.emailFolder) {
+            let optionExists = false;
+            for (let i = 0; i < emailFolderEl.options.length; i++) {
+                if (emailFolderEl.options[i].value === config.emailFolder) {
+                    optionExists = true;
+                    break;
+                }
+            }
+            if (optionExists) {
+                emailFolderEl.value = config.emailFolder;
+            } else if (config.emailFolder) {
+                const option = document.createElement('option');
+                option.value = config.emailFolder;
+                option.textContent = config.emailFolder;
+                option.selected = true;
+                emailFolderEl.appendChild(option);
+            }
+        }
+      }
+
+      // Populate Additional Options
+      const cookiesContainer = document.getElementById('cookiesContainer');
+      cookiesContainer.innerHTML = ''; // Clear existing cookies
+      if (config.cookies && Array.isArray(config.cookies)) {
+        config.cookies.forEach(cookie => addCookieRow(cookie.name, cookie.value));
+      }
+      setVal('headers', config.headers, '{}');
+      setVal('refreshTime', config.refreshTime, '5');
+      setVal('reverse', config.reverse, false, 'checkbox');
+      setVal('advanced', config.advanced, false, 'checkbox');
+      setVal('strict', config.strict, false, 'checkbox');
+
+      // Populate Webhook Options
+      if (config.webhook) {
+        setVal('webhookEnabled', config.webhook.enabled, false, 'checkbox');
+        setVal('webhookUrl', config.webhook.url, '');
+        setVal('webhookFormat', config.webhook.format, 'xml');
+        setVal('webhookNewItemsOnly', config.webhook.newItemsOnly, true, 'checkbox');
+        setVal('webhookHeaders', config.webhook.headers, '{}');
+        setVal('webhookCustomPayload', config.webhook.customPayload, '');
+        toggleWebhookFields(); // Show/hide webhook fields based on enabled state
+      }
+    }
+
+    function setVal(id, value, defaultValue = '', type = 'text') {
+      const el = document.getElementById(id);
+      if (el) {
+        if (type === 'checkbox') {
+          el.checked = value === undefined ? defaultValue : value;
+        } else {
+          el.value = value === undefined ? defaultValue : value;
+        }
+      }
+    }
+    
+    function createDrillStepElement(field, index, data = {}) {
+        const step = document.createElement("div");
+        step.className = "drill-step";
+        step.style.border = "1px solid #ccc";
+        step.style.padding = "1em";
+        step.style.marginBottom = "1em";
+        const nestedContainerId = `${field}-nested-${generateUUID()}`;
+
+        // Ensure backticks inside the string are escaped if they are not for template variables
+        step.innerHTML = `
+            <label>Selector:</label>
+            <input type="text" name="${field}DrillChain[${index}][selector]" value="${data.selector || ''}" />
+            <label>Attribute:</label>
+            <input type="text" name="${field}DrillChain[${index}][attribute]" value="${data.attribute || ''}" />
+            <label>
+            <input type="checkbox"
+                    name="${field}DrillChain[${index}][stripHtml]"
+                    class="strip-html-toggle"
+                    ${data.stripHtml ? 'checked' : ''} />
+            Strip HTML?
+            </label>
+            <label>
+            <input type="checkbox"
+                    name="${field}DrillChain[${index}][isRelative]"
+                    class="relative-toggle"
+                    ${data.isRelative ? 'checked' : ''} />
+            Relative?
+            </label>
+            <div class="relative-base-url ${data.isRelative ? '' : 'hidden'}" style="margin-top: 0.5em;">
+            <label>Base URL:</label>
+            <input type="text" name="${field}DrillChain[${index}][baseUrl]" value="${data.baseUrl || ''}" />
+            </div>
+            <div class="drill-nested" id="${nestedContainerId}">
+            <button type="button"
+                    class="outline small add-nested"
+                    data-field="${field}"
+                    data-target="${nestedContainerId}">
+                + Add Nested Step
+            </button>
+            </div>
+            <button type="button" class="outline small" onclick="this.parentElement.remove()">Remove Step</button>
+        `; // End of template literal, ensure no stray backticks before this.
+
+        const relativeToggle = step.querySelector('.relative-toggle');
+        if(relativeToggle) {
+            if (data.isRelative && !data.baseUrl) {
+                const feedUrlInput = document.getElementById("feedUrl");
+                if (feedUrlInput?.value) {
+                    const baseUrlField = step.querySelector('input[name*="[baseUrl]"]');
+                    if (baseUrlField) baseUrlField.value = getFeedRootUrl(feedUrlInput.value);
+                }
+            }
+        }
+        return step;
+    }
+
+
+    function clearForm() {
+      document.getElementById('feedName').value = '';
+      document.getElementById('feedUrl').value = '';
+      setVal('itemSelector', '');
+
+      fields.forEach(field => {
+        setVal(`${field}Selector`, '');
+        setVal(`${field}Attribute`, '');
+        setVal(`${field}Iterator`, '');
+
+        if (['title', 'description', 'author', 'contentEncoded', 'summary'].includes(field)) {
+          setVal(`${field}StripHtml`, false, false, 'checkbox');
+          setVal(`${field}TitleCase`, false, false, 'checkbox');
+        }
+        if (['link', 'enclosure', 'sourceUrl'].includes(field)) {
+          setVal(`${field}RelativeLink`, false, false, 'checkbox');
+          setVal(`${field}BaseUrl`, '');
+          const baseUrlLabelEl = document.getElementById(`${field}BaseUrlLabel`);
+          const baseUrlInputEl = document.getElementById(`${field}BaseUrl`);
+          if (baseUrlLabelEl) baseUrlLabelEl.style.display = 'none';
+          if (baseUrlInputEl) baseUrlInputEl.style.display = 'none';
+        }
+        if (field === 'date') {
+          const dateFormatEl = document.getElementById('dateFormat');
+          if (dateFormatEl) dateFormatEl.value = ''; // Auto Detect
+          const customDateFormatEl = document.getElementById('customDateFormat');
+          if (customDateFormatEl) customDateFormatEl.value = '';
+          if (customDateFormatEl) customDateFormatEl.style.display = 'none';
+          const customDateFormatLabelEl = document.getElementById('customDateFormatLabel');
+          if (customDateFormatLabelEl) customDateFormatLabelEl.style.display = 'none';
+        }
+        if (field === 'guid') {
+          setVal('guidIsPermaLink', false, false, 'checkbox');
+        }
+        const drillContainer = document.getElementById(`${field}DrillContainer`);
+        if (drillContainer) {
+            drillContainer.innerHTML = '';
+             const addButtonId = `${field}AddButton`;
+             if (!document.getElementById(addButtonId)) {
+                const addButton = document.createElement('button');
+                addButton.type = 'button';
+                addButton.className = 'outline';
+                addButton.id = addButtonId;
+                addButton.textContent = '🔗 Add Chain';
+                addButton.onclick = function() { addDrillStep(field); }; // Changed to regular function
+                
+                const detailsElement = drillContainer.closest('details');
+                if (detailsElement) { 
+                    detailsElement.appendChild(addButton);
+                } else { 
+                     drillContainer.insertAdjacentElement('afterend', addButton);
+                }
+             }
+        }
+      });
+
+      // Clear Feed Level Web Scraping Fields
+      setVal('feedLanguageSelector');
+      setVal('feedLanguageAttribute');
+      setVal('feedCopyrightSelector');
+      setVal('feedCopyrightAttribute');
+      setVal('feedManagingEditorSelector');
+      setVal('feedManagingEditorAttribute');
+      setVal('feedWebMasterSelector');
+      setVal('feedWebMasterAttribute');
+      setVal('feedCategoriesScrapingSelector');
+      setVal('feedCategoriesScrapingAttribute');
+      setVal('feedTtlSelector');
+      setVal('feedTtlAttribute');
+      setVal('feedSkipDaysSelector');
+      setVal('feedSkipDaysAttribute');
+      setVal('feedSkipHoursSelector');
+      setVal('feedSkipHoursAttribute');
+      setVal('feedImageUrlSelector');
+      setVal('feedImageUrlAttribute');
+      setVal('feedImageTitleSelector');
+      setVal('feedImageTitleAttribute');
+      setVal('feedImageLinkSelector');
+      setVal('feedImageLinkAttribute');
+      setVal('feedImageWidthSelector');
+      setVal('feedImageWidthAttribute');
+      setVal('feedImageHeightSelector');
+      setVal('feedImageHeightAttribute');
+      setVal('feedImageDescriptionSelector');
+      setVal('feedImageDescriptionAttribute');
+
+      // Clear API fields
+      setVal('apiRoute');
+      setVal('apiItemsPath');
+      setVal('apiMethod', 'GET');
+      setVal('apiParams', '{}');
+      setVal('apiHeaders', '{}');
+      setVal('apiBody', '{}');
+      setVal('apiTitleField');
+      setVal('apiDescriptionField');
+      setVal('apiLinkField');
+      setVal('apiAuthor');
+      setVal('apiDateField');
+      setVal('apiEnclosureUrl');
+      setVal('apiEnclosureSize');
+      setVal('apiEnclosureType');
+      setVal('apiContentEncoded');
+      setVal('apiSummary');
+      setVal('apiGuid');
+      setVal('apiGuidIsPermaLink','');
+      setVal('apiCategories');
+      setVal('apiContributors');
+      setVal('apiLat');
+      setVal('apiLong');
+      setVal('apiSourceUrl');
+      setVal('apiSourceTitle');
+      // API Feed Level
+      setVal('apiFeedTitle');
+      setVal('apiFeedDescription');
+      setVal('apiFeedLanguage');
+      setVal('apiFeedCopyright');
+      setVal('apiFeedManagingEditor');
+      setVal('apiFeedWebMaster');
+      setVal('apiFeedCategories');
+      setVal('apiFeedPubDate');
+      setVal('apiFeedLastBuildDate');
+      setVal('apiFeedTtl');
+      setVal('apiFeedSkipDays');
+      setVal('apiFeedSkipHours');
+      setVal('apiFeedImageUrl');
+
+
+      // Clear Email fields
+      setVal('emailHost');
+      setVal('emailPort');
+      setVal('emailUsername');
+      setVal('emailPassword');
+      setVal('emailCount', '10');
+      const emailFolderEl = document.getElementById('emailFolder');
+      if (emailFolderEl) emailFolderEl.innerHTML = ''; // Clear folder options
+
+      // Clear Additional Options
+      document.getElementById('cookiesContainer').innerHTML = '';
+      setVal('headers', '{}');
+      setVal('refreshTime', '5');
+      setVal('reverse', false, false, 'checkbox');
+      setVal('advanced', false, false, 'checkbox');
+      setVal('strict', false, false, 'checkbox');
+
+      // Clear Webhook Options
+      setVal('webhookEnabled', false, false, 'checkbox');
+      setVal('webhookUrl', '');
+      setVal('webhookFormat', 'xml');
+      setVal('webhookNewItemsOnly', true, true, 'checkbox');
+      setVal('webhookHeaders', '{}');
+      setVal('webhookCustomPayload', '');
+      toggleWebhookFields(); // Hide webhook fields
+
+      document.getElementById('feedType').value = 'webScraping'; // Reset to default
+      handleFeedTypeChange(); // Ensure UI reflects the cleared state and default feedType
+    }
+  </script>
+</body>
+
 </html>

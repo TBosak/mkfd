@@ -17,10 +17,6 @@ self.onmessage = (message) => {
 
     console.log("[IMAP WORKER] Spawning Node IMAP watcher subprocess...");
 
-    // Set default memory allocation if not already configured by user
-    const nodeOptions = process.env.NODE_OPTIONS || "--max-old-space-size=4096";
-    console.log(`[IMAP WORKER] Using NODE_OPTIONS: ${nodeOptions}`);
-
     childProcess = spawn({
       cmd: [
         "node",
@@ -30,10 +26,6 @@ self.onmessage = (message) => {
       ],
       stdout: "inherit",
       stderr: "inherit",
-      env: {
-        ...process.env,
-        NODE_OPTIONS: nodeOptions,
-      },
     });
 
     // Now we can handle output
