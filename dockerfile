@@ -8,7 +8,7 @@ RUN curl -fsSL https://deb.nodesource.com/setup_23.x | bash - \
  && apt-get install -y nodejs
 
  ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
- RUN bunx patchright install --with-deps chrome
+ RUN bunx patchright install --with-deps chromium
 
 WORKDIR /app
 
@@ -17,9 +17,13 @@ RUN bun install
 
 COPY . .
 
+# Create directories for volumes
+RUN mkdir -p /app/configs /app/extensions && \
+    chmod -R 755 /app/configs /app/extensions
+
 EXPOSE 5000
 
-VOLUME ["/app/configs"]
+VOLUME ["/app/configs", "/app/extensions"]
 
 HEALTHCHECK --interval=5m --timeout=10s --start-period=1m --retries=3 \
   CMD curl -f http://localhost:5000/ || exit 1

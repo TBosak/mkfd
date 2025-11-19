@@ -5,14 +5,19 @@ services:
     image: tbosk/mkfd:latest
     container_name: mkfd
     ports:
-      - "0.0.0.0:5000:5000"
+      - "${PORT:-5000}:5000"
     volumes:
       - ./configs:/app/configs
+      # Mount Chrome extensions directory (optional)
+      # Place unpacked extensions in ./extensions/
+      - ./extensions:/app/extensions
     environment:
       - PASSKEY=${PASSKEY:-your_passkey_here}
       - COOKIE_SECRET=${COOKIE_SECRET:-your_cookie_secret_here}
       - ENCRYPTION_KEY=${ENCRYPTION_KEY:-your_encryption_key_here}
       - SSL=${SSL:-false}
+      # Path to Chrome extensions directory for advanced scraping
+      - CHROME_EXTENSIONS_PATH=${CHROME_EXTENSIONS_PATH:-/app/extensions}
       # Uncomment to override default 4GB memory allocation for IMAP processes
       # - NODE_OPTIONS=--max-old-space-size=8192
     restart: unless-stopped

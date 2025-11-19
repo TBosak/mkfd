@@ -88,6 +88,57 @@ docker run -p 5000:5000 -v /local/mount/path:/app/configs \
 
 Alternatively, use [Autoheal](https://github.com/willfarrell/docker-autoheal) to automatically restart unhealthy containers in docker-compose setups.
 
+## 🔌 Chrome Extensions for Advanced Scraping
+
+Mkfd supports loading Chrome extensions when using advanced scraping mode (Playwright).
+
+### 📁 Setting Up Extensions
+
+1. **Prepare your extensions**: Create a directory for unpacked Chrome extensions. Each extension should be in its own subdirectory.
+
+   ```
+   extensions/
+   ├── extension1/
+   │   ├── manifest.json
+   │   └── ... (other extension files)
+   └── extension2/
+       ├── manifest.json
+       └── ... (other extension files)
+   ```
+
+2. **Configure the path**: Set the `CHROME_EXTENSIONS_PATH` environment variable to point to your extensions directory.
+This is optional, the default path is "/app/extensions".
+
+### 🐳 Docker Setup
+
+When using Docker or Docker Compose, mount your extensions directory as a volume:
+
+**Docker Run:**
+```bash
+docker run -p 5000:5000 \
+  -v /local/mount/path:/app/configs \
+  -v /path/to/extensions:/app/extensions \
+  -e PASSKEY=your_passkey \
+  -e COOKIE_SECRET=your_cookie_secret \
+  -e ENCRYPTION_KEY=your_encryption_key \
+  tbosk/mkfd:latest
+```
+
+**Docker Compose:**
+
+The included `docker-compose.yml` already has extensions support configured:
+- Extensions directory: `./extensions` (in the same directory as docker-compose.yml)
+- Environment variable is set automatically
+
+Simply place your unpacked extensions in `./extensions/` and they will be loaded when using advanced scraping mode.
+
+### ⚙️ How It Works
+
+- Extensions are automatically discovered and loaded when using advanced scraping mode
+- Each subdirectory in the extensions path is treated as a separate extension
+- Extensions only load when "Advanced Scraping" is enabled for a feed
+- If no extensions are found or the path doesn't exist, advanced scraping works normally without extensions
+
 ## 📧 Email Feeds
 
 Mkfd supports email feeds via IMAP. You can use any email provider that supports IMAP, such as Gmail, Yahoo, or Outlook. To set up an email feed, you need to provide the following information:
