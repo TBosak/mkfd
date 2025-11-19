@@ -174,7 +174,7 @@ async function fetchDataAndUpdateFeed(feedConfig: any) {
           await storeFeedHistory(feedConfig.feedId, rssXml);
         } catch (webhookError) {
           console.error(
-            `Webhook error for feed ${feedConfig.feedId}:`,
+            "Webhook error for feed %s:", feedConfig.feedId,
             webhookError.message,
           );
           // Don't fail the entire feed update if webhook fails
