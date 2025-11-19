@@ -18,6 +18,7 @@ import {
 } from "./data-handler.utility";
 import { sanitizeForXML, sanitizeURLForXML } from "./xml-sanitizer.utility";
 import ApiConfig from "./../models/apiconfig.model";
+import striptags from "striptags";
 
 export async function buildRSS(res: any, feedConfig: any): Promise<string> {
   const apiConfig: ApiConfig = feedConfig.config;
@@ -823,7 +824,7 @@ function looksLikeMedia(url: string): boolean {
 
 // Add a simple HTML tag stripper if not present
 function stripHtmlTags(input: string): string {
-  return input.replace(/<[^>]*>/g, "");
+  return striptags(input);
 }
 
 // Updated function to avoid import conflict
