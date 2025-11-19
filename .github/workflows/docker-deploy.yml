@@ -3,6 +3,12 @@ name: Build and Push Docker Images
 on:
   push:
     branches: [deploy]
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 'Version tag (leave empty to use package.json version and tag as latest)'
+        required: false
+        type: string
 
 jobs:
   build-and-push:
@@ -34,19 +40,38 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GHCR_TOKEN }}
 
-      - name: Extract version from package.json
+      - name: Determine version and tags
         id: vars
         run: |
-          VERSION=$(node -p "require('./package.json').version")
+          if [ -n "${{ inputs.version }}" ]; then
+            # Use override version
+            VERSION="${{ inputs.version }}"
+            USE_LATEST="false"
+          else
+            # Use package.json version and tag as latest
+            VERSION=$(node -p "require('./package.json').version")
+            USE_LATEST="true"
+          fi
           echo "VERSION=$VERSION" >> $GITHUB_ENV
+          echo "USE_LATEST=$USE_LATEST" >> $GITHUB_ENV
+          echo "Building version: $VERSION (latest tag: $USE_LATEST)"
+
+      - name: Generate Docker tags
+        id: tags
+        run: |
+          TAGS="docker.io/tbosk/mkfd:${{ env.VERSION }}"$'\n'"ghcr.io/tbosak/mkfd:${{ env.VERSION }}"
+          if [ "${{ env.USE_LATEST }}" = "true" ]; then
+            TAGS="$TAGS"$'\n'"docker.io/tbosk/mkfd:latest"$'\n'"ghcr.io/tbosak/mkfd:latest"
+          fi
+          echo "TAGS<<EOF" >> $GITHUB_ENV
+          echo "$TAGS" >> $GITHUB_ENV
+          echo "EOF" >> $GITHUB_ENV
+          echo "Docker tags:"
+          echo "$TAGS"
 
       - name: Build and push Docker images to Docker Hub and GHCR
         uses: docker/build-push-action@v4
         with:
           context: .
           push: true
-          tags: |
-            docker.io/tbosk/mkfd:latest
-            docker.io/tbosk/mkfd:${{ env.VERSION }}
-            ghcr.io/tbosak/mkfd:latest
-            ghcr.io/tbosak/mkfd:${{ env.VERSION }}
+          tags: ${{ env.TAGS }}
