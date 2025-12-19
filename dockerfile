@@ -1,25 +1,28 @@
 FROM oven/bun:1.2.2-debian
 
-RUN apt-get update && apt-get install -y \
-    curl \
+ARG NODE_MAJOR=22
+ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates curl gnupg \
  && rm -rf /var/lib/apt/lists/*
 
-RUN curl -fsSL https://deb.nodesource.com/setup_23.x | bash - \
- && apt-get install -y nodejs
-
- ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
- RUN bunx patchright install --with-deps chromium
+RUN curl -fsSL https://deb.nodesource.com/setup_${NODE_MAJOR}.x | bash - \
+ && apt-get update \
+ && apt-get install -y --no-install-recommends nodejs \
+ && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-COPY package.json bun.lock ./
+COPY package.json bun.lock* ./
 RUN bun install
+
+RUN bunx patchright install --with-deps chromium
 
 COPY . .
 
-# Create directories for volumes
-RUN mkdir -p /app/configs /app/extensions && \
-    chmod -R 755 /app/configs /app/extensions
+RUN mkdir -p /app/configs /app/extensions \
+ && chmod -R 755 /app/configs /app/extensions
 
 EXPOSE 5000
 
