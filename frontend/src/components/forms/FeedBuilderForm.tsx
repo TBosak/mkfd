@@ -10,6 +10,7 @@ import { APIForm } from "./APIForm";
 import { EmailForm } from "./EmailForm";
 import { AdditionalOptions } from "./AdditionalOptions";
 import { FeedPreview } from "./FeedPreview";
+import { FlareSolverrIndicator } from "./FlareSolverrIndicator";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Eye, Rocket, Globe, Code, Mail, Tag, Settings } from "lucide-react";
 
@@ -261,6 +262,9 @@ export const FeedBuilderForm = () => {
           previewXml={previewXml}
         />
       </form>
+
+      {/* FlareSolverr Status Indicator */}
+      <FlareSolverrIndicator watch={watch} feedType={feedType} />
     </>
   );
 };

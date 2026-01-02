@@ -12,11 +12,66 @@ interface SuggestedSelectors {
   author: CSSTarget;
 }
 
+interface FlareSolverrConfig {
+  enabled?: boolean;
+  serverUrl?: string;
+  timeout?: number;
+}
+
 export async function suggestSelectors(
-  url: string
+  url: string,
+  flaresolverr?: FlareSolverrConfig,
+  cookies?: Array<{ name: string; value: string }>
 ): Promise<SuggestedSelectors> {
-  const response = await axios.get(url);
-  const $ = cheerio.load(response.data);
+  let html: string;
+
+  if (flaresolverr?.enabled && flaresolverr?.serverUrl) {
+    // Use FlareSolverr to fetch the page
+    const flaresolverrUrl = flaresolverr.serverUrl;
+    const timeout = flaresolverr.timeout || 60000;
+
+    const flaresolverrPayload: any = {
+      cmd: "request.get",
+      url: url,
+      maxTimeout: timeout,
+    };
+
+    // Add cookies if present
+    if (cookies && cookies.length > 0) {
+      flaresolverrPayload.cookies = cookies.map((c) => ({
+        name: c.name,
+        value: c.value,
+      }));
+    }
+
+    const flaresolverrResponse = await axios.post(
+      `${flaresolverrUrl}/v1`,
+      flaresolverrPayload,
+      {
+        headers: {
+          "Content-Type": "application/json",
+        },
+        timeout: timeout + 5000,
+      },
+    );
+
+    if (
+      flaresolverrResponse.data?.solution?.response &&
+      flaresolverrResponse.data?.solution?.status === 200
+    ) {
+      html = flaresolverrResponse.data.solution.response;
+    } else {
+      throw new Error(
+        `FlareSolverr failed: ${flaresolverrResponse.data?.message || "Unknown error"}`,
+      );
+    }
+  } else {
+    // Standard axios fetch
+    const response = await axios.get(url);
+    html = response.data;
+  }
+
+  const $ = cheerio.load(html);
 
   const fieldCandidates: Record<string, string[]> = {
     title: [

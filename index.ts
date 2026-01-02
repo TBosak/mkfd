@@ -9,7 +9,6 @@ import minimist from "minimist";
 import { basename, join } from "path";
 import { v4 as uuidv4 } from "uuid";
 import { DOMParser } from "xmldom";
-import ApiConfig from "./models/apiconfig.model";
 import CSSTarget from "./models/csstarget.model";
 import axios from "axios";
 import { createInterface } from "readline";
@@ -19,7 +18,6 @@ import { listImapFolders } from "./utilities/imap.utility";
 import { encrypt } from "./utilities/security.utility";
 import { CookieStore, sessionMiddleware } from "hono-sessions";
 import { suggestSelectors } from "./utilities/suggestion-engine.utility";
-import { parseCookiesForPlaywright } from "./utilities/data-handler.utility";
 import { chromium } from "patchright";
 import { getChromiumLaunchOptions } from "./utilities/chrome-extensions.utility";
 import { getRandomUserAgent } from "./utilities/user-agents.utility";
@@ -41,6 +39,12 @@ async function prompt(question: string): Promise<string> {
       resolve(answer);
     });
   });
+}
+
+// Helper function to normalize URLs by removing trailing slashes
+function normalizeUrl(url: string): string {
+  if (!url) return url;
+  return url.replace(/\/+$/, ""); // Remove one or more trailing slashes
 }
 
 const SSL = process.env.SSL === "true" || args.ssl === true;
@@ -182,11 +186,59 @@ app.post("/", async (ctx) => {
 
     if (body.feedType === "webScraping" && body.feedUrl) {
       try {
-        const response = await axios.get(body.feedUrl, {
-          maxContentLength: 2 * 1024 * 1024,
-          maxBodyLength: 2 * 1024 * 1024,
-        });
-        sampleHtml = response.data;
+        // Check if FlareSolverr is enabled for this request
+        const flaresolverrData = body.flaresolverr || {};
+        const flaresolverrEnabled = typeof flaresolverrData.enabled === "boolean" ? flaresolverrData.enabled : false;
+        const flaresolverrUrl = normalizeUrl(flaresolverrData.serverUrl || "");
+        const flaresolverrTimeout = parseInt(flaresolverrData.timeout || "60000") || 60000;
+
+        if (flaresolverrEnabled && flaresolverrUrl) {
+          // Use FlareSolverr to fetch sample HTML
+          const flaresolverrPayload: any = {
+            cmd: "request.get",
+            url: body.feedUrl,
+            maxTimeout: flaresolverrTimeout,
+          };
+
+          // Add cookies if present
+          if (body.cookies && body.cookies.length > 0) {
+            flaresolverrPayload.cookies = body.cookies.map((c: any) => ({
+              name: c.name,
+              value: c.value,
+            }));
+          }
+
+          const flaresolverrResponse = await axios.post(
+            `${flaresolverrUrl}/v1`,
+            flaresolverrPayload,
+            {
+              headers: {
+                "Content-Type": "application/json",
+              },
+              timeout: flaresolverrTimeout + 5000,
+            },
+          );
+
+          if (
+            flaresolverrResponse.data?.solution?.response &&
+            flaresolverrResponse.data?.solution?.status === 200
+          ) {
+            sampleHtml = flaresolverrResponse.data.solution.response;
+          } else {
+            console.warn(
+              "FlareSolverr failed for sample HTML:",
+              flaresolverrResponse.data?.message,
+            );
+            sampleHtml = "";
+          }
+        } else {
+          // Use standard axios fetch
+          const response = await axios.get(body.feedUrl, {
+            maxContentLength: 2 * 1024 * 1024,
+            maxBodyLength: 2 * 1024 * 1024,
+          });
+          sampleHtml = response.data;
+        }
       } catch (e) {
         console.warn(
           "Could not fetch sample HTML for URL analysis:",
@@ -391,6 +443,14 @@ app.post("/", async (ctx) => {
     customPayload: extract("webhookCustomPayload", "").trim() || undefined,
   };
 
+  // FlareSolverr configuration
+  const flaresolverrData = extract("flaresolverr", {});
+  const flaresolverrConfig = {
+    enabled: typeof flaresolverrData.enabled === "boolean" ? flaresolverrData.enabled : false,
+    serverUrl: normalizeUrl(flaresolverrData.serverUrl || ""),
+    timeout: parseInt(flaresolverrData.timeout || "60000") || 60000,
+  };
+
   const finalFeedConfig = {
     feedId,
     feedName,
@@ -403,6 +463,8 @@ app.post("/", async (ctx) => {
     cookies: cookies.length > 0 ? cookies : undefined,
     webhook:
       webhookConfig.enabled && webhookConfig.url ? webhookConfig : undefined,
+    flaresolverr:
+      flaresolverrConfig.enabled && flaresolverrConfig.serverUrl ? flaresolverrConfig : undefined,
 
     config: feedType === "email" ? emailConfigData : configData,
     ...(feedType === "webScraping" && { article: articleData }),
@@ -464,11 +526,69 @@ app.post("/preview", async (ctx) => {
     let sampleHtml = "";
     if (feedType === "webScraping" && extract("feedUrl")) {
       try {
-        const response = await axios.get(extract("feedUrl"), {
-          maxContentLength: 2 * 1024 * 1024,
-          maxBodyLength: 2 * 1024 * 1024,
-        });
-        sampleHtml = response.data;
+        // Extract cookies early for FlareSolverr
+        const cookieNames = extract("cookieNames", []) as string[];
+        const cookieValues = extract("cookieValues", []) as string[];
+        const cookiesArray = cookieNames
+          .map((name, i) => ({
+            name: name.trim(),
+            value: (cookieValues[i] ?? "").trim(),
+          }))
+          .filter((c) => c.name);
+
+        // Check if FlareSolverr is enabled for this request
+        const flaresolverrData = extract("flaresolverr", {});
+        const flaresolverrEnabled = typeof flaresolverrData.enabled === "boolean" ? flaresolverrData.enabled : false;
+        const flaresolverrUrl = normalizeUrl(flaresolverrData.serverUrl || "");
+        const flaresolverrTimeout = parseInt(flaresolverrData.timeout || "60000") || 60000;
+
+        if (flaresolverrEnabled && flaresolverrUrl) {
+          // Use FlareSolverr to fetch sample HTML
+          const flaresolverrPayload: any = {
+            cmd: "request.get",
+            url: extract("feedUrl"),
+            maxTimeout: flaresolverrTimeout,
+          };
+
+          // Add cookies if present
+          if (cookiesArray.length > 0) {
+            flaresolverrPayload.cookies = cookiesArray.map((c: any) => ({
+              name: c.name,
+              value: c.value,
+            }));
+          }
+
+          const flaresolverrResponse = await axios.post(
+            `${flaresolverrUrl}/v1`,
+            flaresolverrPayload,
+            {
+              headers: {
+                "Content-Type": "application/json",
+              },
+              timeout: flaresolverrTimeout + 5000,
+            },
+          );
+
+          if (
+            flaresolverrResponse.data?.solution?.response &&
+            flaresolverrResponse.data?.solution?.status === 200
+          ) {
+            sampleHtml = flaresolverrResponse.data.solution.response;
+          } else {
+            console.warn(
+              "FlareSolverr failed for preview sample HTML:",
+              flaresolverrResponse.data?.message,
+            );
+            sampleHtml = "";
+          }
+        } else {
+          // Use standard axios fetch
+          const response = await axios.get(extract("feedUrl"), {
+            maxContentLength: 2 * 1024 * 1024,
+            maxBodyLength: 2 * 1024 * 1024,
+          });
+          sampleHtml = response.data;
+        }
       } catch (e) {
         console.warn("Could not fetch sample HTML for preview:", e.message);
         sampleHtml = "";
@@ -619,6 +739,14 @@ app.post("/preview", async (ctx) => {
       // For API previews, feedOptions are largely derived by rss-builder from apiMappingData paths
     }
 
+    // FlareSolverr configuration for preview
+    const flaresolverrData = extract("flaresolverr", {});
+    const flaresolverrConfig = {
+      enabled: typeof flaresolverrData.enabled === "boolean" ? flaresolverrData.enabled : false,
+      serverUrl: normalizeUrl(flaresolverrData.serverUrl || ""),
+      timeout: parseInt(flaresolverrData.timeout || "60000") || 60000,
+    };
+
     const feedConfig = {
       feedId: "preview",
       feedName,
@@ -630,6 +758,8 @@ app.post("/preview", async (ctx) => {
       _debug_advanced_raw: jsonData.advanced,
       headers: extractJson("headers"),
       cookies: cookies.length > 0 ? cookies : undefined,
+      flaresolverr:
+        flaresolverrConfig.enabled && flaresolverrConfig.serverUrl ? flaresolverrConfig : undefined,
       config: configData,
       ...(feedType === "webScraping" && { article: articleData }),
       ...(feedType === "api" && { apiMapping: apiMappingData }),
@@ -849,9 +979,47 @@ app.get("/proxy", async (ctx) => {
     return ctx.text('Missing "url" parameter', 400);
   }
 
+  const flaresolverrEnabled = ctx.req.query("flaresolverrEnabled") === "true";
+  const flaresolverrUrl = normalizeUrl(ctx.req.query("flaresolverrUrl") || "");
+  const flaresolverrTimeout = parseInt(ctx.req.query("flaresolverrTimeout") || "60000");
+
   try {
-    const response = await axios.get(targetUrl);
-    let html = response.data;
+    let html: string;
+
+    if (flaresolverrEnabled && flaresolverrUrl) {
+      // Use FlareSolverr to fetch the page
+      const flaresolverrPayload = {
+        cmd: "request.get",
+        url: targetUrl,
+        maxTimeout: flaresolverrTimeout,
+      };
+
+      const flaresolverrResponse = await axios.post(
+        `${flaresolverrUrl}/v1`,
+        flaresolverrPayload,
+        {
+          headers: {
+            "Content-Type": "application/json",
+          },
+          timeout: flaresolverrTimeout + 5000,
+        },
+      );
+
+      if (
+        flaresolverrResponse.data?.solution?.response &&
+        flaresolverrResponse.data?.solution?.status === 200
+      ) {
+        html = flaresolverrResponse.data.solution.response;
+      } else {
+        throw new Error(
+          `FlareSolverr failed: ${flaresolverrResponse.data?.message || "Unknown error"}`,
+        );
+      }
+    } else {
+      // Standard axios fetch
+      const response = await axios.get(targetUrl);
+      html = response.data;
+    }
 
     html = injectSelectorGadget(html);
 
@@ -978,12 +1146,36 @@ app.post("/imap/folders", async (c) => {
 });
 
 app.post("/utils/suggest-selectors", async (c) => {
-  const { url } = await c.req.json();
+  const { url, flaresolverr, cookies } = await c.req.json();
   try {
-    const selectors = await suggestSelectors(url);
+    const selectors = await suggestSelectors(url, flaresolverr, cookies);
     return c.json(selectors);
   } catch (err) {
     return c.json({ error: err.message }, 500);
+  }
+});
+
+app.post("/api/flaresolverr/health", async (c) => {
+  const { serverUrl } = await c.req.json();
+
+  if (!serverUrl) {
+    return c.json({ active: false, error: "No server URL provided" });
+  }
+
+  // Normalize URL to remove trailing slashes
+  const normalizedUrl = normalizeUrl(serverUrl);
+
+  try {
+    // Try to reach the FlareSolverr server
+    const response = await axios.get(`${normalizedUrl}/`, {
+      timeout: 5000,
+      validateStatus: () => true, // Accept any status code
+    });
+
+    // If we get any response, the server is reachable
+    return c.json({ active: true, status: response.status });
+  } catch (error) {
+    return c.json({ active: false, error: error.message });
   }
 });
 
@@ -1260,7 +1452,49 @@ async function generatePreview(feedConfig: any) {
       // or selectors for these if they are to be scraped (though preview might use direct values).
 
       console.log(`[Preview] Advanced mode check: ${feedConfig.advanced} (raw: ${feedConfig._debug_advanced_raw})`);
-      if (feedConfig.advanced) {
+      if (feedConfig.flaresolverr?.enabled) {
+        // FlareSolverr scraping
+        console.log("[Preview] Using FlareSolverr");
+        const flaresolverrUrl = normalizeUrl(feedConfig.flaresolverr.serverUrl || "http://localhost:8191");
+        const timeout = feedConfig.flaresolverr.timeout || 60000;
+
+        const flaresolverrPayload: any = {
+          cmd: "request.get",
+          url: feedConfig.config.baseUrl,
+          maxTimeout: timeout,
+        };
+
+        // Add cookies if present
+        if (feedConfig.cookies && feedConfig.cookies.length > 0) {
+          flaresolverrPayload.cookies = feedConfig.cookies.map((c: any) => ({
+            name: c.name,
+            value: c.value,
+          }));
+        }
+
+        const flaresolverrResponse = await axios.post(
+          `${flaresolverrUrl}/v1`,
+          flaresolverrPayload,
+          {
+            headers: {
+              "Content-Type": "application/json",
+            },
+            timeout: timeout + 5000,
+          },
+        );
+
+        if (
+          flaresolverrResponse.data?.solution?.response &&
+          flaresolverrResponse.data?.solution?.status === 200
+        ) {
+          const html = flaresolverrResponse.data.solution.response;
+          rssXml = await buildRSS(html, feedConfig);
+        } else {
+          throw new Error(
+            `FlareSolverr failed: ${flaresolverrResponse.data?.message || "Unknown error"}`,
+          );
+        }
+      } else if (feedConfig.advanced) {
         // Check for advanced scraping (e.g., Playwright)
         console.log("[Preview] Launching browser...");
         const browser = await chromium.launch(
@@ -1451,6 +1685,7 @@ async function deleteFeed(feedId: string): Promise<boolean> {
 export default {
   port: 5000,
   fetch: app.fetch,
+  idleTimeout: 120, // 120 seconds to allow FlareSolverr requests to complete
 };
 
 process.on("exit", () => {
