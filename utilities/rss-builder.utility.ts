@@ -26,6 +26,8 @@ export async function buildRSS(res: any, feedConfig: any): Promise<string> {
   const reverse: boolean = feedConfig.reverse || false;
   const strict: boolean = feedConfig.strict || false;
   const advanced: boolean = apiConfig.advanced || false;
+  const flaresolverr = feedConfig.flaresolverr;
+  const cookies = feedConfig.cookies;
   const $ = cheerio.load(res);
   const elements = $(article.iterator.selector).toArray();
 
@@ -35,40 +37,40 @@ export async function buildRSS(res: any, feedConfig: any): Promise<string> {
         const itemData: RSSItemOptions = {
           title: sanitizeForXML(
             processWords(
-              await extractField($, el, article.title, advanced),
+              await extractField($, el, article.title, advanced, false, false, flaresolverr, cookies),
               article.title?.titleCase,
               article.title?.stripHtml,
             ),
           ),
           description: sanitizeForXML(
             processWords(
-              await extractField($, el, article.description, advanced),
+              await extractField($, el, article.description, advanced, false, false, flaresolverr, cookies),
               article.description?.titleCase,
               article.description?.stripHtml,
             ),
           ),
           link: sanitizeURLForXML(
             processLinksAbsolute(
-              await extractField($, el, article.link, advanced, false, true),
+              await extractField($, el, article.link, advanced, false, true, flaresolverr, cookies),
               article.link?.stripHtml,
               article.link?.isRelative,
               article.link?.baseUrl,
             ),
           ),
           date: processDates(
-            await extractField($, el, article.date, advanced),
+            await extractField($, el, article.date, advanced, false, false, flaresolverr, cookies),
             article.date?.stripHtml,
             article.date?.dateFormat,
           ),
           guid: sanitizeForXML(
-            await extractField($, el, article.guid, advanced),
+            await extractField($, el, article.guid, advanced, false, false, flaresolverr, cookies),
           ),
         };
 
         // Handle author (convert to Author array)
         const authorName = sanitizeForXML(
           processWords(
-            await extractField($, el, article.author, advanced),
+            await extractField($, el, article.author, advanced, false, false, flaresolverr, cookies),
             article.author?.titleCase,
             article.author?.stripHtml,
           ),
@@ -79,7 +81,7 @@ export async function buildRSS(res: any, feedConfig: any): Promise<string> {
 
         // Handle categories (convert to Category array)
         const categoryNames = (
-          await extractField($, el, article.categories, advanced)
+          await extractField($, el, article.categories, advanced, false, false, flaresolverr, cookies)
         )
           ?.split(",")
           .map((c) => c.trim())
@@ -92,7 +94,7 @@ export async function buildRSS(res: any, feedConfig: any): Promise<string> {
 
         // Handle contributors (convert to Author array)
         const contributorNames = (
-          await extractField($, el, article.contributors, advanced)
+          await extractField($, el, article.contributors, advanced, false, false, flaresolverr, cookies)
         )
           ?.split(",")
           .map((c) => c.trim())
@@ -113,6 +115,7 @@ export async function buildRSS(res: any, feedConfig: any): Promise<string> {
             apiConfig?.baseUrl ||
             feedConfig?.feedUrl ||
             "",
+          flaresolverr
         );
         if (enclosure) {
           itemData.enclosure = enclosure;
@@ -121,7 +124,7 @@ export async function buildRSS(res: any, feedConfig: any): Promise<string> {
         // Handle content (now a standard field in feed package)
         const content = sanitizeForXML(
           processWords(
-            await extractField($, el, article.content, advanced),
+            await extractField($, el, article.content, advanced, false, false, flaresolverr, cookies),
             article.content?.titleCase,
             article.content?.stripHtml,
           ),
@@ -135,7 +138,7 @@ export async function buildRSS(res: any, feedConfig: any): Promise<string> {
 
         const contentEncoded = sanitizeForXML(
           processWords(
-            await extractField($, el, article.contentEncoded, advanced),
+            await extractField($, el, article.contentEncoded, advanced, false, false, flaresolverr, cookies),
             article.contentEncoded?.titleCase,
             article.contentEncoded?.stripHtml,
           ),
@@ -149,7 +152,7 @@ export async function buildRSS(res: any, feedConfig: any): Promise<string> {
 
         const summary = sanitizeForXML(
           processWords(
-            await extractField($, el, article.summary, advanced),
+            await extractField($, el, article.summary, advanced, false, false, flaresolverr, cookies),
             article.summary?.titleCase,
             article.summary?.stripHtml,
           ),
@@ -167,12 +170,18 @@ export async function buildRSS(res: any, feedConfig: any): Promise<string> {
             el,
             article.source.url,
             advanced,
+            false,
+            false,
+            flaresolverr
           );
           const sourceTitle = await extractField(
             $,
             el,
             article.source.title,
             advanced,
+            false,
+            false,
+            flaresolverr
           );
           if (sourceUrl || sourceTitle) {
             extensions.push({
@@ -209,29 +218,29 @@ export async function buildRSS(res: any, feedConfig: any): Promise<string> {
         `${serverUrl}/public/feeds/${feedConfig.feedId}.xml`,
       ),
       title: sanitizeForXML(
-        (await extractField($, null, article.feedTitle, advanced)) ||
+        (await extractField($, null, article.feedTitle, advanced, false, false, flaresolverr, cookies)) ||
           apiConfig?.title ||
           $("title")?.first().text()?.trim() ||
           "Untitled Feed",
       ),
       link: sanitizeURLForXML(apiConfig.baseUrl || ""),
       description: sanitizeForXML(
-        (await extractField($, null, article.feedDescription, advanced)) ||
+        (await extractField($, null, article.feedDescription, advanced, false, false, flaresolverr, cookies)) ||
           $('meta[property="og:description"]').first().attr("content") ||
           $('meta[name="description"]').first().attr("content") ||
           "",
       ),
       generator: "Generated by mkfd",
       language: sanitizeForXML(
-        (await extractField($, null, article.feedLanguage, advanced)) ||
+        (await extractField($, null, article.feedLanguage, advanced, false, false, flaresolverr, cookies)) ||
           $("html").first().attr("lang") ||
           undefined,
       ),
       copyright: sanitizeForXML(
-        (await extractField($, null, article.feedCopyright, advanced)) || "",
+        (await extractField($, null, article.feedCopyright, advanced, false, false, flaresolverr, cookies)) || "",
       ),
       ttl: parseInt(
-        (await extractField($, null, article.feedTtl, advanced)) || "60",
+        (await extractField($, null, article.feedTtl, advanced, false, false, flaresolverr, cookies)) || "60",
       ), // Default to 60 minutes
       updated: new Date(),
       feedLinks: {
@@ -242,7 +251,7 @@ export async function buildRSS(res: any, feedConfig: any): Promise<string> {
     };
 
     if (article.feedImage) {
-      const imageUrl = await extractField($, null, article.feedImage, advanced);
+      const imageUrl = await extractField($, null, article.feedImage, advanced, false, false, flaresolverr, cookies);
       if (imageUrl) {
         feedOptions.image = sanitizeURLForXML(imageUrl);
       }
@@ -254,7 +263,7 @@ export async function buildRSS(res: any, feedConfig: any): Promise<string> {
     // These fields are valid RSS 2.0 elements but the feed package doesn't include them
     // in its FeedOptions interface. We add them as extensions to maintain full RSS 2.0 compliance.
     const managingEditor = sanitizeForXML(
-      await extractField($, null, article.feedManagingEditor, advanced),
+      await extractField($, null, article.feedManagingEditor, advanced, false, false, flaresolverr, cookies),
     );
     if (managingEditor) {
       feed.addExtension({
@@ -264,7 +273,7 @@ export async function buildRSS(res: any, feedConfig: any): Promise<string> {
     }
 
     const webMaster = sanitizeForXML(
-      await extractField($, null, article.feedWebMaster, advanced),
+      await extractField($, null, article.feedWebMaster, advanced, false, false, flaresolverr, cookies),
     );
     if (webMaster) {
       feed.addExtension({
@@ -278,6 +287,9 @@ export async function buildRSS(res: any, feedConfig: any): Promise<string> {
       null,
       article.feedSkipDays,
       advanced,
+      false,
+      false,
+      flaresolverr
     );
     if (skipDays) {
       feed.addExtension({
@@ -296,6 +308,9 @@ export async function buildRSS(res: any, feedConfig: any): Promise<string> {
       null,
       article.feedSkipHours,
       advanced,
+      false,
+      false,
+      flaresolverr
     );
     if (skipHours) {
       feed.addExtension({
@@ -532,6 +547,11 @@ async function processEnclosure(
   enclosureTarget: CSSTarget | undefined,
   advanced: boolean,
   baseUrl: string,
+  flaresolverr?: {
+    enabled?: boolean;
+    serverUrl?: string;
+    timeout?: number;
+  }
 ): Promise<RSSItemOptions["enclosure"] | undefined> {
   if (!enclosureTarget || !el) return undefined;
 
@@ -542,6 +562,7 @@ async function processEnclosure(
     advanced,
     true,
     false,
+    flaresolverr
   );
   let isEnclosureRelative = enclosureTarget.isRelative;
   let enclosureBaseUrl = enclosureTarget.baseUrl;
@@ -654,6 +675,12 @@ async function extractField(
   advanced: boolean = false,
   forEnclosure: boolean = false,
   forLink: boolean = false,
+  flaresolverr?: {
+    enabled?: boolean;
+    serverUrl?: string;
+    timeout?: number;
+  },
+  cookies?: Array<{ name: string; value: string }>
 ): Promise<string> {
   if (!field || !field.selector) return "";
   const context = el ? $(el) : $;
@@ -672,6 +699,8 @@ async function extractField(
       mappedDrillChain,
       advanced,
       forLink || forEnclosure,
+      flaresolverr,
+      cookies
     );
   }
 

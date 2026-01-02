@@ -1,18 +1,31 @@
 import { useState, useEffect } from 'react'
 import { UseFormSetValue } from 'react-hook-form'
-import { FeedFormData } from '@/types/feed'
+import { FeedFormData, FlareSolverrConfig } from '@/types/feed'
 import { Button } from '@/components/ui/button'
 import { Wand2 } from 'lucide-react'
 
 interface SelectorPlaygroundProps {
   feedUrl?: string
   setValue: UseFormSetValue<FeedFormData>
+  flaresolverr?: FlareSolverrConfig
 }
 
-export const SelectorPlayground = ({ feedUrl, setValue }: SelectorPlaygroundProps) => {
+export const SelectorPlayground = ({ feedUrl, setValue, flaresolverr }: SelectorPlaygroundProps) => {
   const [isPlaygroundOpen, setIsPlaygroundOpen] = useState(false)
   const [showSelectorActions, setShowSelectorActions] = useState(false)
   const [currentSelector, setCurrentSelector] = useState<string | null>(null)
+
+  const buildProxyUrl = () => {
+    const params = new URLSearchParams({ url: feedUrl || '' })
+    if (flaresolverr?.enabled && flaresolverr?.serverUrl) {
+      params.set('flaresolverrEnabled', 'true')
+      params.set('flaresolverrUrl', flaresolverr.serverUrl)
+      if (flaresolverr.timeout) {
+        params.set('flaresolverrTimeout', flaresolverr.timeout.toString())
+      }
+    }
+    return `/proxy?${params.toString()}`
+  }
 
   useEffect(() => {
     // Listen for selector updates from the iframe
@@ -127,7 +140,7 @@ export const SelectorPlayground = ({ feedUrl, setValue }: SelectorPlaygroundProp
             onClick={(e) => e.stopPropagation()}
           >
             <iframe
-              src={`/proxy?url=${encodeURIComponent(feedUrl || '')}`}
+              src={buildProxyUrl()}
               className="w-full h-full border-0"
               sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-modals"
               title="Selector Playground"

@@ -38,6 +38,13 @@ export interface WebhookConfig {
   customPayload?: string;
 }
 
+// FlareSolverr configuration
+export interface FlareSolverrConfig {
+  enabled?: boolean;
+  serverUrl?: string;
+  timeout?: number;
+}
+
 // Web Scraping Feed Configuration
 export interface WebScrapingConfig {
   feedUrl: string;
@@ -229,6 +236,7 @@ export interface FeedConfig {
   advanced?: boolean;
   strict?: boolean;
   webhook?: WebhookConfig;
+  flaresolverr?: FlareSolverrConfig;
 
   // Type-specific configurations
   webScraping?: WebScrapingConfig;

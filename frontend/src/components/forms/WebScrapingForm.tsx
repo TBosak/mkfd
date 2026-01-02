@@ -58,7 +58,10 @@ export const WebScrapingForm = ({
       const response = await fetch("/utils/suggest-selectors", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: feedUrl }),
+        body: JSON.stringify({
+          url: feedUrl,
+          flaresolverr: watch("flaresolverr")
+        }),
       });
 
       if (!response.ok) throw new Error("Failed to fetch selectors.");
@@ -91,7 +94,11 @@ export const WebScrapingForm = ({
 
   return (
     <>
-      <SelectorPlayground feedUrl={feedUrl} setValue={setValue} />
+      <SelectorPlayground
+        feedUrl={feedUrl}
+        setValue={setValue}
+        flaresolverr={watch("flaresolverr")}
+      />
       <div className="space-y-6 mt-4">
         {/* Target URL */}
         <div className="space-y-2">
