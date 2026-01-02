@@ -200,12 +200,11 @@ Some websites structure content across multiple layers:
 
 - [x] Add ALL possible RSS fields to models
 - [x] Add option for parallel iterators
-- [ ] Scraping how-to video
-- [ ] Email feed how-to video
+- [ ] Scraping how-to video/gif
+- [ ] Email feed how-to video/gif
 - [x] Add feed preview pane
-- [ ] Store/compare feed data to enable timestamping feed items
+- [ ] Store/compare all feed data to enable timestamping feed items
 - [x] Create dockerfile
-- [ ] Create Helm chart files
 - [x] Create GUI
 - [x] Utilities
   - [x] HTML stripper
@@ -213,7 +212,12 @@ Some websites structure content across multiple layers:
   - [x] Nested link follower/drilldown functionality for each feed item property
   - [x] Adjust date parser logic with overrides from an optional date format input
   - [x] Add selector suggestion engine
-- [ ] Front-end redesign (react + shadcn)
+- [x] Front-end redesign (react + shadcn)
+  - [ ] Redesign active feeds page
+  - [ ] New dark mode or theme system
+- [x] Flaresolverr integration
+- [ ] Change detection feeds
+  - [ ] With diff descriptions
 - [ ] Amass contributors
 
 <br>
