@@ -1200,40 +1200,34 @@ async function determineIsRelativeAndBaseUrl(
   userBaseUrl: string | undefined,
   feedUrl: string | undefined,
 ): Promise<{ isRelative: boolean; baseUrl: string | undefined }> {
+  // If user explicitly set both isRelative and baseUrl, use those
   if (typeof userIsRelative === "boolean" && userBaseUrl) {
     return { isRelative: userIsRelative, baseUrl: userBaseUrl };
   }
+
+  // If user explicitly set isRelative
   if (typeof userIsRelative === "boolean") {
     if (userIsRelative && !userBaseUrl && feedUrl) {
       return { isRelative: true, baseUrl: feedUrl };
     }
     return { isRelative: userIsRelative, baseUrl: userBaseUrl };
   }
+
+  // If user provided baseUrl but not isRelative, detect from URL format
   if (userBaseUrl) {
-    if (isLikelyAbsoluteUrl(url)) {
-      return { isRelative: false, baseUrl: userBaseUrl };
-    } else {
-      return { isRelative: true, baseUrl: userBaseUrl };
-    }
+    const isAbs = isLikelyAbsoluteUrl(url);
+    return { isRelative: !isAbs, baseUrl: userBaseUrl };
   }
-  if (isLikelyAbsoluteUrl(url)) {
-    try {
-      const resp = await axios.head(url, {
-        maxRedirects: 2,
-        validateStatus: () => true,
-      });
-      if (resp.status >= 200 && resp.status < 600) {
-        return { isRelative: false, baseUrl: undefined };
-      }
-    } catch {
-      if (feedUrl) return { isRelative: true, baseUrl: feedUrl };
-      return { isRelative: true, baseUrl: undefined };
-    }
-    if (feedUrl) return { isRelative: true, baseUrl: feedUrl };
-    return { isRelative: true, baseUrl: undefined };
+
+  // Auto-detect based on URL format
+  const isAbsolute = isLikelyAbsoluteUrl(url);
+
+  if (isAbsolute) {
+    return { isRelative: false, baseUrl: undefined };
+  } else {
+    // Relative URL - use feedUrl as base if available
+    return { isRelative: true, baseUrl: feedUrl };
   }
-  if (feedUrl) return { isRelative: true, baseUrl: feedUrl };
-  return { isRelative: true, baseUrl: undefined };
 }
 
 function extractSampleUrlFromHtml(
@@ -1242,12 +1236,27 @@ function extractSampleUrlFromHtml(
   attribute?: string,
 ): string {
   const $ = cheerio.load(html);
-  const el = $(selector).first();
-  if (!el.length) return "";
-  if (attribute) {
-    return el.attr(attribute) || "";
+  const elements = $(selector).slice(0, 5); // Check first 5 elements
+
+  if (elements.length === 0) return "";
+
+  // Try to find a non-empty URL from the sample
+  for (let i = 0; i < elements.length; i++) {
+    const el = elements.eq(i);
+    let url = "";
+    if (attribute) {
+      url = el.attr(attribute) || "";
+    } else {
+      url = el.attr("href") || el.attr("src") || "";
+    }
+
+    // Return first non-empty URL found
+    if (url && url.trim()) {
+      return url.trim();
+    }
   }
-  return el.attr("href") || el.attr("src") || "";
+
+  return "";
 }
 
 async function buildCSSTarget(
@@ -1287,6 +1296,7 @@ async function buildCSSTarget(
     );
     isRelative = result.isRelative;
     baseUrl = result.baseUrl;
+    console.log(`[Preview ${prefix}] Sample URL: "${urlSample}" → isRelative: ${isRelative}, baseUrl: ${baseUrl}`);
   }
 
   // Extract drill chain data directly if it was pre-processed into an array of objects
@@ -1564,9 +1574,12 @@ async function generatePreview(feedConfig: any) {
           },
           maxContentLength: 2 * 1024 * 1024,
           maxBodyLength: 2 * 1024 * 1024,
+          timeout: 30000, // 30 second timeout
         });
+        console.log("[Preview] Page fetched, building RSS...");
         const html = response.data;
         rssXml = await buildRSS(html, feedConfig);
+        console.log("[Preview] RSS build complete");
       }
     } else if (feedConfig.feedType === "api") {
       // feedConfig.config contains API call details (baseUrl, route, method, params, apiSpecificHeaders, apiSpecificBody)
