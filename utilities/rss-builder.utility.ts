@@ -75,9 +75,6 @@ export async function buildRSS(res: any, feedConfig: any): Promise<string> {
             article.author?.stripHtml,
           ),
         );
-        if (authorName) {
-          itemData.author = [{ name: authorName }];
-        }
 
         // Handle categories (convert to Category array)
         const categoryNames = (
@@ -135,6 +132,18 @@ export async function buildRSS(res: any, feedConfig: any): Promise<string> {
 
         // Handle content:encoded and other extensions
         const extensions: any[] = [];
+
+        // Handle author: use native RSS author field if email, otherwise use dc:creator
+        if (authorName) {
+          if (isEmailAddress(authorName)) {
+            itemData.author = [{ email: authorName }];
+          } else {
+            extensions.push({
+              name: "dc:creator",
+              objects: authorName,
+            });
+          }
+        }
 
         const contentEncoded = sanitizeForXML(
           processWords(
@@ -328,7 +337,7 @@ export async function buildRSS(res: any, feedConfig: any): Promise<string> {
       feed.addItem(item);
     }
 
-    return feed.rss2();
+    return injectDcNamespace(feed.rss2());
   }
   // Fallback if article or iterator is not defined
   const serverUrl =
@@ -448,10 +457,8 @@ export function buildRSSFromApiData(apiData: any, feedConfig: any): string {
       itemData.guid = Bun.hash(JSON.stringify(itemData)).toString();
     }
 
+    // Store authorName for later use in extensions
     const authorName = sanitizeForXML(get(item, mapping.author, ""));
-    if (authorName) {
-      itemData.author = [{ name: authorName }];
-    }
 
     const categoryNames = get(item, mapping.categories, "")
       .split(",")
@@ -489,6 +496,18 @@ export function buildRSSFromApiData(apiData: any, feedConfig: any): string {
     }
 
     const extensions: any[] = [];
+
+    // Handle author: use native RSS author field if email, otherwise use dc:creator
+    if (authorName) {
+      if (isEmailAddress(authorName)) {
+        itemData.author = [{ email: authorName }];
+      } else {
+        extensions.push({
+          name: "dc:creator",
+          objects: authorName,
+        });
+      }
+    }
 
     const contentEncoded = sanitizeForXML(
       get(item, mapping.contentEncoded, ""),
@@ -538,7 +557,7 @@ export function buildRSSFromApiData(apiData: any, feedConfig: any): string {
     feed.addItem(itemData);
   });
 
-  return feed.rss2();
+  return injectDcNamespace(feed.rss2());
 }
 
 async function processEnclosure(
@@ -624,13 +643,64 @@ function getNonNullProps(item: any): Set<string> {
   return nonNull;
 }
 
+/**
+ * Fix 5: Normalize URL by stripping fragments and known tracking params
+ */
+function normalizeUrl(url: string): string {
+  if (!url) return "";
+
+  try {
+    const urlObj = new URL(url);
+
+    // Strip fragment
+    urlObj.hash = "";
+
+    // Strip common tracking parameters
+    const trackingParams = [
+      'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
+      'fbclid', 'gclid', 'msclkid', '_ga', 'mc_cid', 'mc_eid'
+    ];
+
+    trackingParams.forEach(param => {
+      urlObj.searchParams.delete(param);
+    });
+
+    return urlObj.toString();
+  } catch {
+    // If URL parsing fails, just strip fragment manually
+    return url.split('#')[0];
+  }
+}
+
 function filterStrictly(items: any[]): any[] {
   if (!items || items.length === 0) return [];
-  const itemPropsSets = items.map((item) => getNonNullProps(item));
+
+  // Fix 5: First filter - require valid title and link
+  const validItems = items.filter(item => {
+    const hasTitle = item.title && item.title.trim().length > 0;
+    const hasLink = item.link && item.link.trim().length > 0;
+
+    if (!hasLink) {
+      return hasTitle && false;
+    }
+
+    const normalizedLink = item.link.trim().toLowerCase();
+    const isFragmentOnly = normalizedLink.startsWith('#');
+    const hasDangerousScheme =
+      normalizedLink.startsWith('javascript:') ||
+      normalizedLink.startsWith('data:') ||
+      normalizedLink.startsWith('vbscript:');
+
+    return hasTitle && !isFragmentOnly && !hasDangerousScheme;
+  });
+
+  if (validItems.length === 0) return [];
+
+  const itemPropsSets = validItems.map((item) => getNonNullProps(item));
   if (itemPropsSets.length === 0) return [];
 
   const maxSize = Math.max(...itemPropsSets.map((s) => s.size), 0);
-  if (maxSize === 0 && items.length > 0) return items; // All items are empty, return them all
+  if (maxSize === 0 && validItems.length > 0) return validItems; // All items are empty, return them all
 
   const topIndices = itemPropsSets
     .map((propsSet, i) => (propsSet.size === maxSize ? i : -1))
@@ -650,14 +720,14 @@ function filterStrictly(items: any[]): any[] {
     intersect = temp;
   }
   const requiredProps = intersect;
-  if (requiredProps.size === 0 && items.length > 0 && maxSize > 0) {
+  if (requiredProps.size === 0 && validItems.length > 0 && maxSize > 0) {
     // If intersection is empty but there were items with properties, it implies no common ground at the max level.
     // This state might be undesired. Depending on strictness, could return items with maxSize or empty.
     // For now, let's return items that have the maxSize of properties.
-    return items.filter((_, idx) => itemPropsSets[idx].size === maxSize);
+    return validItems.filter((_, idx) => itemPropsSets[idx].size === maxSize);
   }
 
-  return items.filter((_, idx) => {
+  const filteredItems = validItems.filter((_, idx) => {
     const itemSet = itemPropsSets[idx];
     for (const prop of requiredProps) {
       if (!itemSet.has(prop)) {
@@ -666,6 +736,29 @@ function filterStrictly(items: any[]): any[] {
     }
     return true;
   });
+
+  // Fix 5: Deduplicate by normalized link (primary) and title+description (secondary)
+  const seenLinks = new Set<string>();
+  const seenTitleDesc = new Set<string>();
+  const deduplicatedItems = [];
+
+  for (const item of filteredItems) {
+    const normalizedLink = normalizeUrl(item.link || "");
+    const title = item.title || "";
+    const description = item.description || "";
+    const titleDescKey = `${title}|||${description}`;
+
+    // Skip if we've seen this normalized link or this exact title+description
+    if (seenLinks.has(normalizedLink) || seenTitleDesc.has(titleDescKey)) {
+      continue;
+    }
+
+    seenLinks.add(normalizedLink);
+    seenTitleDesc.add(titleDescKey);
+    deduplicatedItems.push(item);
+  }
+
+  return deduplicatedItems;
 }
 
 async function extractField(
@@ -882,4 +975,24 @@ function extractRootUrl(baseUrl: string): string | undefined {
   if (!baseUrl) return undefined;
   const parts = baseUrl.split("/");
   return parts[0] + "/" + parts[1] + "/" + parts[2];
+}
+
+function injectDcNamespace(rssXml: string): string {
+  // Add xmlns:dc to the <rss> tag if not already present
+  if (!rssXml.includes('xmlns:dc=')) {
+    rssXml = rssXml.replace(
+      /<rss\s+([^>]*?)>/i,
+      '<rss $1 xmlns:dc="http://purl.org/dc/elements/1.1/">'
+    );
+  }
+  return rssXml;
+}
+
+/**
+ * Checks if a string looks like an email address
+ */
+function isEmailAddress(value: string): boolean {
+  if (!value) return false;
+  // Simple email pattern - checks for basic email structure
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }

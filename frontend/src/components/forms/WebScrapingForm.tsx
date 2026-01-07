@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   UseFormRegister,
   Control,
@@ -30,6 +31,7 @@ import {
 import { Info, Sparkles, Link, Wand2 } from "lucide-react";
 import { SelectorField } from "./SelectorField";
 import { SelectorPlayground } from "./SelectorPlayground";
+import { LoadingSpinner } from "@/components/ui/loading-spinner";
 
 interface WebScrapingFormProps {
   register: UseFormRegister<FeedFormData>;
@@ -47,6 +49,7 @@ export const WebScrapingForm = ({
   feedUrl,
 }: WebScrapingFormProps) => {
   const dateFormat = watch("dateFormat");
+  const [isLoadingSelectors, setIsLoadingSelectors] = useState(false);
 
   const handleAutoFillSelectors = async () => {
     if (!feedUrl) {
@@ -54,6 +57,7 @@ export const WebScrapingForm = ({
       return;
     }
 
+    setIsLoadingSelectors(true);
     try {
       const response = await fetch("/utils/suggest-selectors", {
         method: "POST",
@@ -89,11 +93,19 @@ export const WebScrapingForm = ({
     } catch (error) {
       console.error("Error:", error);
       alert("An error occurred while auto-filling selectors.");
+    } finally {
+      setIsLoadingSelectors(false);
     }
   };
 
   return (
     <>
+      {isLoadingSelectors && (
+        <LoadingSpinner
+          fullscreen
+          message="Analyzing page structure and suggesting selectors..."
+        />
+      )}
       <SelectorPlayground
         feedUrl={feedUrl}
         setValue={setValue}
@@ -116,9 +128,10 @@ export const WebScrapingForm = ({
             variant="outline"
             onClick={handleAutoFillSelectors}
             className="w-full"
+            disabled={isLoadingSelectors}
           >
             <Sparkles className="mr-2 h-4 w-4" />
-            Suggest Selectors
+            {isLoadingSelectors ? "Analyzing..." : "Suggest Selectors"}
           </Button>
         </div>
 
