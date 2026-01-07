@@ -1402,6 +1402,8 @@ function extractValue(
     // Reject invalid hrefs
     if (!href || href === "#" || href === "" ||
         href.startsWith("javascript:") ||
+        href.startsWith("data:") ||
+        href.startsWith("vbscript:") ||
         href.startsWith("mailto:") ||
         href.startsWith("tel:")) {
       return "";
