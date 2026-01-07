@@ -671,10 +671,18 @@ const structuralIterators = [
       // Check for link
       const linkMatch = $item.find(tempChildSelectors.link.selector ?? "").first();
       const href = linkMatch.attr("href");
-      if (href && href !== "#" && !href.startsWith("javascript:") && !href.startsWith("mailto:")) {
+      if (href) {
         // Normalize the link
         const normalized = href.toLowerCase().trim();
-        links.push(normalized);
+        if (
+          normalized !== "#" &&
+          !normalized.startsWith("javascript:") &&
+          !normalized.startsWith("data:") &&
+          !normalized.startsWith("vbscript:") &&
+          !normalized.startsWith("mailto:")
+        ) {
+          links.push(normalized);
+        }
       }
 
       // Check for description (helps filter out nav links)
