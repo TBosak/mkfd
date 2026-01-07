@@ -1211,9 +1211,18 @@ function suggestChildSelectors(
         if (hasDateTokens) score += 30;
       } else if (field === "link") {
         // Prefer valid URLs
-        const validUrls = values.filter(v =>
-          v && v.length > 0 && !v.startsWith('#') && !v.startsWith('javascript:') && !v.startsWith('mailto:')
-        ).length;
+        const validUrls = values.filter(v => {
+          if (!v) return false;
+          const vNorm = v.toLowerCase();
+          return (
+            vNorm.length > 0 &&
+            !vNorm.startsWith('#') &&
+            !vNorm.startsWith('javascript:') &&
+            !vNorm.startsWith('data:') &&
+            !vNorm.startsWith('vbscript:') &&
+            !vNorm.startsWith('mailto:')
+          );
+        }).length;
         if (validUrls > 0) score += (validUrls / values.length) * 30;
       } else if (field === "author") {
         // Look for name pattern: 2 capitalized words (e.g., "Matt Tabak", "John Smith")
