@@ -678,10 +678,20 @@ function filterStrictly(items: any[]): any[] {
   // Fix 5: First filter - require valid title and link
   const validItems = items.filter(item => {
     const hasTitle = item.title && item.title.trim().length > 0;
-    const hasLink = item.link && item.link.trim().length > 0 &&
-                   !item.link.startsWith('#') &&
-                   !item.link.startsWith('javascript:');
-    return hasTitle && hasLink;
+    const hasLink = item.link && item.link.trim().length > 0;
+
+    if (!hasLink) {
+      return hasTitle && false;
+    }
+
+    const normalizedLink = item.link.trim().toLowerCase();
+    const isFragmentOnly = normalizedLink.startsWith('#');
+    const hasDangerousScheme =
+      normalizedLink.startsWith('javascript:') ||
+      normalizedLink.startsWith('data:') ||
+      normalizedLink.startsWith('vbscript:');
+
+    return hasTitle && !isFragmentOnly && !hasDangerousScheme;
   });
 
   if (validItems.length === 0) return [];
