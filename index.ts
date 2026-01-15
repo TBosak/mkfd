@@ -104,7 +104,7 @@ const middleware = async (c: Context, next) => {
       return c.redirect("/");
     } else {
       return c.html(
-        '<p>Incorrect passkey. <a href="/passkey">Try again</a>.</p>',
+        '<p>Incorrect passkey. <a href="/passkey">Try again</a>.</p>'
       );
     }
   }
@@ -128,7 +128,7 @@ app.use(
       secure: SSL,
       sameSite: "lax",
     },
-  }),
+  })
 );
 app.use("/*", except("/public/feeds/*", middleware));
 app.use("/public/*", serveStatic({ root: "./" }));
@@ -152,13 +152,13 @@ app.post("/", async (ctx) => {
       body = Object.fromEntries(formData as any);
 
       const potentialDrillChainKeys = Object.keys(body).filter((k) =>
-        k.includes("DrillChain"),
+        k.includes("DrillChain")
       );
       const structuredDrillChains: Record<string, any[]> = {};
 
       for (const key of potentialDrillChainKeys) {
         const drillChainMatch = key.match(
-          /^(\w+)DrillChain\[(\d+)\]\[(\w+)\]$/,
+          /^(\w+)DrillChain\[(\d+)\]\[(\w+)\]$/
         );
         if (drillChainMatch) {
           const fieldName = drillChainMatch[1];
@@ -188,9 +188,13 @@ app.post("/", async (ctx) => {
       try {
         // Check if FlareSolverr is enabled for this request
         const flaresolverrData = body.flaresolverr || {};
-        const flaresolverrEnabled = typeof flaresolverrData.enabled === "boolean" ? flaresolverrData.enabled : false;
+        const flaresolverrEnabled =
+          typeof flaresolverrData.enabled === "boolean"
+            ? flaresolverrData.enabled
+            : false;
         const flaresolverrUrl = normalizeUrl(flaresolverrData.serverUrl || "");
-        const flaresolverrTimeout = parseInt(flaresolverrData.timeout || "60000") || 60000;
+        const flaresolverrTimeout =
+          parseInt(flaresolverrData.timeout || "60000") || 60000;
 
         if (flaresolverrEnabled && flaresolverrUrl) {
           // Use FlareSolverr to fetch sample HTML
@@ -216,7 +220,7 @@ app.post("/", async (ctx) => {
                 "Content-Type": "application/json",
               },
               timeout: flaresolverrTimeout + 5000,
-            },
+            }
           );
 
           if (
@@ -227,7 +231,7 @@ app.post("/", async (ctx) => {
           } else {
             console.warn(
               "FlareSolverr failed for sample HTML:",
-              flaresolverrResponse.data?.message,
+              flaresolverrResponse.data?.message
             );
             sampleHtml = "";
           }
@@ -242,7 +246,7 @@ app.post("/", async (ctx) => {
       } catch (e) {
         console.warn(
           "Could not fetch sample HTML for URL analysis:",
-          e.message,
+          e.message
         );
         sampleHtml = "";
       }
@@ -338,43 +342,79 @@ app.post("/", async (ctx) => {
     };
 
     feedOptions.feedLanguage = extract("feedLanguageSelector")
-      ? `${extract("feedLanguageSelector")}${extract("feedLanguageAttribute", "") ? `|attr:${extract("feedLanguageAttribute")}` : ""}`
+      ? `${extract("feedLanguageSelector")}${
+          extract("feedLanguageAttribute", "")
+            ? `|attr:${extract("feedLanguageAttribute")}`
+            : ""
+        }`
       : "";
     feedOptions.feedCopyright = extract("feedCopyrightSelector")
-      ? `${extract("feedCopyrightSelector")}${extract("feedCopyrightAttribute", "") ? `|attr:${extract("feedCopyrightAttribute")}` : ""}`
+      ? `${extract("feedCopyrightSelector")}${
+          extract("feedCopyrightAttribute", "")
+            ? `|attr:${extract("feedCopyrightAttribute")}`
+            : ""
+        }`
       : "";
     feedOptions.feedManagingEditor = extract("feedManagingEditorSelector")
-      ? `${extract("feedManagingEditorSelector")}${extract("feedManagingEditorAttribute", "") ? `|attr:${extract("feedManagingEditorAttribute")}` : ""}`
+      ? `${extract("feedManagingEditorSelector")}${
+          extract("feedManagingEditorAttribute", "")
+            ? `|attr:${extract("feedManagingEditorAttribute")}`
+            : ""
+        }`
       : "";
     feedOptions.feedWebMaster = extract("feedWebMasterSelector")
-      ? `${extract("feedWebMasterSelector")}${extract("feedWebMasterAttribute", "") ? `|attr:${extract("feedWebMasterAttribute")}` : ""}`
+      ? `${extract("feedWebMasterSelector")}${
+          extract("feedWebMasterAttribute", "")
+            ? `|attr:${extract("feedWebMasterAttribute")}`
+            : ""
+        }`
       : "";
 
     const feedCategoriesScraped = extract("feedCategoriesScrapingSelector")
-      ? `${extract("feedCategoriesScrapingSelector")}${extract("feedCategoriesScrapingAttribute", "") ? `|attr:${extract("feedCategoriesScrapingAttribute")}` : ""}`
+      ? `${extract("feedCategoriesScrapingSelector")}${
+          extract("feedCategoriesScrapingAttribute", "")
+            ? `|attr:${extract("feedCategoriesScrapingAttribute")}`
+            : ""
+        }`
       : "";
     if (feedCategoriesScraped)
       feedOptions.feedCategories = [feedCategoriesScraped];
 
     const feedTtlScraped = extract("feedTtlSelector")
-      ? `${extract("feedTtlSelector")}${extract("feedTtlAttribute", "") ? `|attr:${extract("feedTtlAttribute")}` : ""}`
+      ? `${extract("feedTtlSelector")}${
+          extract("feedTtlAttribute", "")
+            ? `|attr:${extract("feedTtlAttribute")}`
+            : ""
+        }`
       : "";
     if (feedTtlScraped) feedOptions.feedTtl = Number(feedTtlScraped);
 
     const skipDaysScraped = extract("feedSkipDaysSelector")
-      ? `${extract("feedSkipDaysSelector")}${extract("feedSkipDaysAttribute", "") ? `|attr:${extract("feedSkipDaysAttribute")}` : ""}`
+      ? `${extract("feedSkipDaysSelector")}${
+          extract("feedSkipDaysAttribute", "")
+            ? `|attr:${extract("feedSkipDaysAttribute")}`
+            : ""
+        }`
       : "";
     if (skipDaysScraped) feedOptions.feedSkipDays = [skipDaysScraped];
 
     const skipHoursScraped = extract("feedSkipHoursSelector")
-      ? `${extract("feedSkipHoursSelector")}${extract("feedSkipHoursAttribute", "") ? `|attr:${extract("feedSkipHoursAttribute")}` : ""}`
+      ? `${extract("feedSkipHoursSelector")}${
+          extract("feedSkipHoursAttribute", "")
+            ? `|attr:${extract("feedSkipHoursAttribute")}`
+            : ""
+        }`
       : "";
     if (skipHoursScraped)
       feedOptions.feedSkipHours = [Number(skipHoursScraped)];
 
     const imgUrlSel = extract("feedImageUrlSelector");
     if (imgUrlSel) {
-      feedOptions.feedImage = `${imgUrlSel}${extract("feedImageUrlAttribute", "") ? `|attr:${extract("feedImageUrlAttribute")}` : ""}`;
+      feedOptions.feedImage = `${imgUrlSel}${
+        extract("feedImageUrlAttribute", "")
+          ? `|attr:${extract("feedImageUrlAttribute")}`
+          : ""
+      }`;
     }
   } else if (feedType === "api") {
     configData = {
@@ -446,7 +486,10 @@ app.post("/", async (ctx) => {
   // FlareSolverr configuration
   const flaresolverrData = extract("flaresolverr", {});
   const flaresolverrConfig = {
-    enabled: typeof flaresolverrData.enabled === "boolean" ? flaresolverrData.enabled : false,
+    enabled:
+      typeof flaresolverrData.enabled === "boolean"
+        ? flaresolverrData.enabled
+        : false,
     serverUrl: normalizeUrl(flaresolverrData.serverUrl || ""),
     timeout: parseInt(flaresolverrData.timeout || "60000") || 60000,
   };
@@ -464,7 +507,9 @@ app.post("/", async (ctx) => {
     webhook:
       webhookConfig.enabled && webhookConfig.url ? webhookConfig : undefined,
     flaresolverr:
-      flaresolverrConfig.enabled && flaresolverrConfig.serverUrl ? flaresolverrConfig : undefined,
+      flaresolverrConfig.enabled && flaresolverrConfig.serverUrl
+        ? flaresolverrConfig
+        : undefined,
 
     config: feedType === "email" ? emailConfigData : configData,
     ...(feedType === "webScraping" && { article: articleData }),
@@ -538,9 +583,13 @@ app.post("/preview", async (ctx) => {
 
         // Check if FlareSolverr is enabled for this request
         const flaresolverrData = extract("flaresolverr", {});
-        const flaresolverrEnabled = typeof flaresolverrData.enabled === "boolean" ? flaresolverrData.enabled : false;
+        const flaresolverrEnabled =
+          typeof flaresolverrData.enabled === "boolean"
+            ? flaresolverrData.enabled
+            : false;
         const flaresolverrUrl = normalizeUrl(flaresolverrData.serverUrl || "");
-        const flaresolverrTimeout = parseInt(flaresolverrData.timeout || "60000") || 60000;
+        const flaresolverrTimeout =
+          parseInt(flaresolverrData.timeout || "60000") || 60000;
 
         if (flaresolverrEnabled && flaresolverrUrl) {
           // Use FlareSolverr to fetch sample HTML
@@ -566,7 +615,7 @@ app.post("/preview", async (ctx) => {
                 "Content-Type": "application/json",
               },
               timeout: flaresolverrTimeout + 5000,
-            },
+            }
           );
 
           if (
@@ -577,7 +626,7 @@ app.post("/preview", async (ctx) => {
           } else {
             console.warn(
               "FlareSolverr failed for preview sample HTML:",
-              flaresolverrResponse.data?.message,
+              flaresolverrResponse.data?.message
             );
             sampleHtml = "";
           }
@@ -648,13 +697,13 @@ app.post("/preview", async (ctx) => {
         contentEncoded: await buildCSSTarget(
           "contentEncoded",
           jsonData,
-          sampleHtml,
+          sampleHtml
         ),
         summary: await buildCSSTarget("summary", jsonData, sampleHtml),
         contributors: await buildCSSTarget(
           "contributors",
           jsonData,
-          sampleHtml,
+          sampleHtml
         ),
         lat: await buildCSSTarget("lat", jsonData, sampleHtml),
         long: await buildCSSTarget("long", jsonData, sampleHtml),
@@ -742,7 +791,10 @@ app.post("/preview", async (ctx) => {
     // FlareSolverr configuration for preview
     const flaresolverrData = extract("flaresolverr", {});
     const flaresolverrConfig = {
-      enabled: typeof flaresolverrData.enabled === "boolean" ? flaresolverrData.enabled : false,
+      enabled:
+        typeof flaresolverrData.enabled === "boolean"
+          ? flaresolverrData.enabled
+          : false,
       serverUrl: normalizeUrl(flaresolverrData.serverUrl || ""),
       timeout: parseInt(flaresolverrData.timeout || "60000") || 60000,
     };
@@ -759,7 +811,9 @@ app.post("/preview", async (ctx) => {
       headers: extractJson("headers"),
       cookies: cookies.length > 0 ? cookies : undefined,
       flaresolverr:
-        flaresolverrConfig.enabled && flaresolverrConfig.serverUrl ? flaresolverrConfig : undefined,
+        flaresolverrConfig.enabled && flaresolverrConfig.serverUrl
+          ? flaresolverrConfig
+          : undefined,
       config: configData,
       ...(feedType === "webScraping" && { article: articleData }),
       ...(feedType === "api" && { apiMapping: apiMappingData }),
@@ -778,14 +832,16 @@ app.post("/preview", async (ctx) => {
     if (error.response && error.response.data) {
       console.error("Error response data:", error.response.data);
       return ctx.text(
-        `Error generating preview: ${error.message}. Server responded with: ${JSON.stringify(error.response.data)}`,
-        400,
+        `Error generating preview: ${
+          error.message
+        }. Server responded with: ${JSON.stringify(error.response.data)}`,
+        400
       );
     } else if (error.request) {
       console.error("Error request data:", error.request);
       return ctx.text(
         `Error generating preview: ${error.message}. No response received from server.`,
-        400,
+        400
       );
     }
     return ctx.text(`Error generating preview: ${error.message}`, 400);
@@ -864,7 +920,7 @@ app.get("/feeds", async (ctx) => {
       const lastBuildDateNode = xmlDoc.getElementsByTagName("lastBuildDate")[0];
       if (lastBuildDateNode && lastBuildDateNode.textContent) {
         lastBuildDate = new Date(
-          lastBuildDateNode.textContent,
+          lastBuildDateNode.textContent
         ).toLocaleString();
       }
     } catch (error) {
@@ -881,7 +937,11 @@ app.get("/feeds", async (ctx) => {
         <p><strong>Feed ID:</strong> ${feedId}</p>
         <p><strong>Build Time:</strong> ${lastBuildDate}</p>
         <p><strong>Feed Type:</strong> ${feedType}</p>
-        ${hasWebhook ? `<p><strong>Webhook:</strong> ✅ Enabled</p>` : "<p><strong>Webhook:</strong> ❌ Disabled</p>"}
+        ${
+          hasWebhook
+            ? `<p><strong>Webhook:</strong> ✅ Enabled</p>`
+            : "<p><strong>Webhook:</strong> ❌ Disabled</p>"
+        }
         <footer>
         <div class="grid">
             <a href="public/feeds/${feedId}.xml" style="margin-right: auto;line-height:3em;">View Feed</a>
@@ -981,7 +1041,9 @@ app.get("/proxy", async (ctx) => {
 
   const flaresolverrEnabled = ctx.req.query("flaresolverrEnabled") === "true";
   const flaresolverrUrl = normalizeUrl(ctx.req.query("flaresolverrUrl") || "");
-  const flaresolverrTimeout = parseInt(ctx.req.query("flaresolverrTimeout") || "60000");
+  const flaresolverrTimeout = parseInt(
+    ctx.req.query("flaresolverrTimeout") || "60000"
+  );
 
   try {
     let html: string;
@@ -1002,7 +1064,7 @@ app.get("/proxy", async (ctx) => {
             "Content-Type": "application/json",
           },
           timeout: flaresolverrTimeout + 5000,
-        },
+        }
       );
 
       if (
@@ -1012,7 +1074,9 @@ app.get("/proxy", async (ctx) => {
         html = flaresolverrResponse.data.solution.response;
       } else {
         throw new Error(
-          `FlareSolverr failed: ${flaresolverrResponse.data?.message || "Unknown error"}`,
+          `FlareSolverr failed: ${
+            flaresolverrResponse.data?.message || "Unknown error"
+          }`
         );
       }
     } else {
@@ -1198,7 +1262,7 @@ async function determineIsRelativeAndBaseUrl(
   url: string,
   userIsRelative: boolean | undefined,
   userBaseUrl: string | undefined,
-  feedUrl: string | undefined,
+  feedUrl: string | undefined
 ): Promise<{ isRelative: boolean; baseUrl: string | undefined }> {
   // If user explicitly set both isRelative and baseUrl, use those
   if (typeof userIsRelative === "boolean" && userBaseUrl) {
@@ -1233,7 +1297,7 @@ async function determineIsRelativeAndBaseUrl(
 function extractSampleUrlFromHtml(
   html: string,
   selector: string,
-  attribute?: string,
+  attribute?: string
 ): string {
   const $ = cheerio.load(html);
   const elements = $(selector).slice(0, 5); // Check first 5 elements
@@ -1262,7 +1326,7 @@ function extractSampleUrlFromHtml(
 async function buildCSSTarget(
   prefix: string,
   body: Record<string, any>,
-  sampleHtml?: string,
+  sampleHtml?: string
 ): Promise<CSSTarget> {
   const extractField = (suffix: string, fallback: any = "") =>
     body[`${prefix}${suffix}`] ?? fallback;
@@ -1292,11 +1356,13 @@ async function buildCSSTarget(
       urlSample,
       userIsRelative,
       userBaseUrl,
-      body.feedUrl,
+      body.feedUrl
     );
     isRelative = result.isRelative;
     baseUrl = result.baseUrl;
-    console.log(`[Preview ${prefix}] Sample URL: "${urlSample}" → isRelative: ${isRelative}, baseUrl: ${baseUrl}`);
+    console.log(
+      `[Preview ${prefix}] Sample URL: "${urlSample}" → isRelative: ${isRelative}, baseUrl: ${baseUrl}`
+    );
   }
 
   // Extract drill chain data directly if it was pre-processed into an array of objects
@@ -1309,7 +1375,7 @@ async function buildCSSTarget(
     isRelative,
     extractBoolField("TitleCase"),
     extractField("Iterator"),
-    extractField("Format"),
+    extractField("Format")
   );
   if (prefix === "guid") {
     target.guidIsPermaLink = extractBoolField("IsPermaLink");
@@ -1319,11 +1385,11 @@ async function buildCSSTarget(
       selector: step.selector ?? "",
       attribute: step.attribute ?? "",
       isRelative: ["on", "true", true, "checked"].includes(
-        String(step.isRelative).toLowerCase(),
+        String(step.isRelative).toLowerCase()
       ),
       baseUrl: step.baseUrl ?? "",
       stripHtml: ["on", "true", true, "checked"].includes(
-        String(step.stripHtml).toLowerCase(),
+        String(step.stripHtml).toLowerCase()
       ),
     }));
   } else {
@@ -1334,7 +1400,7 @@ async function buildCSSTarget(
 
 function parseDrillChain(
   prefix: string,
-  body: Record<string, any>,
+  body: Record<string, any>
 ): Array<{
   selector: string;
   attribute: string;
@@ -1350,11 +1416,11 @@ function parseDrillChain(
       selector: step.selector ?? "",
       attribute: step.attribute ?? "",
       isRelative: ["on", "true", true, "checked"].includes(
-        String(step.isRelative).toLowerCase(),
+        String(step.isRelative).toLowerCase()
       ),
       baseUrl: step.baseUrl ?? "",
       stripHtml: ["on", "true", true, "checked"].includes(
-        String(step.stripHtml).toLowerCase(),
+        String(step.stripHtml).toLowerCase()
       ),
     }));
   }
@@ -1369,9 +1435,9 @@ function parseDrillChain(
       .split(" ")
       .map((s) => s.toLowerCase())
       .join(
-        "",
+        ""
       )}DrillChain\\[(\\d+)\\]\\[(selector|attribute|isRelative|baseUrl|stripHtml)\\]$`,
-    "i",
+    "i"
   );
   const tempStore: Record<string, Record<string, string>> = {};
 
@@ -1386,7 +1452,7 @@ function parseDrillChain(
   }
 
   const sortedKeys = Object.keys(tempStore).sort(
-    (a, b) => parseInt(a) - parseInt(b),
+    (a, b) => parseInt(a) - parseInt(b)
   );
   for (const idx of sortedKeys) {
     const row = tempStore[idx];
@@ -1394,11 +1460,11 @@ function parseDrillChain(
       selector: row.selector ?? "",
       attribute: row.attribute ?? "",
       isRelative: ["on", "true", true, "checked"].includes(
-        String(row.isrelative).toLowerCase(),
+        String(row.isrelative).toLowerCase()
       ), // ensure lowercase for matching
       baseUrl: row.baseUrl ?? "",
       stripHtml: ["on", "true", true, "checked"].includes(
-        String(row.striphtml).toLowerCase(),
+        String(row.striphtml).toLowerCase()
       ), // ensure lowercase
     });
   }
@@ -1412,8 +1478,8 @@ function initializeWorker(feedConfig: any) {
       feedConfig.feedType === "email"
         ? "./workers/imap-feed.worker.ts"
         : "./workers/feed-updater.worker.ts",
-      { type: "module" },
-    ),
+      { type: "module" }
+    )
   );
 
   feedUpdaters.get(feedConfig.feedId).onmessage = (message) => {
@@ -1422,7 +1488,7 @@ function initializeWorker(feedConfig: any) {
     } else if (message.data.status === "error") {
       console.error(
         `Feed updates for ${feedConfig.feedId} encountered an error:`,
-        message.data.error,
+        message.data.error
       );
     }
   };
@@ -1461,11 +1527,15 @@ async function generatePreview(feedConfig: any) {
       // feedConfig directly contains feed-level options like feedLanguage, feedCopyright, etc.
       // or selectors for these if they are to be scraped (though preview might use direct values).
 
-      console.log(`[Preview] Advanced mode check: ${feedConfig.advanced} (raw: ${feedConfig._debug_advanced_raw})`);
+      console.log(
+        `[Preview] Advanced mode check: ${feedConfig.advanced} (raw: ${feedConfig._debug_advanced_raw})`
+      );
       if (feedConfig.flaresolverr?.enabled) {
         // FlareSolverr scraping
         console.log("[Preview] Using FlareSolverr");
-        const flaresolverrUrl = normalizeUrl(feedConfig.flaresolverr.serverUrl || "http://localhost:8191");
+        const flaresolverrUrl = normalizeUrl(
+          feedConfig.flaresolverr.serverUrl || "http://localhost:8191"
+        );
         const timeout = feedConfig.flaresolverr.timeout || 60000;
 
         const flaresolverrPayload: any = {
@@ -1490,7 +1560,7 @@ async function generatePreview(feedConfig: any) {
               "Content-Type": "application/json",
             },
             timeout: timeout + 5000,
-          },
+          }
         );
 
         if (
@@ -1501,7 +1571,9 @@ async function generatePreview(feedConfig: any) {
           rssXml = await buildRSS(html, feedConfig);
         } else {
           throw new Error(
-            `FlareSolverr failed: ${flaresolverrResponse.data?.message || "Unknown error"}`,
+            `FlareSolverr failed: ${
+              flaresolverrResponse.data?.message || "Unknown error"
+            }`
           );
         }
       } else if (feedConfig.advanced) {
@@ -1511,7 +1583,7 @@ async function generatePreview(feedConfig: any) {
           getChromiumLaunchOptions({
             headless: true,
             timeout: 60000, // 1 minute timeout (bundled chromium is faster)
-          }),
+          })
         );
         console.log("[Preview] Browser launched, creating context...");
         const userAgent = getRandomUserAgent();
@@ -1523,7 +1595,7 @@ async function generatePreview(feedConfig: any) {
         });
         const page = await context.newPage();
         console.log(
-          `[Preview] Using user agent: ${userAgent.substring(0, 50)}...`,
+          `[Preview] Using user agent: ${userAgent.substring(0, 50)}...`
         );
 
         if (feedConfig.headers && Object.keys(feedConfig.headers).length) {
@@ -1552,7 +1624,7 @@ async function generatePreview(feedConfig: any) {
         } catch (error) {
           // If networkidle times out, page is likely already loaded
           console.log(
-            "[Preview] Networkidle timeout, using current page state",
+            "[Preview] Networkidle timeout, using current page state"
           );
         }
         console.log("[Preview] Extracting content...");
@@ -1582,43 +1654,66 @@ async function generatePreview(feedConfig: any) {
         console.log("[Preview] RSS build complete");
       }
     } else if (feedConfig.feedType === "api") {
-      // feedConfig.config contains API call details (baseUrl, route, method, params, apiSpecificHeaders, apiSpecificBody)
-      // feedConfig.apiMapping contains paths to extract data from API response
-      // feedConfig directly contains feed-level options (or paths to them in apiMapping)
+      const method = String(feedConfig.config.method || "GET").toUpperCase();
+      const url = feedConfig.config.baseUrl + (feedConfig.config.route || "");
 
-      const axiosConfig: any = {
-        method: feedConfig.config.method || "GET",
-        url: feedConfig.config.baseUrl + (feedConfig.config.route || ""),
-        headers:
-          feedConfig.config.apiSpecificHeaders || feedConfig.headers || {},
-        params: feedConfig.config.params || {},
-        data: feedConfig.config.apiSpecificBody || {},
+      const headers = {
+        ...(feedConfig.headers || {}),
+        ...(feedConfig.config.apiSpecificHeaders || {}),
+        Accept: "application/json",
       };
 
-      // If general cookies are present and no specific API auth is overriding, pass them.
+      const axiosConfig: any = {
+        method,
+        url,
+        headers,
+        params: feedConfig.config.params || {},
+        responseType: "json",
+        validateStatus: (s: number) => s >= 200 && s < 400,
+      };
+
+      const cookieString = (feedConfig.cookies || [])
+        .map((c) => `${c.name}=${c.value}`)
+        .join("; ");
+
       if (
-        feedConfig.cookies &&
-        feedConfig.cookies.length > 0 &&
+        cookieString &&
         !axiosConfig.headers.Authorization &&
         !axiosConfig.headers.cookie
       ) {
-        axiosConfig.headers.Cookie = feedConfig.cookies
-          .map((c) => `${c.name}=${c.value}`)
-          .join("; ");
+        axiosConfig.headers.Cookie = cookieString;
       }
 
-      console.log("Preview Axios Config:", axiosConfig);
-      const response = await axios(axiosConfig);
-      const apiData = response.data;
+      const body = feedConfig.config.apiSpecificBody || {};
+      const hasBody =
+        method !== "GET" &&
+        method !== "HEAD" &&
+        body &&
+        typeof body === "object" &&
+        Object.keys(body).length > 0;
 
-      // buildRSSFromApiData expects the full feedConfig which includes all detailed options and mappings
-      rssXml = buildRSSFromApiData(apiData, feedConfig);
+      if (hasBody) axiosConfig.data = body;
+
+      const controller = new AbortController();
+      const timeoutMs = 15000;
+      const t = setTimeout(() => controller.abort(), timeoutMs);
+      axiosConfig.signal = controller.signal;
+
+      console.log("Preview Axios Config:", axiosConfig);
+
+      try {
+        const response = await axios(axiosConfig);
+        const apiData = response.data;
+        rssXml = buildRSSFromApiData(apiData, feedConfig);
+      } finally {
+        clearTimeout(t);
+      }
     }
     return rssXml;
   } catch (error) {
     console.error(
       `Error fetching/processing data for preview feedId ${feedConfig.feedId}:`,
-      error.message,
+      error.message
     );
     // Re-throw the error to be handled by the calling route (/preview)
     // This allows the route to provide a more specific HTTP error response.
@@ -1643,15 +1738,12 @@ function setFeedUpdaterInterval(feedConfig: any) {
     if (!feedIntervals.has(feedId)) {
       console.log("Setting interval for feed:", feedId);
 
-      const interval = setInterval(
-        () => {
-          console.log("Engaging worker for feed:", feedId);
-          feedUpdaters
-            .get(feedId)
-            .postMessage({ command: "start", config: feedConfig });
-        },
-        feedConfig.refreshTime * 60 * 1000,
-      );
+      const interval = setInterval(() => {
+        console.log("Engaging worker for feed:", feedId);
+        feedUpdaters
+          .get(feedId)
+          .postMessage({ command: "start", config: feedConfig });
+      }, feedConfig.refreshTime * 60 * 1000);
 
       feedIntervals.set(feedId, interval);
     }

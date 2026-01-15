@@ -26,7 +26,8 @@ async function fetchDataAndUpdateFeed(feedConfig: any) {
     if (feedConfig.feedType === "webScraping") {
       if (feedConfig.flaresolverr?.enabled) {
         // FlareSolverr scraping
-        const flaresolverrUrl = feedConfig.flaresolverr.serverUrl || "http://localhost:8191";
+        const flaresolverrUrl =
+          feedConfig.flaresolverr.serverUrl || "http://localhost:8191";
         const timeout = feedConfig.flaresolverr.timeout || 60000;
 
         const flaresolverrPayload: any = {
@@ -44,7 +45,7 @@ async function fetchDataAndUpdateFeed(feedConfig: any) {
         }
 
         console.log(
-          `[Feed ${feedConfig.feedId}] Using FlareSolverr at ${flaresolverrUrl}`,
+          `[Feed ${feedConfig.feedId}] Using FlareSolverr at ${flaresolverrUrl}`
         );
 
         const flaresolverrResponse = await axios.post(
@@ -55,7 +56,7 @@ async function fetchDataAndUpdateFeed(feedConfig: any) {
               "Content-Type": "application/json",
             },
             timeout: timeout + 5000, // Add 5 seconds buffer to axios timeout
-          },
+          }
         );
 
         if (
@@ -66,7 +67,9 @@ async function fetchDataAndUpdateFeed(feedConfig: any) {
           rssXml = await buildRSS(html, feedConfig);
         } else {
           throw new Error(
-            `FlareSolverr failed: ${flaresolverrResponse.data?.message || "Unknown error"}`,
+            `FlareSolverr failed: ${
+              flaresolverrResponse.data?.message || "Unknown error"
+            }`
           );
         }
       } else if (feedConfig.advanced) {
@@ -75,7 +78,7 @@ async function fetchDataAndUpdateFeed(feedConfig: any) {
           getChromiumLaunchOptions({
             headless: true,
             timeout: 60000, // 1 minute timeout
-          }),
+          })
         );
         const userAgent = getRandomUserAgent();
         const context = await browser.newContext({ userAgent });
@@ -112,7 +115,7 @@ async function fetchDataAndUpdateFeed(feedConfig: any) {
         } catch (error) {
           // If networkidle times out, page is likely already loaded
           console.log(
-            `[Feed ${feedConfig.feedId}] Networkidle timeout, using current page state`,
+            `[Feed ${feedConfig.feedId}] Networkidle timeout, using current page state`
           );
         }
         const html = await page.content();
@@ -132,19 +135,28 @@ async function fetchDataAndUpdateFeed(feedConfig: any) {
         rssXml = await buildRSS(html, feedConfig); // feedConfig now has all RSS options
       }
     } else if (feedConfig.feedType === "api") {
-      const axiosConfig: AxiosRequestConfig = {
-        method: feedConfig.config.method || "GET",
-        url: feedConfig.config.baseUrl + (feedConfig.config.route || ""),
-        // Prioritize API-specific headers, then general headers
-        headers: {
-          ...(feedConfig.headers || {}), // General headers first
-          ...(feedConfig.config.apiSpecificHeaders || {}), // API specific headers override general if conflicts
-        },
-        params: feedConfig.config.params || {},
-        data: feedConfig.config.apiSpecificBody || {}, // Use API specific body
+      const method = String(feedConfig.config.method || "GET").toUpperCase();
+      const url = feedConfig.config.baseUrl + (feedConfig.config.route || "");
+
+      const headers = {
+        ...(feedConfig.headers || {}),
+        ...(feedConfig.config.apiSpecificHeaders || {}),
+        Accept: "application/json",
       };
 
-      // Add cookies if not already set by apiSpecificHeaders
+      const axiosConfig: AxiosRequestConfig = {
+        method,
+        url,
+        headers,
+        params: feedConfig.config.params || {},
+        responseType: "json",
+        validateStatus: (s) => s >= 200 && s < 400,
+      };
+
+      const cookieString = (feedConfig.cookies || [])
+        .map((c) => `${c.name}=${c.value}`)
+        .join("; ");
+
       if (
         cookieString &&
         !axiosConfig.headers.Cookie &&
@@ -154,10 +166,30 @@ async function fetchDataAndUpdateFeed(feedConfig: any) {
         axiosConfig.headers.Cookie = cookieString;
       }
 
-      console.log("Worker Axios Config:", axiosConfig); // For debugging
-      const response = await axios(axiosConfig);
-      const apiData = response.data;
-      rssXml = buildRSSFromApiData(apiData, feedConfig); // feedConfig has apiMapping and RSS options
+      const body = feedConfig.config.apiSpecificBody || {};
+      const hasBody =
+        method !== "GET" &&
+        method !== "HEAD" &&
+        body &&
+        typeof body === "object" &&
+        Object.keys(body).length > 0;
+
+      if (hasBody) axiosConfig.data = body;
+
+      const controller = new AbortController();
+      const timeoutMs = 15000;
+      const t = setTimeout(() => controller.abort(), timeoutMs);
+      axiosConfig.signal = controller.signal;
+
+      console.log("Worker Axios Config:", axiosConfig);
+
+      try {
+        const response = await axios(axiosConfig);
+        const apiData = response.data;
+        rssXml = buildRSSFromApiData(apiData, feedConfig);
+      } finally {
+        clearTimeout(t);
+      }
     }
 
     if (rssXml) {
@@ -199,7 +231,7 @@ async function fetchDataAndUpdateFeed(feedConfig: any) {
                 ? createJsonWebhookPayload(
                     feedConfig,
                     webhookRssXml,
-                    "automatic",
+                    "automatic"
                   )
                 : createWebhookPayload(feedConfig, webhookRssXml, "automatic");
 
@@ -208,7 +240,7 @@ async function fetchDataAndUpdateFeed(feedConfig: any) {
 
             if (success) {
               console.log(
-                `Webhook sent successfully for feed ${feedConfig.feedId}`,
+                `Webhook sent successfully for feed ${feedConfig.feedId}`
               );
             } else {
               console.warn(`Webhook failed for feed ${feedConfig.feedId}`);
@@ -219,8 +251,9 @@ async function fetchDataAndUpdateFeed(feedConfig: any) {
           await storeFeedHistory(feedConfig.feedId, rssXml);
         } catch (webhookError) {
           console.error(
-            "Webhook error for feed %s:", feedConfig.feedId,
-            webhookError.message,
+            "Webhook error for feed %s:",
+            feedConfig.feedId,
+            webhookError.message
           );
           // Don't fail the entire feed update if webhook fails
         }
@@ -239,7 +272,7 @@ async function fetchDataAndUpdateFeed(feedConfig: any) {
       "Error fetching/processing data for feedId %s:",
       feedConfig.feedId,
       error.message,
-      error.stack,
+      error.stack
     );
     self.postMessage({
       status: "error",
@@ -252,7 +285,7 @@ async function fetchDataAndUpdateFeed(feedConfig: any) {
 self.onmessage = (message) => {
   if (message.data.command === "start") {
     console.log(
-      `Worker received start command for feedId: ${message.data.config.feedId}`,
+      `Worker received start command for feedId: ${message.data.config.feedId}`
     );
     fetchDataAndUpdateFeed(message.data.config);
   }
