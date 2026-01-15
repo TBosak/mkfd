@@ -968,7 +968,7 @@ export function processLinksAbsolute(
 
 function isRelativeUrl(url: string): boolean {
   if (!url) return false;
-  return /^https?:\/\//i.test(url) || url.startsWith("//");
+  return !/^https?:\/\//i.test(url) && !url.startsWith("//");
 }
 
 function extractRootUrl(baseUrl: string): string | undefined {

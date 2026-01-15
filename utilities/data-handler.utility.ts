@@ -128,16 +128,16 @@ export function processDates(
 }
 
 export function get(obj, path, defaultValue) {
+  if (!path || typeof path !== "string") return defaultValue;
   const keys = path.split(".");
   let result = obj;
   for (let key of keys) {
-    if (result == null || !(key in result)) {
-      return defaultValue;
-    }
+    if (result == null || !(key in result)) return defaultValue;
     result = result[key];
   }
   return result;
 }
+
 
 export async function resolveDrillChain(
   startingHtmlOrUrl: string,
