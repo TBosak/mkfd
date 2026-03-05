@@ -434,7 +434,13 @@ export function buildRSSFromApiData(apiData: any, feedConfig: any): string {
   }
 
   const itemsPath = mapping.items || "";
-  var items = get(apiData, itemsPath, []);
+  var items: any[];
+  if (!itemsPath || itemsPath === "$" || itemsPath === ".") {
+    // When no items path is specified, treat the API response itself as the array
+    items = Array.isArray(apiData) ? apiData : [];
+  } else {
+    items = get(apiData, itemsPath, []);
+  }
 
   if (feedConfig.strict) {
     items = filterStrictly(items);
@@ -449,7 +455,7 @@ export function buildRSSFromApiData(apiData: any, feedConfig: any): string {
       title: sanitizeForXML(get(item, mapping.title, "")),
       description: sanitizeForXML(get(item, mapping.description, "")),
       link: sanitizeURLForXML(get(item, mapping.link, "")),
-      date: get(item, mapping.date, "") || new Date(),
+      date: processDates(get(item, mapping.date, "")),
       guid: sanitizeForXML(get(item, mapping.guid, undefined)),
     };
 

@@ -28,6 +28,12 @@ export interface Cookie {
   value: string;
 }
 
+// Generic key-value pair
+export interface KeyValuePair {
+  key: string;
+  value: string;
+}
+
 // Webhook configuration
 export interface WebhookConfig {
   enabled?: boolean;
@@ -171,9 +177,9 @@ export interface APIConfig {
   feedUrl: string; // Base URL
   apiRoute?: string;
   apiMethod?: "GET" | "POST" | "PUT" | "DELETE";
-  apiParams?: string; // JSON string
-  apiHeaders?: string; // JSON string
-  apiBody?: string; // JSON string
+  apiParams?: KeyValuePair[];
+  apiHeaders?: KeyValuePair[];
+  apiBody?: KeyValuePair[];
 
   // Item field mappings (JSONPath)
   apiItemsPath?: string;
@@ -229,7 +235,7 @@ export interface FeedConfig {
   feedType: "webScraping" | "api" | "email";
 
   // Additional options (common to all types)
-  headers?: string; // JSON string
+  headers?: KeyValuePair[];
   cookies?: Cookie[];
   refreshTime?: number;
   reverse?: boolean;

@@ -7,8 +7,8 @@ import {
 import { FeedFormData } from "@/types/feed";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import { Link, Server, Globe } from "lucide-react";
+import { KeyValueManager } from "./KeyValueManager";
 import {
   Select,
   SelectContent,
@@ -30,7 +30,7 @@ interface APIFormProps {
   watch: UseFormWatch<FeedFormData>;
 }
 
-export const APIForm = ({ register, setValue, watch }: APIFormProps) => {
+export const APIForm = ({ register, control, setValue, watch }: APIFormProps) => {
   const apiMethod = watch("apiMethod");
 
   return (
@@ -83,40 +83,34 @@ export const APIForm = ({ register, setValue, watch }: APIFormProps) => {
       </div>
 
       {/* Query Parameters */}
-      <div className="space-y-2">
-        <Label htmlFor="apiParams">Query Parameters (JSON format)</Label>
-        <Textarea
-          id="apiParams"
-          {...register("apiParams")}
-          placeholder="{}"
-          rows={5}
-          defaultValue="{}"
-        />
-      </div>
+      <KeyValueManager
+        control={control}
+        name="apiParams"
+        label="Query Parameters"
+        addButtonLabel="Add Parameter"
+        keyPlaceholder="param_name"
+        valuePlaceholder="value"
+      />
 
       {/* Headers */}
-      <div className="space-y-2">
-        <Label htmlFor="apiHeaders">HTTP Headers (JSON format)</Label>
-        <Textarea
-          id="apiHeaders"
-          {...register("apiHeaders")}
-          placeholder="{}"
-          rows={5}
-          defaultValue="{}"
-        />
-      </div>
+      <KeyValueManager
+        control={control}
+        name="apiHeaders"
+        label="HTTP Headers"
+        addButtonLabel="Add Header"
+        keyPlaceholder="Header-Name"
+        valuePlaceholder="value"
+      />
 
       {/* Request Body */}
-      <div className="space-y-2">
-        <Label htmlFor="apiBody">Request Body (JSON format)</Label>
-        <Textarea
-          id="apiBody"
-          {...register("apiBody")}
-          placeholder="{}"
-          rows={5}
-          defaultValue="{}"
-        />
-      </div>
+      <KeyValueManager
+        control={control}
+        name="apiBody"
+        label="Request Body"
+        addButtonLabel="Add Body Field"
+        keyPlaceholder="field_name"
+        valuePlaceholder="value"
+      />
 
       <h3 className="text-lg font-semibold mt-6 flex items-center gap-2">
         <Link className="h-5 w-5" />
