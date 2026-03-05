@@ -16,6 +16,8 @@ services:
       - COOKIE_SECRET=${COOKIE_SECRET:-your_cookie_secret_here}
       - ENCRYPTION_KEY=${ENCRYPTION_KEY:-your_encryption_key_here}
       - SSL=${SSL:-false}
+      # Public URL used in feed atom:link canonical references (e.g. https://mkfd.example.com)
+      - SERVER_URL=${SERVER_URL:-http://localhost:5000}
       # Path to Chrome extensions directory for advanced scraping
       - CHROME_EXTENSIONS_PATH=${CHROME_EXTENSIONS_PATH:-/app/extensions}
       # Uncomment to override default 4GB memory allocation for IMAP processes
