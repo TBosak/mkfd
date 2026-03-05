@@ -8,7 +8,6 @@ import { FeedFormData } from "@/types/feed";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Accordion,
   AccordionContent,
@@ -22,6 +21,7 @@ import {
 } from "@/components/ui/tooltip";
 import { Info, Settings2 } from "lucide-react";
 import { CookiesManager } from "./CookiesManager";
+import { KeyValueManager } from "./KeyValueManager";
 import { WebhookConfiguration } from "./WebhookConfiguration";
 
 interface AdditionalOptionsProps {
@@ -54,18 +54,16 @@ export const AdditionalOptions = ({
             {/* Cookies - Hide for email feeds */}
             {!isEmailFeed && <CookiesManager control={control} />}
 
-            {/* Headers - Hide for email feeds */}
-            {!isEmailFeed && (
-              <div className="space-y-2">
-                <Label htmlFor="headers">HTTP Headers (JSON format)</Label>
-                <Textarea
-                  id="headers"
-                  {...register("headers")}
-                  placeholder="{}"
-                  rows={5}
-                  defaultValue="{}"
-                />
-              </div>
+            {/* Headers - Hide for email and API feeds (API has its own headers section) */}
+            {!isEmailFeed && feedType !== "api" && (
+              <KeyValueManager
+                control={control}
+                name="headers"
+                label="HTTP Headers"
+                addButtonLabel="Add Header"
+                keyPlaceholder="Header-Name"
+                valuePlaceholder="value"
+              />
             )}
 
             {/* Refresh Time */}

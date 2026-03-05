@@ -281,6 +281,27 @@ app.post("/", async (ctx) => {
     return fallback;
   };
 
+  // Converts [{key, value}] array (from key-value UI) to {key: value} object.
+  // Falls back to JSON.parse for legacy string values in existing configs.
+  const extractKeyValuePairs = (key: string, fallback: any = {}) => {
+    const val = extract(key);
+    if (Array.isArray(val)) {
+      return val.reduce((acc: Record<string, string>, pair: any) => {
+        if (pair?.key) acc[pair.key] = pair.value ?? "";
+        return acc;
+      }, {});
+    }
+    if (typeof val === "string") {
+      try {
+        return JSON.parse(val);
+      } catch {
+        return fallback;
+      }
+    }
+    if (typeof val === "object" && val !== null) return val;
+    return fallback;
+  };
+
   const cookieNames = extract("cookieNames", []) as string[];
   const cookieValues = extract("cookieValues", []) as string[];
   const cookies = cookieNames
@@ -421,9 +442,9 @@ app.post("/", async (ctx) => {
       baseUrl: extract("feedUrl"),
       method: extract("apiMethod", "GET"),
       route: extract("apiRoute"),
-      params: extractJson("apiParams"),
-      apiSpecificHeaders: extractJson("apiHeaders"),
-      apiSpecificBody: extractJson("apiBody"),
+      params: extractKeyValuePairs("apiParams"),
+      apiSpecificHeaders: extractKeyValuePairs("apiHeaders"),
+      apiSpecificBody: extractKeyValuePairs("apiBody"),
     };
     apiMappingData = {
       items: extract("apiItemsPath"),
@@ -438,7 +459,7 @@ app.post("/", async (ctx) => {
       enclosureType: extract("apiEnclosureType"),
       guid: extract("apiGuid"),
       guidIsPermaLink: extract("apiGuidIsPermaLink"),
-      pubDate: extract("apiDateField"),
+      date: extract("apiDateField"),
       sourceTitle: extract("apiSourceTitle"),
       sourceUrl: extract("apiSourceUrl"),
       contentEncoded: extract("apiContentEncoded"),
@@ -502,7 +523,7 @@ app.post("/", async (ctx) => {
     reverse: extractBool("reverse"),
     strict: extractBool("strict"),
     advanced: extractBool("advanced"),
-    headers: extractJson("headers"),
+    headers: extractKeyValuePairs("headers"),
     cookies: cookies.length > 0 ? cookies : undefined,
     webhook:
       webhookConfig.enabled && webhookConfig.url ? webhookConfig : undefined,
@@ -562,6 +583,25 @@ app.post("/preview", async (ctx) => {
           return fallback;
         }
       }
+      return fallback;
+    };
+
+    const extractKeyValuePairs = (key: string, fallback: any = {}) => {
+      const val = jsonData[key];
+      if (Array.isArray(val)) {
+        return val.reduce((acc: Record<string, string>, pair: any) => {
+          if (pair?.key) acc[pair.key] = pair.value ?? "";
+          return acc;
+        }, {});
+      }
+      if (typeof val === "string") {
+        try {
+          return JSON.parse(val);
+        } catch {
+          return fallback;
+        }
+      }
+      if (typeof val === "object" && val !== null) return val;
       return fallback;
     };
 
@@ -743,9 +783,9 @@ app.post("/preview", async (ctx) => {
         baseUrl: extract("feedUrl"),
         method: extract("apiMethod", "GET"),
         route: extract("apiRoute"),
-        params: extractJson("apiParams"),
-        apiSpecificHeaders: extractJson("apiHeaders"),
-        apiSpecificBody: extractJson("apiBody"),
+        params: extractKeyValuePairs("apiParams"),
+        apiSpecificHeaders: extractKeyValuePairs("apiHeaders"),
+        apiSpecificBody: extractKeyValuePairs("apiBody"),
       };
       apiMappingData = {
         items: extract("apiItemsPath"),
@@ -808,7 +848,7 @@ app.post("/preview", async (ctx) => {
       strict: extractBool("strict"),
       advanced: extractBool("advanced"),
       _debug_advanced_raw: jsonData.advanced,
-      headers: extractJson("headers"),
+      headers: extractKeyValuePairs("headers"),
       cookies: cookies.length > 0 ? cookies : undefined,
       flaresolverr:
         flaresolverrConfig.enabled && flaresolverrConfig.serverUrl
@@ -1655,12 +1695,12 @@ async function generatePreview(feedConfig: any) {
       }
     } else if (feedConfig.feedType === "api") {
       const method = String(feedConfig.config.method || "GET").toUpperCase();
-      const url = feedConfig.config.baseUrl + (feedConfig.config.route || "");
+      const url = (feedConfig.config.baseUrl || "").trim() + (feedConfig.config.route || "").trim();
 
       const headers = {
+        Accept: "application/json",
         ...(feedConfig.headers || {}),
         ...(feedConfig.config.apiSpecificHeaders || {}),
-        Accept: "application/json",
       };
 
       const axiosConfig: any = {
@@ -1694,20 +1734,13 @@ async function generatePreview(feedConfig: any) {
 
       if (hasBody) axiosConfig.data = body;
 
-      const controller = new AbortController();
-      const timeoutMs = 15000;
-      const t = setTimeout(() => controller.abort(), timeoutMs);
-      axiosConfig.signal = controller.signal;
+      axiosConfig.timeout = 60000;
 
       console.log("Preview Axios Config:", axiosConfig);
 
-      try {
-        const response = await axios(axiosConfig);
-        const apiData = response.data;
-        rssXml = buildRSSFromApiData(apiData, feedConfig);
-      } finally {
-        clearTimeout(t);
-      }
+      const response = await axios(axiosConfig);
+      const apiData = response.data;
+      rssXml = buildRSSFromApiData(apiData, feedConfig);
     }
     return rssXml;
   } catch (error) {

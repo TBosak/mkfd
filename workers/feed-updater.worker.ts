@@ -136,12 +136,12 @@ async function fetchDataAndUpdateFeed(feedConfig: any) {
       }
     } else if (feedConfig.feedType === "api") {
       const method = String(feedConfig.config.method || "GET").toUpperCase();
-      const url = feedConfig.config.baseUrl + (feedConfig.config.route || "");
+      const url = (feedConfig.config.baseUrl || "").trim() + (feedConfig.config.route || "").trim();
 
       const headers = {
+        Accept: "application/json",
         ...(feedConfig.headers || {}),
         ...(feedConfig.config.apiSpecificHeaders || {}),
-        Accept: "application/json",
       };
 
       const axiosConfig: AxiosRequestConfig = {
@@ -176,20 +176,13 @@ async function fetchDataAndUpdateFeed(feedConfig: any) {
 
       if (hasBody) axiosConfig.data = body;
 
-      const controller = new AbortController();
-      const timeoutMs = 15000;
-      const t = setTimeout(() => controller.abort(), timeoutMs);
-      axiosConfig.signal = controller.signal;
+      axiosConfig.timeout = 60000;
 
       console.log("Worker Axios Config:", axiosConfig);
 
-      try {
-        const response = await axios(axiosConfig);
-        const apiData = response.data;
-        rssXml = buildRSSFromApiData(apiData, feedConfig);
-      } finally {
-        clearTimeout(t);
-      }
+      const response = await axios(axiosConfig);
+      const apiData = response.data;
+      rssXml = buildRSSFromApiData(apiData, feedConfig);
     }
 
     if (rssXml) {
