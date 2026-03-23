@@ -24,6 +24,7 @@ self.onmessage = (message) => {
     childProcess = spawn({
       cmd: [
         "node",
+        "--experimental-strip-types",
         "./node/imap-watch.utility.ts",
         `--key=${encryptionKey}`,
         `--hash=${configHash}`,
