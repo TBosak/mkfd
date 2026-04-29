@@ -5,7 +5,8 @@ import Imap from "node-imap";
 import libmime from "libmime";
 import minimist from "minimist";
 import { Feed } from "feed";
-import { existsSync, readFileSync, writeFileSync, mkdirSync } from "fs";
+import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, unlinkSync } from "fs";
+import { createHash } from "crypto";
 import { simpleParser } from "mailparser";
 import { decrypt } from "../utilities/security.utility.ts";
 import { fileURLToPath } from "url";
@@ -330,11 +331,12 @@ class ImapWatcher {
 
           if (emails.length > 0) {
             console.log("[IMAP] Startup emails fetched");
-            const rss = buildRSSFromEmailFolder(emails, this.config);
+            const { xml: rss, commit } = buildRSSFromEmailFolder(emails, this.config);
             writeFileSync(
               path.join(__dirname, "../public/feeds", `${this.config.feedId}.xml`),
               rss,
             );
+            commit(); // prune stale per-item HTML files now that XML is durable
             console.log("[IMAP] RSS Feed generated");
           } else {
             console.log("[IMAP] No valid emails found.");
@@ -437,11 +439,12 @@ class ImapWatcher {
 
           if (emails.length > 0) {
             console.log(`[IMAP] Recent emails fetched for feed ${this.config.feedId}, updating RSS with ${emails.length} emails...`);
-            const rss = buildRSSFromEmailFolder(emails, this.config);
+            const { xml: rss, commit } = buildRSSFromEmailFolder(emails, this.config);
             writeFileSync(
               path.join(__dirname, "../public/feeds", `${this.config.feedId}.xml`),
               rss,
             );
+            commit(); // prune stale per-item HTML files now that XML is durable
             console.log(`[IMAP] RSS Feed regenerated for feed ${this.config.feedId}`);
             
             // Handle webhook if configured
@@ -568,7 +571,122 @@ class ImapWatcher {
 
 }
 
-export function buildRSSFromEmailFolder(emails: Email[], feedSetup: RSSFeedOptions): string {
+// Helper: build a self-contained HTML page for a single email.
+// Used as the per-item <link> target so RSS readers (especially mobile/WebView-
+// based ones like Cubic, Current, FocusReader) can open something — they
+// reject `mailto:` URLs as unsafe.
+//
+// The body is treated as untrusted: it has already been run through
+// `sanitizeEmailHtmlForPage` (which strips dangerous tags/attrs) and we
+// further constrain execution via a strict Content-Security-Policy meta tag.
+function buildEmailItemHtml(
+  subject: string,
+  from: string,
+  date: Date | undefined,
+  bodyHtml: string,
+): string {
+  const esc = (s: string) =>
+    s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
+  const subjectEsc = esc(subject || "(No Subject)");
+  const fromEsc = from ? esc(from) : "";
+  const dateStr = date ? esc(date.toUTCString()) : "";
+  // CSP: no scripts, no plugins, no frames, only http(s)/data images, only
+  // inline style (needed for our own <style> block and email inline styles).
+  const csp = "default-src 'none'; img-src https: http: data: cid:; style-src 'unsafe-inline'; font-src https: data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="${csp}">
+<meta name="referrer" content="no-referrer">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${subjectEsc}</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 760px; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; color: #222; }
+  header { border-bottom: 1px solid #ddd; margin-bottom: 1.5rem; padding-bottom: 1rem; }
+  header h1 { font-size: 1.5rem; margin: 0 0 .5rem; word-wrap: break-word; }
+  header .meta { color: #666; font-size: .9rem; }
+  header .meta div { margin: .15rem 0; }
+  .content { word-wrap: break-word; overflow-wrap: break-word; }
+  .content img { max-width: 100%; height: auto; }
+  .content a { color: #0366d6; }
+  .content pre { white-space: pre-wrap; }
+  @media (prefers-color-scheme: dark) {
+    body { background: #1a1a1a; color: #e6e6e6; }
+    header { border-color: #333; }
+    header .meta { color: #aaa; }
+    .content a { color: #58a6ff; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>${subjectEsc}</h1>
+  <div class="meta">
+    ${fromEsc ? `<div><strong>From:</strong> ${fromEsc}</div>` : ""}
+    ${dateStr ? `<div><strong>Date:</strong> ${dateStr}</div>` : ""}
+  </div>
+</header>
+<article class="content">${bodyHtml}</article>
+</body>
+</html>
+`;
+}
+
+// Strip dangerous constructs from email HTML before embedding it in a page
+// served from our own origin. Defense-in-depth alongside the page's CSP.
+function sanitizeEmailHtmlForPage(html: string): string {
+  if (!html) return "";
+  const $ = cheerio.load(html, {}, false);
+  // Remove tags that can execute or otherwise mis-direct navigation.
+  $("script, style, link, iframe, object, embed, form, base, meta, svg, math, frame, frameset, applet, audio, video, source, track").remove();
+  $("*").each((_i, el: any) => {
+    if (!el || !el.attribs) return;
+    for (const attr of Object.keys(el.attribs)) {
+      const lower = attr.toLowerCase();
+      // Strip all event handlers.
+      if (lower.startsWith("on")) {
+        delete el.attribs[attr];
+        continue;
+      }
+      // Strip dangerous URL schemes from anything that navigates or fetches.
+      if (lower === "href" || lower === "src" || lower === "action" || lower === "formaction" || lower === "xlink:href") {
+        const v = String(el.attribs[attr] || "").trim();
+        // Allow only http(s), mailto, tel, cid, data:image/* (images use CSP),
+        // protocol-relative, and same-doc fragments/relative paths.
+        const isSafe =
+          v === "" ||
+          /^(https?:|mailto:|tel:|cid:|#|\/|\.{0,2}\/)/i.test(v) ||
+          /^data:image\//i.test(v);
+        if (!isSafe) delete el.attribs[attr];
+      }
+    }
+  });
+  return $.html();
+}
+
+// Compute a filesystem-safe, stable, opaque ID for an email.
+function emailItemId(email: Email): string {
+  const seed = email.messageId || `uid:${email.UID}`;
+  return createHash("sha256").update(seed).digest("hex").slice(0, 16);
+}
+
+// Validate a path component (we use feedId as a directory name). feedIds
+// are uuidv4() in the main process, but defense-in-depth in case future
+// callers pass something else.
+function isSafePathComponent(s: string | undefined): s is string {
+  return !!s && /^[A-Za-z0-9._-]{1,128}$/.test(s) && s !== "." && s !== "..";
+}
+
+export interface BuildRSSResult {
+  xml: string;
+  /** Call AFTER the feed XML has been durably written to disk. Deletes
+   * per-item HTML files no longer referenced by the new feed. Safe to call
+   * multiple times; safe to skip on failure (stale files just linger). */
+  commit: () => void;
+}
+
+export function buildRSSFromEmailFolder(emails: Email[], feedSetup: RSSFeedOptions): BuildRSSResult {
   const feed = new Feed({
     id: feedSetup.id,
     title: feedSetup.feedName || feedSetup.title || "Email Feed",
@@ -593,6 +711,23 @@ export function buildRSSFromEmailFolder(emails: Email[], feedSetup: RSSFeedOptio
       .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // Remove invalid XML characters
       .replace(/&(?!(?:amp|lt|gt|quot|apos|nbsp);)/g, '&amp;'); // Escape unescaped ampersands
   };
+
+  // Per-item HTML page setup. We write a static .html per email under
+  // public/feeds/<feedId>/ so the <link> can be a real http(s) URL instead
+  // of an unsupported `mailto:` scheme. Falls back to a relative URL if
+  // SERVER_URL isn't explicitly configured.
+  const feedId = feedSetup.feedId;
+  const safeFeedId = isSafePathComponent(feedId) ? feedId : null;
+  const itemsDir = safeFeedId ? path.join(__dirname, "../public/feeds", safeFeedId) : null;
+  const explicitBase = (feedSetup.serverUrl || "").replace(/\/+$/, "");
+  if (itemsDir) {
+    try {
+      mkdirSync(itemsDir, { recursive: true });
+    } catch (e: any) {
+      console.error(`[IMAP] Could not create items dir ${itemsDir}:`, e?.message);
+    }
+  }
+  const writtenIds = new Set<string>();
 
   emails.forEach((email) => {
     let descriptionText: string | undefined = email.textBody;
@@ -623,16 +758,42 @@ export function buildRSSFromEmailFolder(emails: Email[], feedSetup: RSSFeedOptio
       descriptionText = "(No descriptive content)";
     }
 
+    // Keep a copy of the (cleaned but not XML-escaped) HTML for the per-item
+    // page. The XML sanitizer escapes ampersands etc. for embedding inside
+    // CDATA; for a standalone HTML file we want the original markup.
+    const itemPageHtml = contentEncodedHtml || "";
+
     // Sanitize both description and content for XML
     descriptionText = sanitizeForXML(descriptionText || "");
     contentEncodedHtml = sanitizeForXML(contentEncodedHtml || "");
-    
+
+    // Write the per-item HTML page and compute its link.
+    const itemId = emailItemId(email);
+    let itemLink = "";
+    if (itemsDir && safeFeedId) {
+      try {
+        const safeBody = sanitizeEmailHtmlForPage(itemPageHtml);
+        const pageHtml = buildEmailItemHtml(
+          email.subject || "",
+          email.from || "",
+          email.date ? new Date(email.date) : undefined,
+          safeBody,
+        );
+        writeFileSync(path.join(itemsDir, `${itemId}.html`), pageHtml, "utf8");
+        writtenIds.add(`${itemId}.html`);
+        const relPath = `/public/feeds/${safeFeedId}/${itemId}.html`;
+        itemLink = explicitBase ? `${explicitBase}${relPath}` : relPath;
+      } catch (e: any) {
+        console.error(`[IMAP] Failed to write item page for ${itemId}:`, e?.message);
+      }
+    }
+
     const itemOptions: RSSItemOptions = {
       title: sanitizeForXML(email.subject || "(No Subject)"),
       description: descriptionText,
       date: email.date ? new Date(email.date) : new Date(),
       guid: email.messageId || email.UID.toString(), // Use Message-ID as GUID, fallback to UID
-      link: email.messageId ? `mailto:${email.messageId}` : `mailto:${email.UID}`, // Email items use mailto: scheme
+      link: itemLink, // http(s) (or relative) link to the per-item page; readers reject `mailto:`
       content: contentEncodedHtml, // Content is now a standard field
     };
 
@@ -663,12 +824,30 @@ export function buildRSSFromEmailFolder(emails: Email[], feedSetup: RSSFeedOptio
     feed.addItem(itemOptions);
   });
 
-  return feed.rss2();
+  // Pruning is deferred: we only want to delete stale per-item pages once
+  // the new feed XML is durably on disk. Otherwise a write failure could
+  // leave the existing XML referencing files we just deleted.
+  const commit = () => {
+    if (!itemsDir) return;
+    try {
+      for (const name of readdirSync(itemsDir)) {
+        if (name.endsWith(".html") && !writtenIds.has(name)) {
+          try { unlinkSync(path.join(itemsDir, name)); } catch { /* ignore */ }
+        }
+      }
+    } catch {
+      // Directory may not exist yet on a brand-new feed; that's fine.
+    }
+  };
+
+  return { xml: feed.rss2(), commit };
 }
 
-const serverUrl = rawConfig.serverUrl || process.env.SERVER_URL || 'http://localhost:5000';
+const explicitServerUrl = (rawConfig.serverUrl || process.env.SERVER_URL || '').replace(/\/+$/, '');
+const serverUrl = explicitServerUrl || 'http://localhost:5000';
 const completeFeedConfig: RSSFeedOptions = {
     id: `${serverUrl}/public/feeds/${rawConfig.feedId}.xml`,
+    serverUrl: explicitServerUrl, // empty => per-item links use relative URLs
     link: rawConfig.link || 'mailto:' + (imapOriginalConfig.user || ''),
     title: rawConfig.feedName || `Email Feed: ${imapOriginalConfig.folder}`,
     description: rawConfig.description || `Emails from ${imapOriginalConfig.user || 'unknown user'}/${imapOriginalConfig.folder}`,
