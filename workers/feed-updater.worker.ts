@@ -10,7 +10,7 @@ import { join } from "path";
 import { chromium } from "patchright";
 import { getChromiumLaunchOptions } from "../utilities/chrome-extensions.utility";
 import { getRandomUserAgent } from "../utilities/user-agents.utility";
-import { loadDateIndex, saveDateIndex } from "../utilities/feed-history.utility";
+import { loadDateIndex, saveDateIndex, getPreviousFeedHistory, storeFeedHistory } from "../utilities/feed-history.utility";
 
 declare var self: Worker;
 const rssDir = "./public/feeds";
@@ -190,7 +190,11 @@ async function fetchDataAndUpdateFeed(feedConfig: any) {
     if (rssXml) {
       const rssFilePath = join(rssDir, `${feedConfig.feedId}.xml`);
       await writeFile(rssFilePath, rssXml, "utf8");
-      await saveDateIndex(feedConfig.feedId, dateIndex);
+      try {
+        await saveDateIndex(feedConfig.feedId, dateIndex);
+      } catch (indexErr) {
+        console.error(`[Feed ${feedConfig.feedId}] Failed to persist date index:`, indexErr);
+      }
 
       // Handle webhook if configured
       if (feedConfig.webhook?.enabled && feedConfig.webhook?.url) {
@@ -201,10 +205,6 @@ async function fetchDataAndUpdateFeed(feedConfig: any) {
             createJsonWebhookPayload,
             getNewItemsFromRSS,
           } = await import("../utilities/webhook.utility");
-          const { getPreviousFeedHistory, storeFeedHistory } = await import(
-            "../utilities/feed-history.utility"
-          );
-
           let shouldSendWebhook = true;
           let webhookRssXml = rssXml;
 
