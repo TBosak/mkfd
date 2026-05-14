@@ -59,16 +59,21 @@ export async function clearFeedHistory(feedId: string): Promise<void> {
   }
 }
 
+function stableStringify(val: unknown): string {
+  if (Array.isArray(val)) return `[${val.map(stableStringify).join(",")}]`;
+  if (val !== null && typeof val === "object") {
+    return `{${Object.keys(val as object).sort().map(k => `${JSON.stringify(k)}:${stableStringify((val as Record<string, unknown>)[k])}`).join(",")}}`;
+  }
+  return JSON.stringify(val);
+}
+
 /**
  * Produces a stable SHA-256 fingerprint for an RSS item, excluding the date
  * field so that items re-fetched on different days hash identically.
  */
 export function makeItemKey(item: Record<string, unknown>): string {
-  const { date, ...rest } = item;
-  const sorted = Object.fromEntries(
-    Object.entries(rest).sort(([a], [b]) => a.localeCompare(b))
-  );
-  return createHash("sha256").update(JSON.stringify(sorted)).digest("hex");
+  const { date: _date, ...rest } = item;
+  return createHash("sha256").update(stableStringify(rest)).digest("hex");
 }
 
 /**
@@ -99,5 +104,6 @@ export async function saveDateIndex(feedId: string, index: Map<string, string>):
     await writeFile(indexPath, JSON.stringify(Object.fromEntries(index)), "utf8");
   } catch (error) {
     console.error(`Error saving date index for ${feedId}:`, error);
+    throw error;
   }
 }

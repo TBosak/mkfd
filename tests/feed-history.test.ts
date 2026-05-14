@@ -15,9 +15,10 @@ afterEach(() => {
 });
 
 describe("makeItemKey", () => {
-  it("returns the same hash for identical inputs", () => {
-    const item = { title: "Foo", link: "https://example.com/1", guid: "" };
-    expect(makeItemKey(item)).toBe(makeItemKey(item));
+  it("returns the same hash regardless of field insertion order", () => {
+    const a = { link: "https://example.com/1", title: "Foo", guid: "" };
+    const b = { title: "Foo", guid: "", link: "https://example.com/1" };
+    expect(makeItemKey(a)).toBe(makeItemKey(b));
   });
 
   it("returns different hashes for different inputs", () => {
@@ -69,5 +70,15 @@ describe("loadDateIndex / saveDateIndex", () => {
     expect(loaded.size).toBe(1);
     expect(loaded.has("key1")).toBe(false);
     expect(loaded.get("key2")).toBe("2024-06-01T00:00:00.000Z");
+  });
+
+  it("returns an empty Map when the index file contains invalid JSON", async () => {
+    const { writeFileSync, mkdirSync } = await import("fs");
+    mkdirSync("./feed-history", { recursive: true });
+    writeFileSync(INDEX_PATH, "{ invalid json {{", "utf8");
+
+    const index = await loadDateIndex(FEED_ID);
+    expect(index).toBeInstanceOf(Map);
+    expect(index.size).toBe(0);
   });
 });
