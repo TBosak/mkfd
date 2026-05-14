@@ -18,6 +18,7 @@ import {
 } from "./data-handler.utility";
 import { sanitizeForXML, sanitizeURLForXML } from "./xml-sanitizer.utility";
 import ApiConfig from "./../models/apiconfig.model";
+import { makeItemKey } from "./feed-history.utility";
 import striptags from "striptags";
 
 export async function buildRSS(res: any, feedConfig: any): Promise<string> {
@@ -351,7 +352,7 @@ export async function buildRSS(res: any, feedConfig: any): Promise<string> {
   return fallbackFeed.rss2();
 }
 
-export function buildRSSFromApiData(apiData: any, feedConfig: any): string {
+export function buildRSSFromApiData(apiData: any, feedConfig: any, dateIndex?: Map<string, string>): string {
   const mapping = feedConfig.apiMapping as ApiMapping;
   const config = feedConfig.config as ApiConfig;
 
@@ -451,16 +452,28 @@ export function buildRSSFromApiData(apiData: any, feedConfig: any): string {
   }
 
   items.forEach((item: any) => {
+    const rawDate = processDates(get(item, mapping.date, ""));
+
     const itemData: RSSItemOptions = {
       title: sanitizeForXML(get(item, mapping.title, "")),
       description: sanitizeForXML(get(item, mapping.description, "")),
       link: sanitizeURLForXML(get(item, mapping.link, "")),
-      date: processDates(get(item, mapping.date, "")),
+      date: rawDate,
       guid: sanitizeForXML(get(item, mapping.guid, undefined)),
     };
 
+    const stableKey = makeItemKey(itemData as Record<string, unknown>);
+
+    if (dateIndex) {
+      if (dateIndex.has(stableKey)) {
+        itemData.date = new Date(dateIndex.get(stableKey)!);
+      } else {
+        dateIndex.set(stableKey, rawDate.toISOString());
+      }
+    }
+
     if (itemData.guid === undefined || itemData.guid === "") {
-      itemData.guid = Bun.hash(JSON.stringify(itemData)).toString();
+      itemData.guid = stableKey;
     }
 
     // Store authorName for later use in extensions
