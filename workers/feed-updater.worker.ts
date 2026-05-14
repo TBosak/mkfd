@@ -10,6 +10,7 @@ import { join } from "path";
 import { chromium } from "patchright";
 import { getChromiumLaunchOptions } from "../utilities/chrome-extensions.utility";
 import { getRandomUserAgent } from "../utilities/user-agents.utility";
+import { loadDateIndex, saveDateIndex } from "../utilities/feed-history.utility";
 
 declare var self: Worker;
 const rssDir = "./public/feeds";
@@ -17,6 +18,7 @@ const rssDir = "./public/feeds";
 async function fetchDataAndUpdateFeed(feedConfig: any) {
   try {
     let rssXml: string | undefined;
+    const dateIndex = await loadDateIndex(feedConfig.feedId);
 
     // Common: Convert cookie array to string for Axios, or format for Playwright
     const cookieString = (feedConfig.cookies || [])
@@ -64,7 +66,7 @@ async function fetchDataAndUpdateFeed(feedConfig: any) {
           flaresolverrResponse.data?.solution?.status === 200
         ) {
           const html = flaresolverrResponse.data.solution.response;
-          rssXml = await buildRSS(html, feedConfig);
+          rssXml = await buildRSS(html, feedConfig, dateIndex);
         } else {
           throw new Error(
             `FlareSolverr failed: ${
@@ -120,7 +122,7 @@ async function fetchDataAndUpdateFeed(feedConfig: any) {
         }
         const html = await page.content();
         await browser.close();
-        rssXml = await buildRSS(html, feedConfig); // feedConfig now has all RSS options
+        rssXml = await buildRSS(html, feedConfig, dateIndex); // feedConfig now has all RSS options
       } else {
         // Standard web scraping with Axios
         const response = await axios.get(feedConfig.config.baseUrl, {
@@ -132,7 +134,7 @@ async function fetchDataAndUpdateFeed(feedConfig: any) {
           maxBodyLength: 2 * 1024 * 1024, // 2MB
         });
         const html = response.data;
-        rssXml = await buildRSS(html, feedConfig); // feedConfig now has all RSS options
+        rssXml = await buildRSS(html, feedConfig, dateIndex); // feedConfig now has all RSS options
       }
     } else if (feedConfig.feedType === "api") {
       const method = String(feedConfig.config.method || "GET").toUpperCase();
@@ -182,12 +184,13 @@ async function fetchDataAndUpdateFeed(feedConfig: any) {
 
       const response = await axios(axiosConfig);
       const apiData = response.data;
-      rssXml = buildRSSFromApiData(apiData, feedConfig);
+      rssXml = buildRSSFromApiData(apiData, feedConfig, dateIndex);
     }
 
     if (rssXml) {
       const rssFilePath = join(rssDir, `${feedConfig.feedId}.xml`);
       await writeFile(rssFilePath, rssXml, "utf8");
+      await saveDateIndex(feedConfig.feedId, dateIndex);
 
       // Handle webhook if configured
       if (feedConfig.webhook?.enabled && feedConfig.webhook?.url) {
