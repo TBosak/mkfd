@@ -1,5 +1,5 @@
 import { describe, it, expect } from "bun:test";
-import { buildRSSFromApiData } from "../utilities/rss-builder.utility";
+import { buildRSSFromApiData, buildRSS } from "../utilities/rss-builder.utility";
 
 const BASE_CONFIG = {
   feedId: "test-api-feed",
@@ -79,6 +79,70 @@ describe("buildRSSFromApiData — stable GUID", () => {
 
     const xml1 = buildRSSFromApiData(apiData, BASE_CONFIG, new Map());
     const xml2 = buildRSSFromApiData(apiData, BASE_CONFIG, new Map());
+
+    const guids1 = extractGuids(xml1);
+    const guids2 = extractGuids(xml2);
+
+    expect(guids1.length).toBe(1);
+    expect(guids1[0]).toBe(guids2[0]);
+  });
+});
+
+const SAMPLE_HTML = `
+  <html><body>
+    <div class="post">
+      <h2 class="title">Hello World</h2>
+      <a class="link" href="https://example.com/hello">Read</a>
+      <p class="description">Some body text.</p>
+    </div>
+  </body></html>
+`;
+
+const SCRAPING_CONFIG = {
+  feedId: "test-web-feed",
+  config: { baseUrl: "https://example.com" },
+  article: {
+    iterator: { selector: ".post" },
+    title: { selector: ".title", stripHtml: true },
+    link: { selector: ".link", attribute: "href" },
+    description: { selector: ".description", stripHtml: true },
+    date: { selector: ".date" },   // not present — will fall back to processDates("")
+    guid: { selector: ".guid" },   // not present — will fall back to makeItemKey
+  },
+  serverUrl: "http://localhost:5000",
+};
+
+describe("buildRSS — dateIndex", () => {
+  it("adds a new item to the dateIndex on first build", async () => {
+    const dateIndex = new Map<string, string>();
+    await buildRSS(SAMPLE_HTML, SCRAPING_CONFIG, dateIndex);
+    expect(dateIndex.size).toBe(1);
+  });
+
+  it("preserves the stored date for a recognised item and does not add a new entry", async () => {
+    const dateIndex = new Map<string, string>();
+
+    await buildRSS(SAMPLE_HTML, SCRAPING_CONFIG, dateIndex);
+    expect(dateIndex.size).toBe(1);
+
+    const storedDate = "2024-03-10T08:00:00.000Z";
+    const [key] = dateIndex.keys();
+    dateIndex.set(key, storedDate);
+
+    await buildRSS(SAMPLE_HTML, SCRAPING_CONFIG, dateIndex);
+    expect(dateIndex.size).toBe(1);
+    expect(dateIndex.get(key)).toBe(storedDate);
+  });
+
+  it("works correctly when dateIndex is not provided", async () => {
+    await expect(buildRSS(SAMPLE_HTML, SCRAPING_CONFIG)).resolves.toBeString();
+  });
+});
+
+describe("buildRSS — stable GUID", () => {
+  it("produces the same GUID across two builds", async () => {
+    const xml1 = await buildRSS(SAMPLE_HTML, SCRAPING_CONFIG, new Map());
+    const xml2 = await buildRSS(SAMPLE_HTML, SCRAPING_CONFIG, new Map());
 
     const guids1 = extractGuids(xml1);
     const guids2 = extractGuids(xml2);

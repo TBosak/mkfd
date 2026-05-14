@@ -21,7 +21,7 @@ import ApiConfig from "./../models/apiconfig.model";
 import { makeItemKey } from "./feed-history.utility";
 import striptags from "striptags";
 
-export async function buildRSS(res: any, feedConfig: any): Promise<string> {
+export async function buildRSS(res: any, feedConfig: any, dateIndex?: Map<string, string>): Promise<string> {
   const apiConfig: ApiConfig = feedConfig.config;
   const article = feedConfig.article as CSSTargetFields;
   const reverse: boolean = feedConfig.reverse || false;
@@ -58,11 +58,7 @@ export async function buildRSS(res: any, feedConfig: any): Promise<string> {
               article.link?.baseUrl,
             ),
           ),
-          date: processDates(
-            await extractField($, el, article.date, advanced, false, false, flaresolverr, cookies),
-            article.date?.stripHtml,
-            article.date?.dateFormat,
-          ),
+          date: new Date(), // placeholder — overwritten below after stableKey is computed
           guid: sanitizeForXML(
             await extractField($, el, article.guid, advanced, false, false, flaresolverr, cookies),
           ),
@@ -205,8 +201,25 @@ export async function buildRSS(res: any, feedConfig: any): Promise<string> {
           itemData.extensions = extensions;
         }
 
+        const rawDate = processDates(
+          await extractField($, el, article.date, advanced, false, false, flaresolverr, cookies),
+          article.date?.stripHtml,
+          article.date?.dateFormat,
+        );
+        itemData.date = rawDate;
+
+        const stableKey = makeItemKey(itemData as Record<string, unknown>);
+
+        if (dateIndex) {
+          if (dateIndex.has(stableKey)) {
+            itemData.date = new Date(dateIndex.get(stableKey)!);
+          } else {
+            dateIndex.set(stableKey, rawDate.toISOString());
+          }
+        }
+
         if (itemData.guid === undefined || itemData.guid === "") {
-          itemData.guid = Bun.hash(JSON.stringify(itemData)).toString();
+          itemData.guid = stableKey;
         }
 
         return itemData;
