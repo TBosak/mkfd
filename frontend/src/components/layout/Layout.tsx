@@ -14,7 +14,7 @@ export const Layout: React.FC<LayoutProps> = ({ children }) => {
         <Card className="my-8 shadow-lg border-0 bg-white/80 backdrop-blur-sm dark:bg-slate-900/80 slide-up">
           <CardContent className="p-0">
             <Header />
-            <main className="px-6 md:px-32 pb-12">
+            <main className="px-6 md:px-32 pt-8 pb-12">
               {children}
             </main>
             <div className="px-6 md:px-32 pb-6">

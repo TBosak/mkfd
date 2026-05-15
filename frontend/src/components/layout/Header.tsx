@@ -18,15 +18,15 @@ export const Header: React.FC = () => {
               Transform Any Source into RSS
             </p>
           </div>
-          <nav className="flex gap-2">
+          <nav className="flex items-center bg-slate-100/70 dark:bg-slate-800/50 rounded-lg p-0.5 gap-0.5">
             <NavLink
               to="/"
               end
               className={({ isActive }) =>
-                `text-sm font-medium px-4 py-1.5 rounded-full transition-colors ${
+                `text-xs font-medium px-4 py-1.5 rounded-md transition-all duration-200 ${
                   isActive
-                    ? "bg-gradient-to-r from-orange-500 to-red-600 text-white"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    ? "bg-white dark:bg-slate-700 text-orange-600 dark:text-orange-400 shadow-sm"
+                    : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
                 }`
               }
             >
@@ -35,10 +35,10 @@ export const Header: React.FC = () => {
             <NavLink
               to="/feeds"
               className={({ isActive }) =>
-                `text-sm font-medium px-4 py-1.5 rounded-full transition-colors ${
+                `text-xs font-medium px-4 py-1.5 rounded-md transition-all duration-200 ${
                   isActive
-                    ? "bg-gradient-to-r from-orange-500 to-red-600 text-white"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    ? "bg-white dark:bg-slate-700 text-orange-600 dark:text-orange-400 shadow-sm"
+                    : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
                 }`
               }
             >
