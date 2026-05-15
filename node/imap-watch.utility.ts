@@ -1,16 +1,16 @@
 #!/usr/bin/env node
 import yaml from "js-yaml";
-import path from "path";
+import path from "node:path";
 import Imap from "node-imap";
 import libmime from "libmime";
 import minimist from "minimist";
 import { Feed } from "feed";
-import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, unlinkSync } from "fs";
-import { createHash } from "crypto";
+import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, unlinkSync } from "node:fs";
+import { createHash } from "node:crypto";
 import { simpleParser } from "mailparser";
 import { decrypt } from "../utilities/security.utility.ts";
-import { fileURLToPath } from "url";
-import { dirname } from "path";
+import { fileURLToPath } from "node:url";
+import { dirname } from "node:path";
 import * as cheerio from "cheerio";
 
 // Type definitions (inline to avoid ES module issues in Node.js worker)
@@ -182,7 +182,7 @@ class ImapWatcher {
 
     const imapConnectionDetails = this.config.config;
 
-    if (!imapConnectionDetails || !imapConnectionDetails.host || !imapConnectionDetails.port) {
+    if (!imapConnectionDetails?.host || !imapConnectionDetails.port) {
         console.error("[IMAP Node Watcher] CRITICAL: IMAP connection details (host, port) are missing in the processed config for feedId:", this.config.feedId);
     }
 
@@ -641,7 +641,7 @@ function sanitizeEmailHtmlForPage(html: string): string {
   // Remove tags that can execute or otherwise mis-direct navigation.
   $("script, style, link, iframe, object, embed, form, base, meta, svg, math, frame, frameset, applet, audio, video, source, track").remove();
   $("*").each((_i, el: any) => {
-    if (!el || !el.attribs) return;
+    if (!el?.attribs) return;
     for (const attr of Object.keys(el.attribs)) {
       const lower = attr.toLowerCase();
       // Strip all event handlers.
@@ -742,7 +742,7 @@ export function buildRSSFromEmailFolder(emails: Email[], feedSetup: RSSFeedOptio
       if (!descriptionText || descriptionText.trim() === "") {
         // Prefer text from <body>, fallback to :root
         const textSource = $('body').length ? $('body') : $(':root');
-        let extractedText = textSource.text();
+        const extractedText = textSource.text();
         
         // Normalize all whitespace (including newlines) to single spaces and trim
         descriptionText = extractedText.replace(/\s+/g, ' ').trim();
@@ -848,7 +848,7 @@ const serverUrl = explicitServerUrl || 'http://localhost:5000';
 const completeFeedConfig: RSSFeedOptions = {
     id: `${serverUrl}/public/feeds/${rawConfig.feedId}.xml`,
     serverUrl: explicitServerUrl, // empty => per-item links use relative URLs
-    link: rawConfig.link || 'mailto:' + (imapOriginalConfig.user || ''),
+    link: rawConfig.link || `mailto:${imapOriginalConfig.user || ''}`,
     title: rawConfig.feedName || `Email Feed: ${imapOriginalConfig.folder}`,
     description: rawConfig.description || `Emails from ${imapOriginalConfig.user || 'unknown user'}/${imapOriginalConfig.folder}`,
     copyright: rawConfig.copyright || '',

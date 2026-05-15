@@ -1,5 +1,5 @@
-import { readdirSync, statSync, existsSync } from "fs";
-import { join } from "path";
+import { readdirSync, statSync, existsSync } from "node:fs";
+import { join } from "node:path";
 
 /**
  * Gets Chrome extension paths from the configured extensions directory

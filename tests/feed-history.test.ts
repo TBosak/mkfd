@@ -1,6 +1,6 @@
 import { describe, it, expect, afterEach } from "bun:test";
-import { existsSync, rmSync } from "fs";
-import { join } from "path";
+import { existsSync, rmSync } from "node:fs";
+import { join } from "node:path";
 import {
   makeItemKey,
   loadDateIndex,
@@ -73,7 +73,7 @@ describe("loadDateIndex / saveDateIndex", () => {
   });
 
   it("returns an empty Map when the index file contains invalid JSON", async () => {
-    const { writeFileSync, mkdirSync } = await import("fs");
+    const { writeFileSync, mkdirSync } = await import("node:fs");
     mkdirSync("./feed-history", { recursive: true });
     writeFileSync(INDEX_PATH, "{ invalid json {{", "utf8");
 

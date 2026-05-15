@@ -2,7 +2,7 @@ import axios from "axios";
 import dayjs from "dayjs";
 import * as cheerio from "cheerio";
 import customParseFormat from "dayjs/plugin/customParseFormat";
-import { Browser, chromium, Cookie, Page } from "patchright";
+import { type Browser, chromium, type Cookie, type Page } from "patchright";
 import { getChromiumLaunchOptions } from "./chrome-extensions.utility";
 import { getRandomUserAgent } from "./user-agents.utility";
 import { discoverUrl, looksLikeUrl } from "./rss-builder.utility";
@@ -14,13 +14,11 @@ export function stripHtml(html: string) {
 }
 
 export function titleCase(words: string) {
-  return words.replace(/\w\S*/g, function (txt) {
-    return txt.charAt(0).toUpperCase() + txt.substring(1).toLowerCase();
-  });
+  return words.replace(/\w\S*/g, (txt) => txt.charAt(0).toUpperCase() + txt.substring(1).toLowerCase());
 }
 
 export function appendUrl(url?: string, link?: string) {
-  if (!!url && !!link) {
+  if (url && link) {
     if (link.startsWith("/")) {
       return url.endsWith("/")
         ? `${url.substring(0, url.length - 1)}${link}`
@@ -92,15 +90,15 @@ export function processDates(
   function parseDate(value: string, type: string): Date | null {
     switch (type) {
       case "unix":
-        return new Date(parseInt(value) * 1000);
+        return new Date(parseInt(value, 10) * 1000);
       case "unixMillis":
-        return new Date(parseInt(value));
+        return new Date(parseInt(value, 10));
       case "iso":
         return new Date(value);
       case "yyyy-mm-dd":
         return new Date(`${value}T00:00:00Z`);
       case "yyyy-mm-dd hh:mm:ss":
-        return new Date(value + "Z");
+        return new Date(`${value}Z`);
       case "utc":
         return new Date(value);
       default:
@@ -112,7 +110,7 @@ export function processDates(
     const match = result.match(regex);
     if (match) {
       const parsedDate = parseDate(match[0], type);
-      if (parsedDate && !isNaN(parsedDate.getTime())) {
+      if (parsedDate && !Number.isNaN(parsedDate.getTime())) {
         return parsedDate;
       }
     }
@@ -120,7 +118,7 @@ export function processDates(
 
   // Fallback: try to parse with Date constructor or return current date
   const fallbackDate = new Date(result);
-  if (!isNaN(fallbackDate.getTime())) {
+  if (!Number.isNaN(fallbackDate.getTime())) {
     return fallbackDate;
   }
 
@@ -131,7 +129,7 @@ export function get(obj, path, defaultValue) {
   if (!path || typeof path !== "string") return defaultValue;
   const keys = path.split(".");
   let result = obj;
-  for (let key of keys) {
+  for (const key of keys) {
     if (result == null || !(key in result)) return defaultValue;
     result = result[key];
   }

@@ -1,10 +1,10 @@
-import { writeFile } from "fs/promises";
-import axios, { AxiosRequestConfig } from "axios";
+import { writeFile } from "node:fs/promises";
+import axios, { type AxiosRequestConfig } from "axios";
 import {
   buildRSS,
   buildRSSFromApiData,
 } from "../utilities/rss-builder.utility";
-import { join } from "path";
+import { join } from "node:path";
 // parseCookiesForPlaywright might be simplified or removed if cookies are directly structured correctly
 // import { parseCookiesForPlaywright } from "../utilities/data-handler.utility"
 import { chromium } from "patchright";
@@ -114,7 +114,7 @@ async function fetchDataAndUpdateFeed(feedConfig: any) {
             waitUntil: "networkidle",
             timeout: 10000, // 10 second timeout for networkidle
           });
-        } catch (error) {
+        } catch (_error) {
           // If networkidle times out, page is likely already loaded
           console.log(
             `[Feed ${feedConfig.feedId}] Networkidle timeout, using current page state`

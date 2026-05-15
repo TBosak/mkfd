@@ -22,7 +22,7 @@ interface FlareSolverrConfig {
  * Find the main content area using heuristics (inspired by Readability)
  * Returns the element most likely to contain the main content
  */
-function findMainContentArea($: cheerio.Root): cheerio.Cheerio {
+function _findMainContentArea($: cheerio.Root): cheerio.Cheerio {
   // Check semantic elements first (highest confidence)
   const semanticMain = $('main, [role="main"]');
   if (semanticMain.length > 0) {
@@ -47,7 +47,7 @@ function findMainContentArea($: cheerio.Root): cheerio.Cheerio {
 
     const className = ($el.attr('class') || '').toLowerCase();
     const id = ($el.attr('id') || '').toLowerCase();
-    const combined = className + ' ' + id;
+    const combined = `${className} ${id}`;
 
     // Positive signals (content indicators)
     if (/\bcontent\b|\bmain\b|\barticle\b|\bpost\b|\bentry\b|\bstory\b|\bnews\b|\bfeed\b/.test(combined)) {
@@ -888,7 +888,7 @@ function findCommonParents(
           .trim()
           .split(/\s+/)
           .join(".");
-        const parentSelector = `${tagName}${classList ? "." + classList : ""}`;
+        const parentSelector = `${tagName}${classList ? `.${classList}` : ""}`;
         selectorCounts[parentSelector] =
           (selectorCounts[parentSelector] || 0) + 1;
       });
@@ -949,7 +949,7 @@ function cssModulePrefixSelector(className: string): string | null {
 /**
  * Fix 4: Generate stable selector from element (handles CSS modules)
  */
-function stableSelectorFromElement($el: cheerio.Cheerio): string {
+function _stableSelectorFromElement($el: cheerio.Cheerio): string {
   const tag = ($el.get(0) as any)?.tagName?.toLowerCase?.() || "";
   const classes = ($el.attr("class") || "").split(/\s+/).filter(Boolean);
 
@@ -1246,7 +1246,7 @@ function suggestChildSelectors(
           const parent = $el.parent();
           const parentClass = (parent.attr('class') || '').toLowerCase();
           const parentId = (parent.attr('id') || '').toLowerCase();
-          if (/author|byline|writer|contributor/i.test(parentClass + ' ' + parentId)) {
+          if (/author|byline|writer|contributor/i.test(`${parentClass} ${parentId}`)) {
             parentAuthorBonus++;
           }
         });
@@ -1389,7 +1389,7 @@ function suggestChildSelectors(
 function extractValue(
   field: string,
   $el: cheerio.Cheerio,
-  $: cheerio.Root
+  _$: cheerio.Root
 ): string {
   if ($el.length === 0) return "";
 
@@ -1726,7 +1726,7 @@ function minimizeSelector(
   }
 
   // Validate each candidate across sampled items
-  const originalValue = extractValue(field, $el, $);
+  const _originalValue = extractValue(field, $el, $);
 
   for (const candidate of candidates) {
     let validCount = 0;

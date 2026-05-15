@@ -1,7 +1,7 @@
-import { readFile, writeFile } from "fs/promises";
-import { existsSync, mkdirSync } from "fs";
-import { join } from "path";
-import { createHash } from "crypto";
+import { readFile, writeFile } from "node:fs/promises";
+import { existsSync, mkdirSync } from "node:fs";
+import { join } from "node:path";
+import { createHash } from "node:crypto";
 
 const FEED_HISTORY_DIR = "./feed-history";
 
@@ -51,7 +51,7 @@ export async function clearFeedHistory(feedId: string): Promise<void> {
   const historyPath = join(FEED_HISTORY_DIR, `${feedId}.xml`);
   try {
     if (existsSync(historyPath)) {
-      const { unlink } = await import("fs/promises");
+      const { unlink } = await import("node:fs/promises");
       await unlink(historyPath);
     }
   } catch (error) {
