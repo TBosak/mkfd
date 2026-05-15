@@ -23,7 +23,7 @@ export async function storeFeedHistory(feedId: string, rssXml: string): Promise<
   try {
     await writeFile(historyPath, rssXml, "utf8");
   } catch (error) {
-    console.error(`Error storing feed history for ${feedId}:`, error);
+    console.error("Error storing feed history for %s:", feedId, error);
   }
 }
 
@@ -39,7 +39,7 @@ export async function getPreviousFeedHistory(feedId: string): Promise<string | n
     }
     return null;
   } catch (error) {
-    console.error(`Error reading feed history for ${feedId}:`, error);
+    console.error("Error reading feed history for %s:", feedId, error);
     return null;
   }
 }
@@ -55,7 +55,7 @@ export async function clearFeedHistory(feedId: string): Promise<void> {
       await unlink(historyPath);
     }
   } catch (error) {
-    console.error(`Error clearing feed history for ${feedId}:`, error);
+    console.error("Error clearing feed history for %s:", feedId, error);
   }
 }
 
@@ -89,7 +89,7 @@ export async function loadDateIndex(feedId: string): Promise<Map<string, string>
       return new Map(Object.entries(JSON.parse(raw)));
     }
   } catch (error) {
-    console.error(`Error loading date index for ${feedId}:`, error);
+    console.error("Error loading date index for %s:", feedId, error);
   }
   return new Map();
 }
@@ -103,7 +103,7 @@ export async function saveDateIndex(feedId: string, index: Map<string, string>):
   try {
     await writeFile(indexPath, JSON.stringify(Object.fromEntries(index)), "utf8");
   } catch (error) {
-    console.error(`Error saving date index for ${feedId}:`, error);
+    console.error("Error saving date index for %s:", feedId, error);
     throw error;
   }
 }
