@@ -1,10 +1,11 @@
-import React from 'react'
+import React from "react";
+import { Link } from "react-router-dom";
 
 export const Footer: React.FC = () => {
   return (
     <footer className="mt-12 border-t pt-6 flex justify-between items-center text-sm text-muted-foreground">
       <p>
-        Created by{' '}
+        Created by{" "}
         <a
           href="https://github.com/TBosak"
           className="text-primary hover:underline"
@@ -14,12 +15,9 @@ export const Footer: React.FC = () => {
           Tim Barani
         </a>
       </p>
-      <a
-        href="/feeds"
-        className="text-primary hover:underline"
-      >
+      <Link to="/feeds" className="text-primary hover:underline">
         View Active Feeds
-      </a>
+      </Link>
     </footer>
-  )
-}
+  );
+};
