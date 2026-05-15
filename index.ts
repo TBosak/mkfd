@@ -853,132 +853,6 @@ app.post("/preview", async (ctx) => {
   }
 });
 
-app.get("/feeds", async (ctx) => {
-  const files = await readdir(configsDir);
-  const yamlFiles = files.filter((file) => file.endsWith(".yaml"));
-  const configs = [];
-
-  // Read feed configurations
-  for (const file of yamlFiles) {
-    const filePath = join(configsDir, file);
-    const yamlContent = await readFile(filePath, "utf8");
-    const feedConfig = yaml.load(yamlContent);
-    configs.push(feedConfig);
-  }
-
-  // Start building the HTML response
-  let response = `
-    <!DOCTYPE html>
-    <html lang="en">
-    <head>
-      <meta charset="UTF-8">
-      <title>Feeds</title>
-      <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
-    </head>
-    <body>
-      <main class="container">
-        <script>
-          function confirmDelete(feedId) {
-            return confirm("Are you sure you want to delete this feed?");
-          }
-
-          async function triggerWebhook(feedId) {
-            try {
-              const response = await fetch('/trigger-webhook', {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                },
-                body: JSON.stringify({ feedId })
-              });
-
-              const result = await response.json();
-
-              if (response.ok) {
-                alert('Webhook triggered successfully!\\n\\nFeed: ' + feedId + '\\nWebhook URL: ' + result.webhookUrl + '\\nItems sent: ' + result.itemCount);
-              } else {
-                alert('Webhook failed: ' + result.error);
-              }
-            } catch (error) {
-              alert('Error triggering webhook: ' + error.message);
-            }
-          }
-        </script>
-        <header style="text-align:center;"><h1>Active RSS Feeds</h1></header>
-        <div>
-  `;
-
-  // Process each feed to extract information
-  for (const config of configs) {
-    const feedId = config.feedId;
-    const feedName = config.feedName;
-    const feedType = config.feedType;
-
-    // Read the corresponding XML file
-    const xmlFilePath = join(feedPath, `${feedId}.xml`);
-    let lastBuildDate = "N/A";
-    try {
-      const xmlContent = await readFile(xmlFilePath, "utf8");
-      // Parse the XML to extract lastBuildDate
-      const parser = new DOMParser();
-      const xmlDoc = parser.parseFromString(xmlContent, "application/xml");
-      const lastBuildDateNode = xmlDoc.getElementsByTagName("lastBuildDate")[0];
-      if (lastBuildDateNode?.textContent) {
-        lastBuildDate = new Date(
-          lastBuildDateNode.textContent
-        ).toLocaleString();
-      }
-    } catch (error) {
-      console.error(`Error reading XML for feedId ${feedId}:`, error);
-    }
-
-    // Build the card for this feed
-    const hasWebhook = config.webhook?.enabled && config.webhook?.url;
-    response += `
-      <article>
-        <header>
-          <h2>${feedName}</h2>
-        </header>
-        <p><strong>Feed ID:</strong> ${feedId}</p>
-        <p><strong>Build Time:</strong> ${lastBuildDate}</p>
-        <p><strong>Feed Type:</strong> ${feedType}</p>
-        ${
-          hasWebhook
-            ? `<p><strong>Webhook:</strong> ✅ Enabled</p>`
-            : "<p><strong>Webhook:</strong> ❌ Disabled</p>"
-        }
-        <footer>
-        <div class="grid">
-            <a href="public/feeds/${feedId}.xml" style="margin-right: auto;line-height:3em;">View Feed</a>
-            ${
-              hasWebhook
-                ? `
-            <button onclick="triggerWebhook('${feedId}')" class="outline">
-              🪝 Trigger Webhook
-            </button>
-            `
-                : ""
-            }
-            <form action="/delete-feed" method="POST" style="display:inline;" onsubmit="return confirmDelete('${feedId}')">
-              <input type="hidden" name="feedId" value="${feedId}">
-              <button type="submit" style="width:25%;margin-left:auto;float:right;" class="outline contrast">Delete</button>
-            </form>
-          </div>
-        </footer>
-      </article>
-    `;
-  }
-
-  // Close the grid and body
-  response += `
-        </div>
-      </main>
-    </body>
-    </html>
-  `;
-
-  return ctx.html(response);
-});
 
 function injectSelectorGadget(html) {
   const SG_SCRIPT = `
@@ -1506,6 +1380,9 @@ app.put("/api/feeds/:id", async (ctx) => {
     config: finalFeedConfig,
   });
 });
+
+app.get("/feeds", (ctx) => ctx.html(file("./public/index.html").text()));
+app.get("/feeds/:id/edit", (ctx) => ctx.html(file("./public/index.html").text()));
 
 function isLikelyAbsoluteUrl(url: string): boolean {
   if (!url) return false;
