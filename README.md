@@ -203,7 +203,11 @@ Some websites structure content across multiple layers:
 - [ ] Scraping how-to video/gif
 - [ ] Email feed how-to video/gif
 - [x] Add feed preview pane
-- [ ] Store/compare all feed data to enable timestamping feed items
+- [x] Store/compare all feed data to enable timestamping feed items
+- [ ] Backfill tests
+- [ ] Feed config import/export/browse functionality in GUI
+- [ ] Add feed editing functionality in GUI
+- [ ] Implement linting and formatting rules
 - [x] Create dockerfile
 - [x] Create GUI
 - [x] Utilities

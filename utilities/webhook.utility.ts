@@ -141,10 +141,10 @@ export async function sendWebhook(
       return true;
     } else {
       // Include response body where possible to help diagnose 4xx/5xx responses
-      let respBody: any = undefined;
+      let respBody: any ;
       try {
         respBody = response.data;
-      } catch (e) {
+      } catch (_e) {
         respBody = "<unserializable response body>";
       }
       console.warn(
@@ -312,7 +312,7 @@ function formatForDiscord(payload: WebhookPayload, format: 'xml' | 'json'): any 
   if (format === "xml" && typeof payload.data === "string") {
     // For XML format, send as content with code block
     const truncatedXml = payload.data.length > 1500 
-      ? payload.data.substring(0, 1500) + '...' 
+      ? `${payload.data.substring(0, 1500)}...` 
       : payload.data;
     
     return {
@@ -344,7 +344,7 @@ function formatForDiscord(payload: WebhookPayload, format: 'xml' | 'json'): any 
     };
 
     // Add up to 5 recent items as fields
-    items.slice(0, 5).forEach((item: any, index: number) => {
+    items.slice(0, 5).forEach((item: any, _index: number) => {
       const title = item.title || "Untitled";
       const description = item.description || "";
       const link = item.link || "";
@@ -366,18 +366,18 @@ function formatForDiscord(payload: WebhookPayload, format: 'xml' | 'json'): any 
         // Use more of Discord's 1024 character limit per field
         const maxDescLength = 800 - fieldValue.length; // Reserve space for other field content
         const truncatedDesc = cleanDesc.length > maxDescLength 
-          ? cleanDesc.substring(0, maxDescLength).trim() + "..." 
+          ? `${cleanDesc.substring(0, maxDescLength).trim()}...` 
           : cleanDesc;
         fieldValue += `\n${truncatedDesc}`;
       }
       
       // Discord embed field values have a 1024 character limit
       if (fieldValue.length > 1024) {
-        fieldValue = fieldValue.substring(0, 1020) + "...";
+        fieldValue = `${fieldValue.substring(0, 1020)}...`;
       }
       
       embed.fields.push({
-        name: `📄 ${title.length > 256 ? title.substring(0, 253) + "..." : title}`, // Field names are limited to 256 chars
+        name: `📄 ${title.length > 256 ? `${title.substring(0, 253)}...` : title}`, // Field names are limited to 256 chars
         value: fieldValue || "No details available",
         inline: false
       });

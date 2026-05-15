@@ -1,4 +1,4 @@
-import Imap, { Config } from "node-imap";
+import Imap, { type Config } from "node-imap";
 
 export async function listImapFolders(config: Config): Promise<string[]> {
   const imap = new Imap({
