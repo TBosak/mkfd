@@ -47,6 +47,47 @@ function normalizeUrl(url: string): string {
   return url.replace(/\/+$/, ""); // Remove one or more trailing slashes
 }
 
+function makeExtract(body: Record<string, any>) {
+  return (key: string, fallback: any = undefined) => body[key] ?? fallback;
+}
+
+function makeExtractBool(body: Record<string, any>) {
+  return (key: string, fallback: boolean = false): boolean => {
+    const val = body[key];
+    if (val === undefined) return fallback;
+    if (typeof val === "boolean") return val;
+    return ["on", "true", "checked"].includes(String(val).toLowerCase());
+  };
+}
+
+function makeExtractJson(body: Record<string, any>) {
+  return (key: string, fallback: any = {}): any => {
+    const val = body[key];
+    if (typeof val === "object" && val !== null) return val;
+    if (typeof val === "string") {
+      try { return JSON.parse(val); } catch { return fallback; }
+    }
+    return fallback;
+  };
+}
+
+function makeExtractKeyValuePairs(body: Record<string, any>) {
+  return (key: string, fallback: any = {}): Record<string, string> => {
+    const val = body[key];
+    if (Array.isArray(val)) {
+      return val.reduce((acc: Record<string, string>, pair: any) => {
+        if (pair?.key) acc[pair.key] = pair.value ?? "";
+        return acc;
+      }, {});
+    }
+    if (typeof val === "string") {
+      try { return JSON.parse(val); } catch { return fallback; }
+    }
+    if (typeof val === "object" && val !== null) return val;
+    return fallback;
+  };
+}
+
 const SSL = process.env.SSL === "true" || args.ssl === true;
 
 async function getSecrets() {
@@ -256,51 +297,10 @@ app.post("/", async (ctx) => {
     return ctx.text("Invalid request body.", 400);
   }
 
-  const extract = (key: string, fallback: any = undefined) => {
-    return body[key] ?? fallback;
-  };
-
-  const extractBool = (key: string, fallback: boolean = false) => {
-    const val = extract(key);
-    if (val === undefined) return fallback;
-    if (typeof val === "boolean") return val;
-    return ["on", "true", "checked"].includes(String(val).toLowerCase());
-  };
-
-  const extractJson = (key: string, fallback: any = {}) => {
-    const val = extract(key);
-    if (typeof val === "object" && val !== null) return val;
-    if (typeof val === "string") {
-      try {
-        return JSON.parse(val);
-      } catch {
-        console.warn(`Failed to parse JSON for key: ${key}, value: ${val}`);
-        return fallback;
-      }
-    }
-    return fallback;
-  };
-
-  // Converts [{key, value}] array (from key-value UI) to {key: value} object.
-  // Falls back to JSON.parse for legacy string values in existing configs.
-  const extractKeyValuePairs = (key: string, fallback: any = {}) => {
-    const val = extract(key);
-    if (Array.isArray(val)) {
-      return val.reduce((acc: Record<string, string>, pair: any) => {
-        if (pair?.key) acc[pair.key] = pair.value ?? "";
-        return acc;
-      }, {});
-    }
-    if (typeof val === "string") {
-      try {
-        return JSON.parse(val);
-      } catch {
-        return fallback;
-      }
-    }
-    if (typeof val === "object" && val !== null) return val;
-    return fallback;
-  };
+  const extract = makeExtract(body);
+  const extractBool = makeExtractBool(body);
+  const extractJson = makeExtractJson(body);
+  const extractKeyValuePairs = makeExtractKeyValuePairs(body);
 
   const cookieNames = extract("cookieNames", []) as string[];
   const cookieValues = extract("cookieValues", []) as string[];
@@ -565,45 +565,10 @@ app.post("/preview", async (ctx) => {
   try {
     const jsonData = await ctx.req.json();
 
-    const extract = (key: string, fallback: any = undefined) =>
-      jsonData[key] ?? fallback;
-    const extractBool = (key: string, fallback: boolean = false) => {
-      const val = jsonData[key];
-      if (val === undefined) return fallback;
-      if (typeof val === "boolean") return val;
-      return ["on", "true", "checked"].includes(String(val).toLowerCase());
-    };
-    const _extractJson = (key: string, fallback: any = {}) => {
-      const val = jsonData[key];
-      if (typeof val === "object" && val !== null) return val;
-      if (typeof val === "string") {
-        try {
-          return JSON.parse(val);
-        } catch {
-          return fallback;
-        }
-      }
-      return fallback;
-    };
-
-    const extractKeyValuePairs = (key: string, fallback: any = {}) => {
-      const val = jsonData[key];
-      if (Array.isArray(val)) {
-        return val.reduce((acc: Record<string, string>, pair: any) => {
-          if (pair?.key) acc[pair.key] = pair.value ?? "";
-          return acc;
-        }, {});
-      }
-      if (typeof val === "string") {
-        try {
-          return JSON.parse(val);
-        } catch {
-          return fallback;
-        }
-      }
-      if (typeof val === "object" && val !== null) return val;
-      return fallback;
-    };
+    const extract = makeExtract(jsonData);
+    const extractBool = makeExtractBool(jsonData);
+    const extractKeyValuePairs = makeExtractKeyValuePairs(jsonData);
+    // _extractJson was unused — removed
 
     const feedType = extract("feedType", "webScraping");
     const feedName = extract("feedName", "RSS Feed");
@@ -1340,6 +1305,206 @@ app.get("/api/feeds/:id/config", async (ctx) => {
   const yamlContent = await readFile(configPath, "utf8");
   const config = yaml.load(yamlContent);
   return ctx.json(config);
+});
+
+app.put("/api/feeds/:id", async (ctx) => {
+  const feedId = basename(ctx.req.param("id"));
+  const configPath = join(configsDir, `${feedId}.yaml`);
+
+  if (!existsSync(configPath)) {
+    return ctx.json({ error: "Feed not found" }, 404);
+  }
+
+  const existingYaml = await readFile(configPath, "utf8");
+  const existingConfig = yaml.load(existingYaml) as any;
+
+  const contentType = ctx.req.header("Content-Type") || "";
+  let body: Record<string, any>;
+  let sampleHtml = "";
+
+  try {
+    if (contentType.includes("application/json")) {
+      body = await ctx.req.json();
+    } else {
+      return ctx.text("Unsupported Content-Type.", 415);
+    }
+
+    if (body.feedType === "webScraping" && body.feedUrl) {
+      try {
+        const flaresolverrData = body.flaresolverr || {};
+        const flaresolverrEnabled = typeof flaresolverrData.enabled === "boolean" ? flaresolverrData.enabled : false;
+        const flaresolverrUrl = normalizeUrl(flaresolverrData.serverUrl || "");
+        const flaresolverrTimeout = parseInt(flaresolverrData.timeout || "60000", 10) || 60000;
+
+        if (flaresolverrEnabled && flaresolverrUrl) {
+          const payload: any = { cmd: "request.get", url: body.feedUrl, maxTimeout: flaresolverrTimeout };
+          if (body.cookies?.length > 0) payload.cookies = body.cookies.map((c: any) => ({ name: c.name, value: c.value }));
+          const resp = await axios.post(`${flaresolverrUrl}/v1`, payload, { headers: { "Content-Type": "application/json" }, timeout: flaresolverrTimeout + 5000 });
+          if (resp.data?.solution?.response && resp.data?.solution?.status === 200) sampleHtml = resp.data.solution.response;
+        } else {
+          const resp = await axios.get(body.feedUrl, { maxContentLength: 2 * 1024 * 1024, maxBodyLength: 2 * 1024 * 1024 });
+          sampleHtml = resp.data;
+        }
+      } catch (e) {
+        console.warn("Could not fetch sample HTML for URL analysis:", e.message);
+      }
+    }
+  } catch (e) {
+    console.error("Error parsing request body:", e);
+    return ctx.text("Invalid request body.", 400);
+  }
+
+  const extract = makeExtract(body);
+  const extractBool = makeExtractBool(body);
+  const extractJson = makeExtractJson(body);
+  const extractKeyValuePairs = makeExtractKeyValuePairs(body);
+
+  const cookieNames = extract("cookieNames", []) as string[];
+  const cookieValues = extract("cookieValues", []) as string[];
+  const cookies = cookieNames.map((name, i) => ({ name: name.trim(), value: (cookieValues[i] ?? "").trim() })).filter((c) => c.name);
+
+  const feedType = extract("feedType", "webScraping");
+  const feedName = extract("feedName", "RSS Feed");
+
+  let configData: any = {};
+  let articleData: any = {};
+  let apiMappingData: any = {};
+  let emailConfigData: any = {};
+
+  const feedOptions = {
+    feedLanguage: "", feedCopyright: "", feedDescription: "", feedManagingEditor: "",
+    feedWebMaster: "", feedPubDate: "", feedLastBuildDate: "", feedCategories: [] as string[],
+    feedDocs: "https://www.rssboard.org/rss-specification", feedGenerator: "MkFD Feed Generator",
+    feedTtl: undefined as number | undefined, feedSkipHours: [] as number[], feedSkipDays: [] as string[],
+    feedImage: undefined as string | undefined,
+  };
+
+  if (feedType === "webScraping") {
+    configData = { baseUrl: extract("feedUrl") };
+    articleData = {
+      iterator: await buildCSSTarget("item", body, sampleHtml),
+      title: await buildCSSTarget("title", body, sampleHtml),
+      link: await buildCSSTarget("link", body, sampleHtml),
+      description: await buildCSSTarget("description", body, sampleHtml),
+      author: await buildCSSTarget("author", body, sampleHtml),
+      categories: await buildCSSTarget("categories", body, sampleHtml),
+      comments: await buildCSSTarget("commentsUrl", body, sampleHtml),
+      enclosure: await buildCSSTarget("enclosure", body, sampleHtml),
+      guid: await buildCSSTarget("guid", body, sampleHtml),
+      pubDate: await buildCSSTarget("date", body, sampleHtml),
+      source: {
+        title: await buildCSSTarget("sourceTitle", body, sampleHtml),
+        url: await buildCSSTarget("sourceUrl", body, sampleHtml),
+      },
+      contentEncoded: await buildCSSTarget("contentEncoded", body, sampleHtml),
+      summary: await buildCSSTarget("summary", body, sampleHtml),
+      contributors: await buildCSSTarget("contributors", body, sampleHtml),
+      lat: await buildCSSTarget("lat", body, sampleHtml),
+      long: await buildCSSTarget("long", body, sampleHtml),
+    };
+
+    feedOptions.feedLanguage = extract("feedLanguageSelector") ? `${extract("feedLanguageSelector")}${extract("feedLanguageAttribute", "") ? `|attr:${extract("feedLanguageAttribute")}` : ""}` : "";
+    feedOptions.feedCopyright = extract("feedCopyrightSelector") ? `${extract("feedCopyrightSelector")}${extract("feedCopyrightAttribute", "") ? `|attr:${extract("feedCopyrightAttribute")}` : ""}` : "";
+    feedOptions.feedManagingEditor = extract("feedManagingEditorSelector") ? `${extract("feedManagingEditorSelector")}${extract("feedManagingEditorAttribute", "") ? `|attr:${extract("feedManagingEditorAttribute")}` : ""}` : "";
+    feedOptions.feedWebMaster = extract("feedWebMasterSelector") ? `${extract("feedWebMasterSelector")}${extract("feedWebMasterAttribute", "") ? `|attr:${extract("feedWebMasterAttribute")}` : ""}` : "";
+
+    const feedCategoriesScraped = extract("feedCategoriesScrapingSelector") ? `${extract("feedCategoriesScrapingSelector")}${extract("feedCategoriesScrapingAttribute", "") ? `|attr:${extract("feedCategoriesScrapingAttribute")}` : ""}` : "";
+    if (feedCategoriesScraped) feedOptions.feedCategories = [feedCategoriesScraped];
+    const feedTtlScraped = extract("feedTtlSelector") ? `${extract("feedTtlSelector")}${extract("feedTtlAttribute", "") ? `|attr:${extract("feedTtlAttribute")}` : ""}` : "";
+    if (feedTtlScraped) feedOptions.feedTtl = Number(feedTtlScraped);
+    const skipDaysScraped = extract("feedSkipDaysSelector") ? `${extract("feedSkipDaysSelector")}${extract("feedSkipDaysAttribute", "") ? `|attr:${extract("feedSkipDaysAttribute")}` : ""}` : "";
+    if (skipDaysScraped) feedOptions.feedSkipDays = [skipDaysScraped];
+    const skipHoursScraped = extract("feedSkipHoursSelector") ? `${extract("feedSkipHoursSelector")}${extract("feedSkipHoursAttribute", "") ? `|attr:${extract("feedSkipHoursAttribute")}` : ""}` : "";
+    if (skipHoursScraped) feedOptions.feedSkipHours = [Number(skipHoursScraped)];
+    const imgUrlSel = extract("feedImageUrlSelector");
+    if (imgUrlSel) feedOptions.feedImage = `${imgUrlSel}${extract("feedImageUrlAttribute", "") ? `|attr:${extract("feedImageUrlAttribute")}` : ""}`;
+
+  } else if (feedType === "api") {
+    configData = {
+      baseUrl: extract("feedUrl"), method: extract("apiMethod", "GET"),
+      route: extract("apiRoute"), params: extractKeyValuePairs("apiParams"),
+      apiSpecificHeaders: extractKeyValuePairs("apiHeaders"), apiSpecificBody: extractKeyValuePairs("apiBody"),
+    };
+    apiMappingData = {
+      items: extract("apiItemsPath"), title: extract("apiTitleField"), link: extract("apiLinkField"),
+      description: extract("apiDescriptionField"), author: extract("apiAuthor"), categories: extract("apiCategories"),
+      comments: extract("apiCommentsUrl"), enclosureUrl: extract("apiEnclosureUrl"), enclosureLength: extract("apiEnclosureSize"),
+      enclosureType: extract("apiEnclosureType"), guid: extract("apiGuid"), guidIsPermaLink: extract("apiGuidIsPermaLink"),
+      date: extract("apiDateField"), sourceTitle: extract("apiSourceTitle"), sourceUrl: extract("apiSourceUrl"),
+      contentEncoded: extract("apiContentEncoded"), summary: extract("apiSummary"), contributors: extract("apiContributors"),
+      lat: extract("apiLat"), long: extract("apiLong"), feedTitlePath: extract("apiFeedTitle"),
+      feedLinkPath: extract("feedUrl"), feedDescriptionPath: extract("apiFeedDescription"),
+      feedLanguagePath: extract("apiFeedLanguage"), feedCopyrightPath: extract("apiFeedCopyright"),
+      feedManagingEditorPath: extract("apiFeedManagingEditor"), feedWebMasterPath: extract("apiFeedWebMaster"),
+      feedPubDatePath: extract("apiFeedPubDate"), feedCategoriesPath: extract("apiFeedCategories"),
+      feedTtlPath: extract("apiFeedTtl"), feedSkipHoursPath: extract("apiFeedSkipHours"),
+      feedSkipDaysPath: extract("apiFeedSkipDays"), feedImageUrl: extract("apiFeedImageUrl"),
+    };
+  } else if (feedType === "email") {
+    const newPassword = extract("emailPassword");
+    emailConfigData = {
+      host: extract("emailHost"), port: parseInt(extract("emailPort", "993"), 10) || 993,
+      user: extract("emailUsername"),
+      encryptedPassword: newPassword ? encrypt(newPassword, encryptionKey) : existingConfig.config?.encryptedPassword,
+      folder: extract("emailFolder"),
+      emailCount: parseInt(extract("emailCount", "10"), 10) || 10,
+    };
+    feedOptions.feedLanguage = "en";
+    feedOptions.feedDescription = `Emails from folder: ${emailConfigData.folder}`;
+  }
+
+  const webhookConfig = {
+    enabled: extractBool("webhookEnabled"),
+    url: extract("webhookUrl", ""),
+    format: extract("webhookFormat", "xml") as "xml" | "json",
+    newItemsOnly: extractBool("webhookNewItemsOnly", true),
+    headers: extractJson("webhookHeaders"),
+    customPayload: extract("webhookCustomPayload", "").trim() || undefined,
+  };
+
+  const flaresolverrData = extract("flaresolverr", {});
+  const flaresolverrConfig = {
+    enabled: typeof flaresolverrData.enabled === "boolean" ? flaresolverrData.enabled : false,
+    serverUrl: normalizeUrl(flaresolverrData.serverUrl || ""),
+    timeout: parseInt(flaresolverrData.timeout || "60000", 10) || 60000,
+  };
+
+  const finalFeedConfig = {
+    feedId,
+    feedName,
+    feedType,
+    refreshTime: parseInt(extract("refreshTime", "5"), 10) || 5,
+    reverse: extractBool("reverse"),
+    strict: extractBool("strict"),
+    advanced: extractBool("advanced"),
+    headers: extractKeyValuePairs("headers"),
+    cookies: cookies.length > 0 ? cookies : undefined,
+    webhook: webhookConfig.enabled && webhookConfig.url ? webhookConfig : undefined,
+    flaresolverr: flaresolverrConfig.enabled && flaresolverrConfig.serverUrl ? flaresolverrConfig : undefined,
+    config: feedType === "email" ? emailConfigData : configData,
+    ...(feedType === "webScraping" && { article: articleData }),
+    ...(feedType === "api" && { apiMapping: apiMappingData }),
+    ...feedOptions,
+  };
+
+  const yamlStr = yaml.dump(finalFeedConfig);
+  await writeFile(configPath, yamlStr, "utf8");
+
+  // Restart worker with updated config
+  clearFeedUpdaterInterval(feedId);
+  const oldWorker = feedUpdaters.get(feedId);
+  if (oldWorker) {
+    oldWorker.terminate();
+    feedUpdaters.delete(feedId);
+  }
+  setFeedUpdaterInterval(finalFeedConfig);
+
+  return ctx.json({
+    message: "Feed updated successfully.",
+    feedUrl: `public/feeds/${feedId}.xml`,
+    feedId,
+    config: finalFeedConfig,
+  });
 });
 
 function isLikelyAbsoluteUrl(url: string): boolean {
