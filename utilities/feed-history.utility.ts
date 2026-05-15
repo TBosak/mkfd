@@ -1,6 +1,7 @@
-import { readFile, writeFile } from "fs/promises";
-import { existsSync, mkdirSync } from "fs";
-import { join } from "path";
+import { readFile, writeFile } from "node:fs/promises";
+import { existsSync, mkdirSync } from "node:fs";
+import { join } from "node:path";
+import { createHash } from "node:crypto";
 
 const FEED_HISTORY_DIR = "./feed-history";
 
@@ -22,7 +23,7 @@ export async function storeFeedHistory(feedId: string, rssXml: string): Promise<
   try {
     await writeFile(historyPath, rssXml, "utf8");
   } catch (error) {
-    console.error(`Error storing feed history for ${feedId}:`, error);
+    console.error("Error storing feed history for %s:", feedId, error);
   }
 }
 
@@ -38,7 +39,7 @@ export async function getPreviousFeedHistory(feedId: string): Promise<string | n
     }
     return null;
   } catch (error) {
-    console.error(`Error reading feed history for ${feedId}:`, error);
+    console.error("Error reading feed history for %s:", feedId, error);
     return null;
   }
 }
@@ -50,10 +51,59 @@ export async function clearFeedHistory(feedId: string): Promise<void> {
   const historyPath = join(FEED_HISTORY_DIR, `${feedId}.xml`);
   try {
     if (existsSync(historyPath)) {
-      const { unlink } = await import("fs/promises");
+      const { unlink } = await import("node:fs/promises");
       await unlink(historyPath);
     }
   } catch (error) {
-    console.error(`Error clearing feed history for ${feedId}:`, error);
+    console.error("Error clearing feed history for %s:", feedId, error);
+  }
+}
+
+function stableStringify(val: unknown): string {
+  if (Array.isArray(val)) return `[${val.map(stableStringify).join(",")}]`;
+  if (val !== null && typeof val === "object") {
+    return `{${Object.keys(val as object).sort().map(k => `${JSON.stringify(k)}:${stableStringify((val as Record<string, unknown>)[k])}`).join(",")}}`;
+  }
+  return JSON.stringify(val);
+}
+
+/**
+ * Produces a stable SHA-256 fingerprint for an RSS item, excluding the date
+ * field so that items re-fetched on different days hash identically.
+ */
+export function makeItemKey(item: Record<string, unknown>): string {
+  const { date: _date, ...rest } = item;
+  return createHash("sha256").update(stableStringify(rest)).digest("hex");
+}
+
+/**
+ * Loads the per-feed date index from disk.
+ * Returns an empty Map when no index file exists yet.
+ */
+export async function loadDateIndex(feedId: string): Promise<Map<string, string>> {
+  ensureFeedHistoryDir();
+  const indexPath = join(FEED_HISTORY_DIR, `${feedId}.dates.json`);
+  try {
+    if (existsSync(indexPath)) {
+      const raw = await readFile(indexPath, "utf8");
+      return new Map(Object.entries(JSON.parse(raw)));
+    }
+  } catch (error) {
+    console.error("Error loading date index for %s:", feedId, error);
+  }
+  return new Map();
+}
+
+/**
+ * Persists the per-feed date index to disk, overwriting any existing file.
+ */
+export async function saveDateIndex(feedId: string, index: Map<string, string>): Promise<void> {
+  ensureFeedHistoryDir();
+  const indexPath = join(FEED_HISTORY_DIR, `${feedId}.dates.json`);
+  try {
+    await writeFile(indexPath, JSON.stringify(Object.fromEntries(index)), "utf8");
+  } catch (error) {
+    console.error("Error saving date index for %s:", feedId, error);
+    throw error;
   }
 }

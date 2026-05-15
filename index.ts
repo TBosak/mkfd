@@ -1,19 +1,19 @@
 import { file } from "bun";
-import { existsSync, mkdirSync, unlink } from "fs";
-import { readFile, readdir, writeFile } from "fs/promises";
-import { Context, Hono } from "hono";
+import { existsSync, mkdirSync, unlink } from "node:fs";
+import { readFile, readdir, writeFile } from "node:fs/promises";
+import { type Context, Hono } from "hono";
 import { serveStatic, getConnInfo } from "hono/bun";
 import { except } from "hono/combine";
 import * as yaml from "js-yaml";
 import minimist from "minimist";
-import { basename, join } from "path";
+import { basename, join } from "node:path";
 import { v4 as uuidv4 } from "uuid";
 import { DOMParser } from "xmldom";
 import CSSTarget from "./models/csstarget.model";
 import axios from "axios";
 import { createInterface } from "readline";
 import { buildRSS, buildRSSFromApiData } from "./utilities/rss-builder.utility";
-import { Config } from "node-imap";
+import type { Config } from "node-imap";
 import { listImapFolders } from "./utilities/imap.utility";
 import { encrypt } from "./utilities/security.utility";
 import { CookieStore, sessionMiddleware } from "hono-sessions";
@@ -97,7 +97,7 @@ const middleware = async (c: Context, next) => {
 
   if (c.req.method === "POST" && c.req.path === "/passkey") {
     const body = await c.req.parseBody();
-    const inputKey = body["passkey"];
+    const inputKey = body.passkey;
 
     if (inputKey === passkey) {
       session.set("authenticated", true);
@@ -162,7 +162,7 @@ app.post("/", async (ctx) => {
         );
         if (drillChainMatch) {
           const fieldName = drillChainMatch[1];
-          const index = parseInt(drillChainMatch[2]);
+          const index = parseInt(drillChainMatch[2], 10);
           const property = drillChainMatch[3];
           const chainKey = `${fieldName}DrillChain`;
           const value = body[key];
@@ -194,7 +194,7 @@ app.post("/", async (ctx) => {
             : false;
         const flaresolverrUrl = normalizeUrl(flaresolverrData.serverUrl || "");
         const flaresolverrTimeout =
-          parseInt(flaresolverrData.timeout || "60000") || 60000;
+          parseInt(flaresolverrData.timeout || "60000", 10) || 60000;
 
         if (flaresolverrEnabled && flaresolverrUrl) {
           // Use FlareSolverr to fetch sample HTML
@@ -484,11 +484,11 @@ app.post("/", async (ctx) => {
   } else if (feedType === "email") {
     emailConfigData = {
       host: extract("emailHost"),
-      port: parseInt(extract("emailPort", "993")) || 993,
+      port: parseInt(extract("emailPort", "993"), 10) || 993,
       user: extract("emailUsername"),
       encryptedPassword: encrypt(extract("emailPassword"), encryptionKey),
       folder: extract("emailFolder"),
-      emailCount: parseInt(extract("emailCount", "10")) || 10,
+      emailCount: parseInt(extract("emailCount", "10"), 10) || 10,
     };
     feedOptions.feedLanguage = "en";
     feedOptions.feedDescription = `Emails from folder: ${emailConfigData.folder}`;
@@ -512,14 +512,14 @@ app.post("/", async (ctx) => {
         ? flaresolverrData.enabled
         : false,
     serverUrl: normalizeUrl(flaresolverrData.serverUrl || ""),
-    timeout: parseInt(flaresolverrData.timeout || "60000") || 60000,
+    timeout: parseInt(flaresolverrData.timeout || "60000", 10) || 60000,
   };
 
   const finalFeedConfig = {
     feedId,
     feedName,
     feedType,
-    refreshTime: parseInt(extract("refreshTime", "5")) || 5,
+    refreshTime: parseInt(extract("refreshTime", "5"), 10) || 5,
     reverse: extractBool("reverse"),
     strict: extractBool("strict"),
     advanced: extractBool("advanced"),
@@ -556,7 +556,7 @@ app.post("/", async (ctx) => {
 
   return ctx.html(`
     <p>Your RSS feed is being generated and will update every ${finalFeedConfig.refreshTime} minutes.</p>
-    <p>Access it at: <a href=\"/public/feeds/${feedId}.xml\">/public/feeds/${feedId}.xml</a></p>
+    <p>Access it at: <a href="/public/feeds/${feedId}.xml">/public/feeds/${feedId}.xml</a></p>
     <p><a href="/feeds">View all feeds</a></p>
   `);
 });
@@ -573,7 +573,7 @@ app.post("/preview", async (ctx) => {
       if (typeof val === "boolean") return val;
       return ["on", "true", "checked"].includes(String(val).toLowerCase());
     };
-    const extractJson = (key: string, fallback: any = {}) => {
+    const _extractJson = (key: string, fallback: any = {}) => {
       const val = jsonData[key];
       if (typeof val === "object" && val !== null) return val;
       if (typeof val === "string") {
@@ -629,7 +629,7 @@ app.post("/preview", async (ctx) => {
             : false;
         const flaresolverrUrl = normalizeUrl(flaresolverrData.serverUrl || "");
         const flaresolverrTimeout =
-          parseInt(flaresolverrData.timeout || "60000") || 60000;
+          parseInt(flaresolverrData.timeout || "60000", 10) || 60000;
 
         if (flaresolverrEnabled && flaresolverrUrl) {
           // Use FlareSolverr to fetch sample HTML
@@ -836,14 +836,14 @@ app.post("/preview", async (ctx) => {
           ? flaresolverrData.enabled
           : false,
       serverUrl: normalizeUrl(flaresolverrData.serverUrl || ""),
-      timeout: parseInt(flaresolverrData.timeout || "60000") || 60000,
+      timeout: parseInt(flaresolverrData.timeout || "60000", 10) || 60000,
     };
 
     const feedConfig = {
       feedId: "preview",
       feedName,
       feedType,
-      refreshTime: parseInt(extract("refreshTime", "5")) || 5,
+      refreshTime: parseInt(extract("refreshTime", "5"), 10) || 5,
       reverse: extractBool("reverse"),
       strict: extractBool("strict"),
       advanced: extractBool("advanced"),
@@ -869,7 +869,7 @@ app.post("/preview", async (ctx) => {
   } catch (error) {
     console.error("Error generating preview:", error);
     // Check if error is an Axios error or similar with a response object
-    if (error.response && error.response.data) {
+    if (error.response?.data) {
       console.error("Error response data:", error.response.data);
       return ctx.text(
         `Error generating preview: ${
@@ -958,7 +958,7 @@ app.get("/feeds", async (ctx) => {
       const parser = new DOMParser();
       const xmlDoc = parser.parseFromString(xmlContent, "application/xml");
       const lastBuildDateNode = xmlDoc.getElementsByTagName("lastBuildDate")[0];
-      if (lastBuildDateNode && lastBuildDateNode.textContent) {
+      if (lastBuildDateNode?.textContent) {
         lastBuildDate = new Date(
           lastBuildDateNode.textContent
         ).toLocaleString();
@@ -1065,7 +1065,7 @@ function injectSelectorGadget(html) {
 
   let modified = html;
   if (modified.includes("</body>")) {
-    modified = modified.replace("</body>", SG_SCRIPT + "\n</body>");
+    modified = modified.replace("</body>", `${SG_SCRIPT}\n</body>`);
   } else {
     modified += SG_SCRIPT;
   }
@@ -1082,7 +1082,7 @@ app.get("/proxy", async (ctx) => {
   const flaresolverrEnabled = ctx.req.query("flaresolverrEnabled") === "true";
   const flaresolverrUrl = normalizeUrl(ctx.req.query("flaresolverrUrl") || "");
   const flaresolverrTimeout = parseInt(
-    ctx.req.query("flaresolverrTimeout") || "60000"
+    ctx.req.query("flaresolverrTimeout") || "60000", 10
   );
 
   try {
@@ -1159,7 +1159,7 @@ app.get("/passkey", (c) => {
 
 app.post("/delete-feed", async (c) => {
   const data = await c.req.parseBody();
-  const feedId = data["feedId"];
+  const feedId = data.feedId;
 
   if (!feedId) {
     return c.text("Feed name is required.", 400);
@@ -1355,7 +1355,7 @@ function extractSampleUrlFromHtml(
     }
 
     // Return first non-empty URL found
-    if (url && url.trim()) {
+    if (url?.trim()) {
       return url.trim();
     }
   }
@@ -1379,8 +1379,8 @@ async function buildCSSTarget(
 
   const selector = extractField("Selector");
   const attribute = extractField("Attribute");
-  let userIsRelative = extractBoolField("RelativeLink", undefined);
-  let userBaseUrl = extractField("BaseUrl", undefined);
+  const userIsRelative = extractBoolField("RelativeLink", undefined);
+  const userBaseUrl = extractField("BaseUrl", undefined);
 
   let isRelative = userIsRelative;
   let baseUrl = userBaseUrl;
@@ -1492,7 +1492,7 @@ function parseDrillChain(
   }
 
   const sortedKeys = Object.keys(tempStore).sort(
-    (a, b) => parseInt(a) - parseInt(b)
+    (a, b) => parseInt(a, 10) - parseInt(b, 10)
   );
   for (const idx of sortedKeys) {
     const row = tempStore[idx];
@@ -1661,7 +1661,7 @@ async function generatePreview(feedConfig: any) {
             timeout: 10000, // 10 second timeout for networkidle
           });
           console.log("[Preview] Page loaded (networkidle)");
-        } catch (error) {
+        } catch (_error) {
           // If networkidle times out, page is likely already loaded
           console.log(
             "[Preview] Networkidle timeout, using current page state"
@@ -1784,7 +1784,7 @@ function setFeedUpdaterInterval(feedConfig: any) {
 }
 
 function clearAllFeedUpdaterIntervals() {
-  for (const [feedId, intervalId] of feedIntervals.entries()) {
+  for (const [feedId, _intervalId] of feedIntervals.entries()) {
     clearFeedUpdaterInterval(feedId);
 
     const worker = feedUpdaters.get(feedId);
