@@ -1293,6 +1293,55 @@ app.post("/utils/root-url", async (c) => {
   }
 });
 
+app.get("/api/feeds", async (ctx) => {
+  const files = await readdir(configsDir);
+  const yamlFiles = files.filter((f) => f.endsWith(".yaml"));
+  const feeds = [];
+
+  for (const file of yamlFiles) {
+    const filePath = join(configsDir, file);
+    const yamlContent = await readFile(filePath, "utf8");
+    const config = yaml.load(yamlContent) as any;
+
+    let lastBuildDate = "Not yet built";
+    try {
+      const xmlFilePath = join(feedPath, `${config.feedId}.xml`);
+      const xmlContent = await readFile(xmlFilePath, "utf8");
+      const parser = new DOMParser();
+      const xmlDoc = parser.parseFromString(xmlContent, "application/xml");
+      const node = xmlDoc.getElementsByTagName("lastBuildDate")[0];
+      if (node?.textContent) {
+        lastBuildDate = new Date(node.textContent).toLocaleString();
+      }
+    } catch {
+      // XML not yet generated — leave as "Not yet built"
+    }
+
+    feeds.push({
+      feedId: config.feedId,
+      feedName: config.feedName,
+      feedType: config.feedType,
+      lastBuildDate,
+      webhookEnabled: !!(config.webhook?.enabled && config.webhook?.url),
+    });
+  }
+
+  return ctx.json(feeds);
+});
+
+app.get("/api/feeds/:id/config", async (ctx) => {
+  const feedId = basename(ctx.req.param("id"));
+  const configPath = join(configsDir, `${feedId}.yaml`);
+
+  if (!existsSync(configPath)) {
+    return ctx.json({ error: "Feed not found" }, 404);
+  }
+
+  const yamlContent = await readFile(configPath, "utf8");
+  const config = yaml.load(yamlContent);
+  return ctx.json(config);
+});
+
 function isLikelyAbsoluteUrl(url: string): boolean {
   if (!url) return false;
   return /^https?:\/\//i.test(url) || url.startsWith("//");
