@@ -1,5 +1,6 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
+import { Plus, Rss } from "lucide-react";
 
 export const Header: React.FC = () => {
   return (
@@ -18,30 +19,32 @@ export const Header: React.FC = () => {
               Transform Any Source into RSS
             </p>
           </div>
-          <nav className="flex items-center bg-slate-100/70 dark:bg-slate-800/50 rounded-lg p-0.5 gap-0.5">
+          <nav className="flex items-center gap-1">
             <NavLink
               to="/"
               end
               className={({ isActive }) =>
-                `text-xs font-medium px-4 py-1.5 rounded-md transition-all duration-200 ${
+                `flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md transition-all duration-200 ${
                   isActive
-                    ? "bg-white dark:bg-slate-700 text-orange-600 dark:text-orange-400 shadow-sm"
-                    : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+                    ? "bg-orange-50 dark:bg-orange-950/30 text-orange-600 dark:text-orange-400"
+                    : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-100/70 dark:hover:bg-slate-800/50"
                 }`
               }
             >
+              <Plus className="h-3.5 w-3.5" />
               Create Feed
             </NavLink>
             <NavLink
               to="/feeds"
               className={({ isActive }) =>
-                `text-xs font-medium px-4 py-1.5 rounded-md transition-all duration-200 ${
+                `flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md transition-all duration-200 ${
                   isActive
-                    ? "bg-white dark:bg-slate-700 text-orange-600 dark:text-orange-400 shadow-sm"
-                    : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300"
+                    ? "bg-orange-50 dark:bg-orange-950/30 text-orange-600 dark:text-orange-400"
+                    : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-100/70 dark:hover:bg-slate-800/50"
                 }`
               }
             >
+              <Rss className="h-3.5 w-3.5" />
               Active Feeds
             </NavLink>
           </nav>
