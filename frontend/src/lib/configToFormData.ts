@@ -22,8 +22,12 @@ function mapArticleField(field: Record<string, any> | undefined, prefix: string)
     [`${prefix}RelativeLink`]: field.isRelative ?? false,
     [`${prefix}BaseUrl`]: field.baseUrl ?? "",
     [`${prefix}DrillChain`]: (field.drillChain ?? []) as DrillStep[],
+    [`${prefix}Iterator`]: field.iterator ?? "",
   };
-  if (field.dateFormat !== undefined) out[`${prefix}Format`] = field.dateFormat ?? "";
+  if (field.dateFormat !== undefined) {
+    out[`${prefix}Format`] = field.dateFormat ?? "";
+    out.customDateFormat = field.customDateFormat ?? "";
+  }
   if (field.guidIsPermaLink !== undefined) out.guidIsPermaLink = field.guidIsPermaLink;
   return out;
 }

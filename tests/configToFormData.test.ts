@@ -118,6 +118,18 @@ describe("configToFormData – webScraping", () => {
     expect(result.feedLanguageAttribute).toBe("");
   });
 
+  test("maps iterator fields for article sub-fields", () => {
+    const config = {
+      ...baseWebScrapingConfig,
+      article: {
+        ...baseWebScrapingConfig.article,
+        title: { ...baseWebScrapingConfig.article.title, iterator: "li" },
+      },
+    };
+    const result = configToFormData(config) as any;
+    expect(result.titleIterator).toBe("li");
+  });
+
   test("maps webhook config to form shape", () => {
     const config = {
       ...baseWebScrapingConfig,
