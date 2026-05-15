@@ -98,6 +98,36 @@ export function configToFormData(config: Record<string, any>): Partial<FeedFormD
       feedManagingEditorAttribute: editor.attribute,
       feedWebMasterSelector: webmaster.selector,
       feedWebMasterAttribute: webmaster.attribute,
+      ...parseSelectorString(config.feedCategories?.[0]).selector
+        ? {
+            feedCategoriesScrapingSelector: parseSelectorString(config.feedCategories?.[0]).selector,
+            feedCategoriesScrapingAttribute: parseSelectorString(config.feedCategories?.[0]).attribute,
+          }
+        : {},
+      ...parseSelectorString(String(config.feedTtl ?? "")).selector
+        ? {
+            feedTtlSelector: parseSelectorString(String(config.feedTtl ?? "")).selector,
+            feedTtlAttribute: parseSelectorString(String(config.feedTtl ?? "")).attribute,
+          }
+        : {},
+      ...parseSelectorString(config.feedSkipDays?.[0]).selector
+        ? {
+            feedSkipDaysSelector: parseSelectorString(config.feedSkipDays?.[0]).selector,
+            feedSkipDaysAttribute: parseSelectorString(config.feedSkipDays?.[0]).attribute,
+          }
+        : {},
+      ...parseSelectorString(config.feedSkipHours?.[0]?.toString()).selector
+        ? {
+            feedSkipHoursSelector: parseSelectorString(config.feedSkipHours?.[0]?.toString()).selector,
+            feedSkipHoursAttribute: parseSelectorString(config.feedSkipHours?.[0]?.toString()).attribute,
+          }
+        : {},
+      ...parseSelectorString(config.feedImage).selector
+        ? {
+            feedImageUrlSelector: parseSelectorString(config.feedImage).selector,
+            feedImageUrlAttribute: parseSelectorString(config.feedImage).attribute,
+          }
+        : {},
     } as unknown as Partial<FeedFormData>;
   }
 

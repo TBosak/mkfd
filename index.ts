@@ -1506,7 +1506,8 @@ async function buildCSSTarget(
     isRelative,
     extractBoolField("TitleCase"),
     extractField("Iterator"),
-    extractField("Format")
+    extractField("Format"),
+    extractField("CustomDateFormat")
   );
   if (prefix === "guid") {
     target.guidIsPermaLink = extractBoolField("IsPermaLink");
