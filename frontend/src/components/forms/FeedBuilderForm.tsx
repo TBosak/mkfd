@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useForm } from "react-hook-form";
+import { useNavigate } from "react-router-dom";
 import { FeedFormData } from "@/types/feed";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,16 +13,39 @@ import { AdditionalOptions } from "./AdditionalOptions";
 import { FeedPreview } from "./FeedPreview";
 import { FlareSolverrIndicator } from "./FlareSolverrIndicator";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { Eye, Rocket, Globe, Code, Mail, Tag, Settings } from "lucide-react";
+import { Eye, Rocket, Globe, Code, Mail, Tag, Settings, Pencil, Lock, Save } from "lucide-react";
 
-export const FeedBuilderForm = () => {
+interface FeedBuilderFormProps {
+  mode?: "create" | "edit";
+  feedId?: string;
+  initialData?: Partial<FeedFormData>;
+}
+
+export const FeedBuilderForm = ({ mode = "create", feedId, initialData }: FeedBuilderFormProps) => {
+  const navigate = useNavigate();
   const [feedType, setFeedType] = useState<"webScraping" | "api" | "email">(
-    "webScraping",
+    (initialData?.feedType as "webScraping" | "api" | "email") ?? "webScraping"
   );
   const [showPreview, setShowPreview] = useState(false);
   const [previewXml, setPreviewXml] = useState<string | undefined>();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
+
+  const defaultValues: Partial<FeedFormData> = {
+    feedType: "webScraping",
+    refreshTime: 5,
+    emailCount: 10,
+    reverse: false,
+    advanced: false,
+    strict: false,
+    titleStripHtml: true,
+    authorStripHtml: true,
+    summaryStripHtml: true,
+    webhook: {
+      enabled: false,
+      newItemsOnly: true,
+    },
+  };
 
   const {
     register,
@@ -32,44 +56,38 @@ export const FeedBuilderForm = () => {
     getValues,
     formState: { errors },
   } = useForm<FeedFormData>({
-    defaultValues: {
-      feedType: "webScraping",
-      refreshTime: 5,
-      emailCount: 10,
-      reverse: false,
-      advanced: false,
-      strict: false,
-      titleStripHtml: true,
-      authorStripHtml: true,
-      summaryStripHtml: true,
-      webhook: {
-        enabled: false,
-        newItemsOnly: true,
-      },
-    },
+    defaultValues: mode === "edit" && initialData
+      ? { ...defaultValues, ...initialData }
+      : defaultValues,
   });
 
   const feedUrl = watch("feedUrl");
 
   const onSubmit = async (data: FeedFormData) => {
-    console.log("Form data being submitted:", data);
     setIsSubmitting(true);
     try {
-      const response = await fetch("/", {
-        method: "POST",
+      const url = mode === "edit" && feedId ? `/api/feeds/${feedId}` : "/";
+      const method = mode === "edit" ? "PUT" : "POST";
+      const response = await fetch(url, {
+        method,
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(data),
       });
 
       if (response.ok) {
-        alert("Feed created successfully!");
-        window.location.reload();
+        if (mode === "edit") {
+          alert("Feed updated successfully!");
+          navigate("/feeds");
+        } else {
+          alert("Feed created successfully!");
+          window.location.reload();
+        }
       } else {
-        alert("Error creating feed");
+        alert(mode === "edit" ? "Error updating feed" : "Error creating feed");
       }
     } catch (error) {
       console.error("Error:", error);
-      alert("Error creating feed");
+      alert(mode === "edit" ? "Error updating feed" : "Error creating feed");
     } finally {
       setIsSubmitting(false);
     }
@@ -134,13 +152,31 @@ export const FeedBuilderForm = () => {
     <>
       {/* Loading Overlays */}
       {isSubmitting && (
-        <LoadingSpinner message="Creating your feed..." fullscreen />
+        <LoadingSpinner
+          message={mode === "edit" ? "Updating your feed..." : "Creating your feed..."}
+          fullscreen
+        />
       )}
       {isGeneratingPreview && (
         <LoadingSpinner message="Generating preview..." fullscreen />
       )}
 
       <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 animate-in">
+        {/* Edit Mode Banner */}
+        {mode === "edit" && (
+          <div className="flex items-center gap-3 p-4 rounded-lg bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 border-l-4 border-amber-500">
+            <Pencil className="h-5 w-5 text-amber-600 shrink-0" />
+            <div>
+              <p className="font-semibold text-amber-800 dark:text-amber-300">
+                Editing Existing Feed
+              </p>
+              <p className="text-xs text-amber-600 dark:text-amber-400 font-mono mt-0.5">
+                {feedId}
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Feed Name */}
         <div className="space-y-2 p-4 rounded-lg bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-950/20 dark:to-red-950/20">
           <Label htmlFor="feedName" className="flex items-center gap-2">
@@ -173,24 +209,30 @@ export const FeedBuilderForm = () => {
             <TabsList className="grid w-full grid-cols-3">
               <TabsTrigger
                 value="webScraping"
-                className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white"
+                disabled={mode === "edit" && feedType !== "webScraping"}
+                className={`data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white ${mode === "edit" && feedType !== "webScraping" ? "opacity-40 cursor-not-allowed" : ""}`}
               >
                 <Globe className="mr-2 h-4 w-4" />
                 Web Scraping
+                {mode === "edit" && feedType === "webScraping" && <Lock className="ml-1 h-3 w-3 opacity-60" />}
               </TabsTrigger>
               <TabsTrigger
                 value="api"
-                className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-emerald-500 data-[state=active]:text-white"
+                disabled={mode === "edit" && feedType !== "api"}
+                className={`data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-emerald-500 data-[state=active]:text-white ${mode === "edit" && feedType !== "api" ? "opacity-40 cursor-not-allowed" : ""}`}
               >
                 <Code className="mr-2 h-4 w-4" />
                 REST API
+                {mode === "edit" && feedType === "api" && <Lock className="ml-1 h-3 w-3 opacity-60" />}
               </TabsTrigger>
               <TabsTrigger
                 value="email"
-                className="data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-violet-500 data-[state=active]:text-white"
+                disabled={mode === "edit" && feedType !== "email"}
+                className={`data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-violet-500 data-[state=active]:text-white ${mode === "edit" && feedType !== "email" ? "opacity-40 cursor-not-allowed" : ""}`}
               >
                 <Mail className="mr-2 h-4 w-4" />
                 Email
+                {mode === "edit" && feedType === "email" && <Lock className="ml-1 h-3 w-3 opacity-60" />}
               </TabsTrigger>
             </TabsList>
 
@@ -250,8 +292,17 @@ export const FeedBuilderForm = () => {
             className="flex-1 bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700"
             disabled={isSubmitting || isGeneratingPreview}
           >
-            <Rocket className="mr-2 h-4 w-4" />
-            Submit
+            {mode === "edit" ? (
+              <>
+                <Save className="mr-2 h-4 w-4" />
+                Update Feed
+              </>
+            ) : (
+              <>
+                <Rocket className="mr-2 h-4 w-4" />
+                Submit
+              </>
+            )}
           </Button>
         </div>
 
