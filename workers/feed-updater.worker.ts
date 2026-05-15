@@ -193,7 +193,7 @@ async function fetchDataAndUpdateFeed(feedConfig: any) {
       try {
         await saveDateIndex(feedConfig.feedId, dateIndex);
       } catch (indexErr) {
-        console.error(`[Feed ${feedConfig.feedId}] Failed to persist date index:`, indexErr);
+        console.error("[Feed %s] Failed to persist date index:", feedConfig.feedId, indexErr);
       }
 
       // Handle webhook if configured
