@@ -629,8 +629,9 @@ async function processEnclosure(
 
   if (!url) return undefined;
 
+  const fetchUrl = url.startsWith("//") ? `http:${url}` : url;
   const enclosure: RSSItemOptions["enclosure"] = {
-    url: url.startsWith("//") ? `http:${url}` : url,
+    url: sanitizeURLForXML(fetchUrl),
     length: 0,
     type: "application/octet-stream",
   };
@@ -638,12 +639,12 @@ async function processEnclosure(
   try {
     const controller = new AbortController();
     const timeout = setTimeout(() => controller.abort(), 10000); // 10s timeout
-    const response = await fetch(enclosure.url, { signal: controller.signal });
+    const response = await fetch(fetchUrl, { signal: controller.signal });
     clearTimeout(timeout);
     if (response.ok) {
       const contentLength = response.headers.get("content-length");
       if (contentLength && parseInt(contentLength, 10) > 2 * 1024 * 1024) {
-        console.warn("Enclosure too large, skipping:", enclosure.url);
+        console.warn("Enclosure too large, skipping:", fetchUrl);
         return undefined;
       }
       const contentType = response.headers.get("content-type");
@@ -651,7 +652,7 @@ async function processEnclosure(
       enclosure.type = contentType || "application/octet-stream";
     }
   } catch (err) {
-    console.error("Failed to fetch enclosure:", enclosure.url, err);
+    console.error("Failed to fetch enclosure:", fetchUrl, err);
   }
 
   return enclosure;
