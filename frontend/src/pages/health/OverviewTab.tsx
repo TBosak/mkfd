@@ -28,10 +28,8 @@ function StatCard({ label, value }: { label: string; value: string }) {
 
 export function OverviewTab({
   summary,
-  onRefresh: _onRefresh,
 }: {
   summary: HealthSummary | null;
-  onRefresh: () => void;
 }) {
   const [chartData, setChartData] = useState<
     { date: string; success: number; error: number; avgDuration: number | null }[]

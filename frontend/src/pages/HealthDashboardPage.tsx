@@ -22,7 +22,7 @@ export function HealthDashboardPage() {
   useEffect(() => { fetchSummary(); }, [fetchSummary]);
 
   useHealthStream((row) => {
-    setNewRows((prev) => [...prev, row]);
+    setNewRows((prev) => [...prev.slice(-99), row]);
     fetchSummary();
   });
 
@@ -44,7 +44,7 @@ export function HealthDashboardPage() {
           <TabsTrigger value="settings">Settings</TabsTrigger>
         </TabsList>
         <TabsContent value="overview" className="mt-4">
-          <OverviewTab summary={summary} onRefresh={fetchSummary} />
+          <OverviewTab summary={summary} />
         </TabsContent>
         <TabsContent value="runs" className="mt-4">
           <RunLogTab newRows={newRows} filterFeedId={feedIdFilter} />
