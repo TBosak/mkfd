@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { ChevronDown, ChevronUp } from "lucide-react";
@@ -146,132 +146,128 @@ export function RunLogTab({
             </thead>
             <tbody>
               {rows.map((row) => (
-                <tr
-                  key={row.id}
-                  className="border-t border-border/30 hover:bg-muted/20 cursor-pointer"
-                  onClick={() =>
-                    setExpandedId(expandedId === row.id ? null : row.id)
-                  }
-                >
-                  <td className="px-3 py-2 font-medium">
-                    {row.feedName}
-                    <span className="ml-1.5 text-xs text-muted-foreground">
-                      {row.feedType}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2 whitespace-nowrap">
-                    {new Date(row.startedAt).toLocaleString()}
-                  </td>
-                  <td className="px-3 py-2">
-                    {row.durationMs !== null
-                      ? `${(row.durationMs / 1000).toFixed(1)}s`
-                      : "—"}
-                  </td>
-                  <td className="px-3 py-2">
-                    <span
-                      className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${STATUS_BADGE[row.status]}`}
-                    >
-                      {row.status}
-                    </span>
-                  </td>
-                  <td className="px-3 py-2">
-                    {row.timedOut ? (
-                      <span className="text-amber-600">timeout</span>
-                    ) : (
-                      (row.httpStatus ?? "—")
-                    )}
-                  </td>
-                  <td className="px-3 py-2">
-                    <ItemDelta cur={row.itemCount} prev={row.prevItemCount} />
-                  </td>
-                  <td className="px-3 py-2">
-                    {row.dateFallbacks > 0 ? (
-                      <span className="text-amber-600">{row.dateFallbacks}</span>
-                    ) : (
-                      "0"
-                    )}
-                  </td>
-                  <td className="px-3 py-2">
-                    {row.duplicateGuids > 0 ? (
-                      <span className="text-red-500">{row.duplicateGuids}</span>
-                    ) : (
-                      "0"
-                    )}
-                  </td>
-                  <td className="px-3 py-2">
-                    {row.webhookStatus ? (
-                      <span
-                        className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${WEBHOOK_BADGE[row.webhookStatus] ?? ""}`}
-                      >
-                        {row.webhookStatus}
-                      </span>
-                    ) : (
-                      "—"
-                    )}
-                  </td>
-                  <td className="px-3 py-2 text-muted-foreground">
-                    {expandedId === row.id ? (
-                      <ChevronUp className="h-3 w-3" />
-                    ) : (
-                      <ChevronDown className="h-3 w-3" />
-                    )}
-                  </td>
-                </tr>
-              ))}
-              {rows.map((row) =>
-                expandedId === row.id ? (
+                <React.Fragment key={row.id}>
                   <tr
-                    key={`${row.id}-detail`}
-                    className="bg-muted/10 border-t border-border/20"
+                    className="border-t border-border/30 hover:bg-muted/20 cursor-pointer"
+                    onClick={() =>
+                      setExpandedId(expandedId === row.id ? null : row.id)
+                    }
                   >
-                    <td colSpan={10} className="px-4 py-3 space-y-2 text-xs">
-                      {row.errorMessage && (
-                        <div>
-                          <span className="font-medium text-red-600">
-                            Error:{" "}
-                          </span>
-                          <span className="font-mono">{row.errorMessage}</span>
-                        </div>
+                    <td className="px-3 py-2 font-medium">
+                      {row.feedName}
+                      <span className="ml-1.5 text-xs text-muted-foreground">
+                        {row.feedType}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2 whitespace-nowrap">
+                      {new Date(row.startedAt).toLocaleString()}
+                    </td>
+                    <td className="px-3 py-2">
+                      {row.durationMs !== null
+                        ? `${(row.durationMs / 1000).toFixed(1)}s`
+                        : "—"}
+                    </td>
+                    <td className="px-3 py-2">
+                      <span
+                        className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${STATUS_BADGE[row.status]}`}
+                      >
+                        {row.status}
+                      </span>
+                    </td>
+                    <td className="px-3 py-2">
+                      {row.timedOut ? (
+                        <span className="text-amber-600">timeout</span>
+                      ) : (
+                        (row.httpStatus ?? "—")
                       )}
-                      {row.webhookError && (
-                        <div>
-                          <span className="font-medium text-amber-600">
-                            Webhook error:{" "}
-                          </span>
-                          <span className="font-mono">{row.webhookError}</span>
-                        </div>
+                    </td>
+                    <td className="px-3 py-2">
+                      <ItemDelta cur={row.itemCount} prev={row.prevItemCount} />
+                    </td>
+                    <td className="px-3 py-2">
+                      {row.dateFallbacks > 0 ? (
+                        <span className="text-amber-600">{row.dateFallbacks}</span>
+                      ) : (
+                        "0"
                       )}
-                      {row.selectorMatches &&
-                        (() => {
-                          try {
-                            const matches = JSON.parse(row.selectorMatches);
-                            return (
-                              <div>
-                                <span className="font-medium">
-                                  Selector matches:{" "}
-                                </span>
-                                <span className="font-mono">
-                                  {Object.entries(matches)
-                                    .map(([k, v]) => `${k}: ${v}`)
-                                    .join(" | ")}
-                                </span>
-                              </div>
-                            );
-                          } catch {
-                            return null;
-                          }
-                        })()}
-                      {!row.errorMessage &&
-                        !row.webhookError &&
-                        !row.selectorMatches && (
-                          <span className="text-muted-foreground">
-                            No additional details
-                          </span>
-                        )}
+                    </td>
+                    <td className="px-3 py-2">
+                      {row.duplicateGuids > 0 ? (
+                        <span className="text-red-500">{row.duplicateGuids}</span>
+                      ) : (
+                        "0"
+                      )}
+                    </td>
+                    <td className="px-3 py-2">
+                      {row.webhookStatus ? (
+                        <span
+                          className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${WEBHOOK_BADGE[row.webhookStatus] ?? ""}`}
+                        >
+                          {row.webhookStatus}
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </td>
+                    <td className="px-3 py-2 text-muted-foreground">
+                      {expandedId === row.id ? (
+                        <ChevronUp className="h-3 w-3" />
+                      ) : (
+                        <ChevronDown className="h-3 w-3" />
+                      )}
                     </td>
                   </tr>
-                ) : null
-              )}
+                  {expandedId === row.id && (
+                    <tr className="bg-muted/10 border-t border-border/20">
+                      <td colSpan={10} className="px-4 py-3 space-y-2 text-xs">
+                        {row.errorMessage && (
+                          <div>
+                            <span className="font-medium text-red-600">
+                              Error:{" "}
+                            </span>
+                            <span className="font-mono">{row.errorMessage}</span>
+                          </div>
+                        )}
+                        {row.webhookError && (
+                          <div>
+                            <span className="font-medium text-amber-600">
+                              Webhook error:{" "}
+                            </span>
+                            <span className="font-mono">{row.webhookError}</span>
+                          </div>
+                        )}
+                        {row.selectorMatches &&
+                          (() => {
+                            try {
+                              const matches = JSON.parse(row.selectorMatches);
+                              return (
+                                <div>
+                                  <span className="font-medium">
+                                    Selector matches:{" "}
+                                  </span>
+                                  <span className="font-mono">
+                                    {Object.entries(matches)
+                                      .map(([k, v]) => `${k}: ${v}`)
+                                      .join(" | ")}
+                                  </span>
+                                </div>
+                              );
+                            } catch {
+                              return null;
+                            }
+                          })()}
+                        {!row.errorMessage &&
+                          !row.webhookError &&
+                          !row.selectorMatches && (
+                            <span className="text-muted-foreground">
+                              No additional details
+                            </span>
+                          )}
+                      </td>
+                    </tr>
+                  )}
+                </React.Fragment>
+              ))}
             </tbody>
           </table>
         </div>
