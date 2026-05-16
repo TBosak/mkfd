@@ -18,6 +18,8 @@ CREATE TABLE `run_logs` (
 	`webhook_error` text
 );
 --> statement-breakpoint
+CREATE INDEX `idx_run_logs_feed_id` ON `run_logs` (`feed_id`);--> statement-breakpoint
+CREATE INDEX `idx_run_logs_started_at` ON `run_logs` (`started_at`);--> statement-breakpoint
 CREATE TABLE `settings` (
 	`key` text PRIMARY KEY NOT NULL,
 	`value` text NOT NULL

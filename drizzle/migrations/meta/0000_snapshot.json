@@ -1,7 +1,7 @@
 {
   "version": "6",
   "dialect": "sqlite",
-  "id": "81db7044-d5c8-4dd2-9d7b-10eb261b5340",
+  "id": "4a5590a1-ad1d-4b6e-b1da-5dd3674fd31e",
   "prevId": "00000000-0000-0000-0000-000000000000",
   "tables": {
     "run_logs": {
@@ -130,7 +130,22 @@
           "autoincrement": false
         }
       },
-      "indexes": {},
+      "indexes": {
+        "idx_run_logs_feed_id": {
+          "name": "idx_run_logs_feed_id",
+          "columns": [
+            "feed_id"
+          ],
+          "isUnique": false
+        },
+        "idx_run_logs_started_at": {
+          "name": "idx_run_logs_started_at",
+          "columns": [
+            "started_at"
+          ],
+          "isUnique": false
+        }
+      },
       "foreignKeys": {},
       "compositePrimaryKeys": {},
       "uniqueConstraints": {},

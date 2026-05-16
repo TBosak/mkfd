@@ -1,4 +1,4 @@
-import { int, sqliteTable, text } from "drizzle-orm/sqlite-core";
+import { int, sqliteTable, text, index } from "drizzle-orm/sqlite-core";
 
 export const runLogs = sqliteTable("run_logs", {
   id: int("id").primaryKey({ autoIncrement: true }),
@@ -18,7 +18,10 @@ export const runLogs = sqliteTable("run_logs", {
   duplicateGuids: int("duplicate_guids").notNull().default(0),
   webhookStatus: text("webhook_status"),
   webhookError: text("webhook_error"),
-});
+}, (table) => [
+  index("idx_run_logs_feed_id").on(table.feedId),
+  index("idx_run_logs_started_at").on(table.startedAt),
+]);
 
 export const settings = sqliteTable("settings", {
   key: text("key").primaryKey(),
