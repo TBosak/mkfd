@@ -51,22 +51,24 @@ export function processLinks(
   return result;
 }
 
+export type ParsedDate = { date: Date; isFallback: boolean };
+
 export function processDates(
   date?: any,
   removeHtml?: boolean,
   userDateFormat?: string,
-): Date {
+): ParsedDate {
   let result = date ?? "";
   if (removeHtml) result = stripHtml(result);
 
   // If already a Date object, return it
   if (result instanceof Date) {
-    return result;
+    return { date: result, isFallback: false };
   }
 
   if (userDateFormat) {
     const parsed = dayjs(result, userDateFormat);
-    if (parsed.isValid()) return parsed.toDate();
+    if (parsed.isValid()) return { date: parsed.toDate(), isFallback: false };
   }
 
   const patterns = [
@@ -111,7 +113,7 @@ export function processDates(
     if (match) {
       const parsedDate = parseDate(match[0], type);
       if (parsedDate && !Number.isNaN(parsedDate.getTime())) {
-        return parsedDate;
+        return { date: parsedDate, isFallback: false };
       }
     }
   }
@@ -119,10 +121,10 @@ export function processDates(
   // Fallback: try to parse with Date constructor or return current date
   const fallbackDate = new Date(result);
   if (!Number.isNaN(fallbackDate.getTime())) {
-    return fallbackDate;
+    return { date: fallbackDate, isFallback: false };
   }
 
-  return new Date();
+  return { date: new Date(), isFallback: true };
 }
 
 export function get(obj, path, defaultValue) {
