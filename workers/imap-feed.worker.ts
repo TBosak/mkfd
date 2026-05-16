@@ -8,6 +8,7 @@ self.onmessage = (message) => {
   if (message.data.command === "start" && !childProcess) {
     const encryptionKey = message.data.encryptionKey;
     const configHash = message.data.config.feedId;
+    let startedAt = Date.now();
 
     if (!encryptionKey || typeof encryptionKey !== "string") {
       console.error("[IMAP WORKER] Invalid encryption key:", encryptionKey);
@@ -52,6 +53,24 @@ self.onmessage = (message) => {
         "[IMAP WORKER] Node IMAP process exited with code:",
         exitCode,
       );
+      const durationMs = Date.now() - startedAt;
+      self.postMessage({
+        status: exitCode === 0 ? "done" : "error",
+        feedId: message.data.config.feedId,
+        metrics: {
+          startedAt,
+          durationMs,
+          httpStatus: null,
+          timedOut: false,
+          itemCount: null,
+          selectorMatches: null,
+          dateFallbacks: 0,
+          duplicateGuids: 0,
+          webhookStatus: null,
+          webhookError: null,
+          errorMessage: exitCode !== 0 ? `IMAP subprocess exited with code ${exitCode}` : null,
+        },
+      });
       childProcess = null;
     };
 
