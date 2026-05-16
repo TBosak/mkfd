@@ -11,6 +11,7 @@ services:
       # Mount Chrome extensions directory (optional)
       # Place unpacked extensions in ./extensions/
       - ./extensions:/app/extensions
+      - ${DB_PATH:-./data}:/app/data
     environment:
       - PASSKEY=${PASSKEY:-your_passkey_here}
       - COOKIE_SECRET=${COOKIE_SECRET:-your_cookie_secret_here}
@@ -20,6 +21,7 @@ services:
       - SERVER_URL=${SERVER_URL:-http://localhost:5000}
       # Path to Chrome extensions directory for advanced scraping
       - CHROME_EXTENSIONS_PATH=${CHROME_EXTENSIONS_PATH:-/app/extensions}
+      - DB_PATH=${DB_PATH:-/app/data/health.db}
       # Uncomment to override default 4GB memory allocation for IMAP processes
       # - NODE_OPTIONS=--max-old-space-size=8192
     restart: unless-stopped

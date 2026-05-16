@@ -175,3 +175,9 @@ extensions/
 .claude
 .agentarium
 docs/superpowers
+
+# Analytics database
+data/
+*.db
+*.db-shm
+*.db-wal
