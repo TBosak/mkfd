@@ -22,8 +22,17 @@ import { chromium } from "patchright";
 import { getChromiumLaunchOptions } from "./utilities/chrome-extensions.utility";
 import { getRandomUserAgent } from "./utilities/user-agents.utility";
 import * as cheerio from "cheerio";
+import { EventEmitter } from "node:events";
+import { initDb, getDb, insertRunLog, pruneRunLogs, getSettings, saveSettings } from "./lib/analytics/db";
+import type { RunLog } from "./lib/analytics/schema";
+import { sql, and, eq, gte, lte, desc } from "drizzle-orm";
+import { drizzle } from "drizzle-orm/bun-sqlite";
+import * as analyticsSchema from "./lib/analytics/schema";
+import { streamSSE } from "hono/streaming";
 
 const app = new Hono();
+const runLogEmitter = new EventEmitter();
+runLogEmitter.setMaxListeners(100);
 const store = new CookieStore();
 const args = minimist(process.argv.slice(3));
 
@@ -119,6 +128,11 @@ if (!existsSync(configsDir)) {
 }
 
 // Start processing immediately on startup
+try {
+  initDb();
+} catch (e) {
+  console.error("[Analytics] Failed to initialize DB — health tracking disabled:", e);
+}
 processFeedsAtStart();
 //ALLOW LOCAL NETWORK TO ACCESS API
 const middleware = async (c: Context, next) => {
@@ -1381,6 +1395,140 @@ app.put("/api/feeds/:id", async (ctx) => {
   });
 });
 
+app.get("/api/health/runs", async (c) => {
+  const { feedId, status, feedType, from, to, page = "1", pageSize = "50" } = c.req.query();
+  const db = drizzle(getDb(), { schema: analyticsSchema });
+
+  const conditions: any[] = [];
+  if (feedId) conditions.push(eq(analyticsSchema.runLogs.feedId, feedId));
+  if (status) conditions.push(eq(analyticsSchema.runLogs.status, status));
+  if (feedType) conditions.push(eq(analyticsSchema.runLogs.feedType, feedType));
+  if (from) conditions.push(gte(analyticsSchema.runLogs.startedAt, Number(from)));
+  if (to) conditions.push(lte(analyticsSchema.runLogs.startedAt, Number(to)));
+
+  const where = conditions.length ? and(...conditions) : undefined;
+  const offset = (Number(page) - 1) * Number(pageSize);
+
+  const [rows, countResult] = await Promise.all([
+    db.select().from(analyticsSchema.runLogs).where(where).orderBy(desc(analyticsSchema.runLogs.startedAt)).limit(Number(pageSize)).offset(offset),
+    db.select({ count: sql`count(*)` }).from(analyticsSchema.runLogs).where(where),
+  ]);
+
+  return c.json({ rows, total: Number(countResult[0].count) });
+});
+
+app.get("/api/health/summary", async (c) => {
+  const db = drizzle(getDb(), { schema: analyticsSchema });
+  const now = Date.now();
+  const last24h = now - 24 * 60 * 60 * 1000;
+  const last7d = now - 7 * 24 * 60 * 60 * 1000;
+
+  const [totalResult, last24hResult, last7dRows, allFeeds] = await Promise.all([
+    db.select({ count: sql`count(*)` }).from(analyticsSchema.runLogs),
+    db.select({ count: sql`count(*)` }).from(analyticsSchema.runLogs).where(gte(analyticsSchema.runLogs.startedAt, last24h)),
+    db.select().from(analyticsSchema.runLogs).where(gte(analyticsSchema.runLogs.startedAt, last7d)),
+    db.selectDistinct({ feedId: analyticsSchema.runLogs.feedId, feedName: analyticsSchema.runLogs.feedName, feedType: analyticsSchema.runLogs.feedType }).from(analyticsSchema.runLogs),
+  ]);
+
+  const successCount = last7dRows.filter((r) => r.status === "success").length;
+  const successRate7d = last7dRows.length ? successCount / last7dRows.length : 0;
+  const durations = last7dRows.filter((r) => r.durationMs !== null).map((r) => r.durationMs!);
+  const avgDuration7d = durations.length ? durations.reduce((a, b) => a + b, 0) / durations.length : 0;
+
+  const feedHealth = await Promise.all(
+    allFeeds.map(async ({ feedId, feedName, feedType }) => {
+      const recent = await db
+        .select()
+        .from(analyticsSchema.runLogs)
+        .where(eq(analyticsSchema.runLogs.feedId, feedId))
+        .orderBy(desc(analyticsSchema.runLogs.startedAt))
+        .limit(5);
+      const last = recent[0];
+      const successIn5 = recent.filter((r) => r.status === "success").length;
+      const healthStatus = recent.length === 0 ? "green"
+        : last.status === "error" ? "red"
+        : successIn5 < recent.length ? "yellow"
+        : "green";
+      const feedLast7d = last7dRows.filter((r) => r.feedId === feedId);
+      const feedSuccessCount = feedLast7d.filter((r) => r.status === "success").length;
+      const feedDurations = feedLast7d.filter((r) => r.durationMs !== null).map((r) => r.durationMs!);
+      return {
+        feedId,
+        feedName,
+        feedType,
+        healthStatus,
+        lastRunAt: last?.startedAt ?? null,
+        lastHttpStatus: last?.httpStatus ?? null,
+        successRate7d: feedLast7d.length ? feedSuccessCount / feedLast7d.length : 0,
+        avgDuration7d: feedDurations.length ? feedDurations.reduce((a, b) => a + b, 0) / feedDurations.length : 0,
+      };
+    })
+  );
+
+  return c.json({
+    totalRuns: Number(totalResult[0].count),
+    last24h: Number(last24hResult[0].count),
+    successRate7d,
+    avgDuration7d,
+    feedHealth,
+  });
+});
+
+app.get("/api/health/chart/:feedId", async (c) => {
+  const feedId = c.req.param("feedId");
+  const db = drizzle(getDb(), { schema: analyticsSchema });
+
+  const rows = await db
+    .select({
+      startedAt: analyticsSchema.runLogs.startedAt,
+      durationMs: analyticsSchema.runLogs.durationMs,
+      itemCount: analyticsSchema.runLogs.itemCount,
+      status: analyticsSchema.runLogs.status,
+    })
+    .from(analyticsSchema.runLogs)
+    .where(eq(analyticsSchema.runLogs.feedId, feedId))
+    .orderBy(desc(analyticsSchema.runLogs.startedAt))
+    .limit(50);
+
+  return c.json({ runs: rows.reverse() });
+});
+
+app.get("/api/health/settings", async (c) => {
+  const s = await getSettings(getDb());
+  return c.json({ ...s, dbPath: process.env.DB_PATH ?? "./data/health.db" });
+});
+
+app.put("/api/health/settings", async (c) => {
+  const body = await c.req.json();
+  await saveSettings(getDb(), {
+    retentionDays: Number(body.retentionDays),
+    retentionDaysEnabled: Boolean(body.retentionDaysEnabled),
+    retentionRuns: Number(body.retentionRuns),
+    retentionRunsEnabled: Boolean(body.retentionRunsEnabled),
+  });
+  return c.json({ ok: true });
+});
+
+app.get("/api/health/stream", (c) => {
+  return streamSSE(c, async (stream) => {
+    const onRun = (row: RunLog) => {
+      stream.writeSSE({ data: JSON.stringify(row), event: "run" });
+    };
+    runLogEmitter.on("run", onRun);
+
+    const ping = setInterval(() => {
+      stream.writeSSE({ data: "", event: "ping" });
+    }, 25000);
+
+    await new Promise<void>((resolve) => {
+      stream.onAbort(resolve);
+    });
+
+    clearInterval(ping);
+    runLogEmitter.off("run", onRun);
+  });
+});
+
 app.get("/feeds", (ctx) => ctx.html(file("./public/index.html").text()));
 app.get("/feeds/:id/edit", (ctx) => ctx.html(file("./public/index.html").text()));
 
@@ -1614,19 +1762,64 @@ function initializeWorker(feedConfig: any) {
     )
   );
 
-  feedUpdaters.get(feedConfig.feedId).onmessage = (message) => {
-    if (message.data.status === "done") {
-      console.log(`Feed updates completed for ${feedConfig.feedId}.`);
-    } else if (message.data.status === "error") {
-      console.error(
-        `Feed updates for ${feedConfig.feedId} encountered an error:`,
-        message.data.error
+  feedUpdaters.get(feedConfig.feedId).onmessage = async (message) => {
+    if (message.data.status === "done" || message.data.status === "error") {
+      console.log(
+        message.data.status === "done"
+          ? `Feed updates completed for ${feedConfig.feedId}.`
+          : `Feed updates for ${feedConfig.feedId} encountered an error: ${message.data.metrics?.errorMessage}`
       );
+      try {
+        const metrics = message.data.metrics ?? {};
+        const row = await insertRunLog(getDb(), {
+          feedId: feedConfig.feedId,
+          feedName: feedConfig.feedName ?? feedConfig.config?.title ?? feedConfig.feedId,
+          feedType: feedConfig.feedType,
+          startedAt: metrics.startedAt ?? Date.now(),
+          durationMs: metrics.durationMs ?? null,
+          status: message.data.status === "done" ? "success" : "error",
+          errorMessage: metrics.errorMessage ?? null,
+          httpStatus: metrics.httpStatus ?? null,
+          timedOut: metrics.timedOut ?? false,
+          itemCount: metrics.itemCount ?? null,
+          selectorMatches: metrics.selectorMatches ?? null,
+          dateFallbacks: metrics.dateFallbacks ?? 0,
+          duplicateGuids: metrics.duplicateGuids ?? 0,
+          webhookStatus: metrics.webhookStatus ?? null,
+          webhookError: metrics.webhookError ?? null,
+        });
+        runLogEmitter.emit("run", row);
+        await pruneRunLogs(getDb(), feedConfig.feedId, await getSettings(getDb()));
+      } catch (e) {
+        console.error("[Analytics] Failed to log run:", e);
+      }
     }
   };
 
-  feedUpdaters.get(feedConfig.feedId).onerror = (error) => {
+  feedUpdaters.get(feedConfig.feedId).onerror = async (error) => {
     console.error("Worker error:", error);
+    try {
+      const row = await insertRunLog(getDb(), {
+        feedId: feedConfig.feedId,
+        feedName: feedConfig.feedName ?? feedConfig.config?.title ?? feedConfig.feedId,
+        feedType: feedConfig.feedType,
+        startedAt: Date.now(),
+        durationMs: null,
+        status: "error",
+        errorMessage: error.message ?? "Worker crashed unexpectedly",
+        httpStatus: null,
+        timedOut: false,
+        itemCount: null,
+        selectorMatches: null,
+        dateFallbacks: 0,
+        duplicateGuids: 0,
+        webhookStatus: null,
+        webhookError: null,
+      });
+      runLogEmitter.emit("run", row);
+    } catch (e) {
+      console.error("[Analytics] Failed to log worker crash:", e);
+    }
   };
 }
 
