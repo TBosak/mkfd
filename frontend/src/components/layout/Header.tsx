@@ -1,6 +1,6 @@
 import React from "react";
 import { NavLink } from "react-router-dom";
-import { Plus, Rss } from "lucide-react";
+import { Plus, Rss, Activity } from "lucide-react";
 
 export const Header: React.FC = () => {
   return (
@@ -46,6 +46,19 @@ export const Header: React.FC = () => {
             >
               <Rss className="h-3.5 w-3.5" />
               Active Feeds
+            </NavLink>
+            <NavLink
+              to="/health"
+              className={({ isActive }) =>
+                `flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md transition-all duration-200 ${
+                  isActive
+                    ? "bg-orange-50 dark:bg-orange-950/30 text-orange-600 dark:text-orange-400"
+                    : "text-slate-500 dark:text-slate-400 hover:text-slate-700 dark:hover:text-slate-300 hover:bg-slate-100/70 dark:hover:bg-slate-800/50"
+                }`
+              }
+            >
+              <Activity className="h-3.5 w-3.5" />
+              Health
             </NavLink>
           </nav>
         </div>

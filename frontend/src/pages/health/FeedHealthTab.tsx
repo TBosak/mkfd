@@ -1,6 +1,5 @@
 import { useEffect, useState } from "react";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
-import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { LineChart, Line, ResponsiveContainer, Tooltip } from "recharts";
 import type { FeedHealth, ChartRun } from "@/types/health";
 
@@ -30,7 +29,7 @@ function Sparkline({ feedId }: { feedId: string }) {
         />
         <Tooltip
           contentStyle={{ fontSize: 10, padding: "2px 6px" }}
-          formatter={(v: number) => [`${v} items`, ""]}
+          formatter={(v) => [`${v} items`, ""]}
           labelFormatter={() => ""}
         />
       </LineChart>

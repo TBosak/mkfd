@@ -28,7 +28,7 @@ function StatCard({ label, value }: { label: string; value: string }) {
 
 export function OverviewTab({
   summary,
-  onRefresh,
+  onRefresh: _onRefresh,
 }: {
   summary: HealthSummary | null;
   onRefresh: () => void;
