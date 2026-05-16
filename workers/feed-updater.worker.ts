@@ -66,7 +66,7 @@ async function fetchDataAndUpdateFeed(feedConfig: any) {
           flaresolverrResponse.data?.solution?.status === 200
         ) {
           const html = flaresolverrResponse.data.solution.response;
-          rssXml = await buildRSS(html, feedConfig, dateIndex);
+          rssXml = (await buildRSS(html, feedConfig, dateIndex)).xml;
         } else {
           throw new Error(
             `FlareSolverr failed: ${
@@ -122,7 +122,7 @@ async function fetchDataAndUpdateFeed(feedConfig: any) {
         }
         const html = await page.content();
         await browser.close();
-        rssXml = await buildRSS(html, feedConfig, dateIndex); // feedConfig now has all RSS options
+        rssXml = (await buildRSS(html, feedConfig, dateIndex)).xml; // feedConfig now has all RSS options
       } else {
         // Standard web scraping with Axios
         const response = await axios.get(feedConfig.config.baseUrl, {
@@ -134,7 +134,7 @@ async function fetchDataAndUpdateFeed(feedConfig: any) {
           maxBodyLength: 2 * 1024 * 1024, // 2MB
         });
         const html = response.data;
-        rssXml = await buildRSS(html, feedConfig, dateIndex); // feedConfig now has all RSS options
+        rssXml = (await buildRSS(html, feedConfig, dateIndex)).xml; // feedConfig now has all RSS options
       }
     } else if (feedConfig.feedType === "api") {
       const method = String(feedConfig.config.method || "GET").toUpperCase();
@@ -184,7 +184,7 @@ async function fetchDataAndUpdateFeed(feedConfig: any) {
 
       const response = await axios(axiosConfig);
       const apiData = response.data;
-      rssXml = buildRSSFromApiData(apiData, feedConfig, dateIndex);
+      rssXml = buildRSSFromApiData(apiData, feedConfig, dateIndex).xml;
     }
 
     if (rssXml) {
