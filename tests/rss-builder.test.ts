@@ -77,11 +77,11 @@ describe("buildRSSFromApiData — stable GUID", () => {
   it("produces the same GUID across two builds without an explicit guid field", () => {
     const apiData = { items: [SAMPLE_ITEM] };
 
-    const xml1 = buildRSSFromApiData(apiData, BASE_CONFIG, new Map());
-    const xml2 = buildRSSFromApiData(apiData, BASE_CONFIG, new Map());
+    const result1 = buildRSSFromApiData(apiData, BASE_CONFIG, new Map());
+    const result2 = buildRSSFromApiData(apiData, BASE_CONFIG, new Map());
 
-    const guids1 = extractGuids(xml1);
-    const guids2 = extractGuids(xml2);
+    const guids1 = extractGuids(result1.xml);
+    const guids2 = extractGuids(result2.xml);
 
     expect(guids1.length).toBe(1);
     expect(guids1[0]).toBe(guids2[0]);
@@ -135,19 +135,66 @@ describe("buildRSS — dateIndex", () => {
   });
 
   it("works correctly when dateIndex is not provided", async () => {
-    await expect(buildRSS(SAMPLE_HTML, SCRAPING_CONFIG)).resolves.toBeString();
+    const result = await buildRSS(SAMPLE_HTML, SCRAPING_CONFIG);
+    expect(typeof result.xml).toBe("string");
   });
 });
 
 describe("buildRSS — stable GUID", () => {
   it("produces the same GUID across two builds", async () => {
-    const xml1 = await buildRSS(SAMPLE_HTML, SCRAPING_CONFIG, new Map());
-    const xml2 = await buildRSS(SAMPLE_HTML, SCRAPING_CONFIG, new Map());
+    const result1 = await buildRSS(SAMPLE_HTML, SCRAPING_CONFIG, new Map());
+    const result2 = await buildRSS(SAMPLE_HTML, SCRAPING_CONFIG, new Map());
 
-    const guids1 = extractGuids(xml1);
-    const guids2 = extractGuids(xml2);
+    const guids1 = extractGuids(result1.xml);
+    const guids2 = extractGuids(result2.xml);
 
     expect(guids1.length).toBe(1);
     expect(guids1[0]).toBe(guids2[0]);
+  });
+});
+
+describe("buildRSSFromApiData — BuildRSSResult shape", () => {
+  it("returns an object with xml and metrics fields", () => {
+    const apiData = { items: [SAMPLE_ITEM] };
+    const result = buildRSSFromApiData(apiData, BASE_CONFIG, new Map());
+    expect(typeof result.xml).toBe("string");
+    expect(result.xml).toContain("<rss");
+    expect(typeof result.metrics).toBe("object");
+    expect(typeof result.metrics.itemCount).toBe("number");
+    expect(typeof result.metrics.dateFallbacks).toBe("number");
+    expect(typeof result.metrics.duplicateGuids).toBe("number");
+    expect(result.metrics.selectorMatches).toBeNull();
+  });
+
+  it("metrics.itemCount matches the number of items produced", () => {
+    const apiData = { items: [SAMPLE_ITEM, { ...SAMPLE_ITEM, title: "Article Two", link: "https://example.com/2" }] };
+    const result = buildRSSFromApiData(apiData, BASE_CONFIG, new Map());
+    expect(result.metrics.itemCount).toBe(2);
+  });
+
+  it("metrics.dateFallbacks increments when date is missing", () => {
+    const result = buildRSSFromApiData({ items: [SAMPLE_ITEM] }, BASE_CONFIG, new Map());
+    expect(result.metrics.dateFallbacks).toBe(1);
+  });
+
+  it("metrics.dateFallbacks is 0 when all items have valid dates", () => {
+    const itemWithDate = { ...SAMPLE_ITEM, date: "2024-01-15T10:00:00Z" };
+    const result = buildRSSFromApiData({ items: [itemWithDate] }, {
+      ...BASE_CONFIG,
+      apiMapping: { ...BASE_CONFIG.apiMapping, date: "date" },
+    }, new Map());
+    expect(result.metrics.dateFallbacks).toBe(0);
+  });
+
+  it("metrics.duplicateGuids is 0 when all GUIDs are unique", () => {
+    const items = [
+      { ...SAMPLE_ITEM, guid: "guid-1" },
+      { ...SAMPLE_ITEM, title: "Two", link: "https://example.com/2", guid: "guid-2" },
+    ];
+    const result = buildRSSFromApiData({ items }, {
+      ...BASE_CONFIG,
+      apiMapping: { ...BASE_CONFIG.apiMapping, guid: "guid" },
+    }, new Map());
+    expect(result.metrics.duplicateGuids).toBe(0);
   });
 });

@@ -1700,7 +1700,7 @@ async function generatePreview(feedConfig: any) {
           flaresolverrResponse.data?.solution?.status === 200
         ) {
           const html = flaresolverrResponse.data.solution.response;
-          rssXml = await buildRSS(html, feedConfig);
+          rssXml = (await buildRSS(html, feedConfig)).xml;
         } else {
           throw new Error(
             `FlareSolverr failed: ${
@@ -1764,7 +1764,7 @@ async function generatePreview(feedConfig: any) {
         await browser.close();
         console.log("[Preview] Browser closed, building RSS...");
         // buildRSS expects the full feedConfig which now includes all detailed options
-        rssXml = await buildRSS(html, feedConfig);
+        rssXml = (await buildRSS(html, feedConfig)).xml;
       } else {
         // Standard axios call for non-advanced web scraping
         console.log("[Preview] Using standard (non-advanced) scraping");
@@ -1782,7 +1782,7 @@ async function generatePreview(feedConfig: any) {
         });
         console.log("[Preview] Page fetched, building RSS...");
         const html = response.data;
-        rssXml = await buildRSS(html, feedConfig);
+        rssXml = (await buildRSS(html, feedConfig)).xml;
         console.log("[Preview] RSS build complete");
       }
     } else if (feedConfig.feedType === "api") {
@@ -1832,7 +1832,7 @@ async function generatePreview(feedConfig: any) {
 
       const response = await axios(axiosConfig);
       const apiData = response.data;
-      rssXml = buildRSSFromApiData(apiData, feedConfig);
+      rssXml = buildRSSFromApiData(apiData, feedConfig).xml;
     }
     return rssXml;
   } catch (error) {

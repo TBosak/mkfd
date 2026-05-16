@@ -18,7 +18,19 @@ import type ApiConfig from "./../models/apiconfig.model";
 import { makeItemKey } from "./feed-history.utility";
 import striptags from "striptags";
 
-export async function buildRSS(res: any, feedConfig: any, dateIndex?: Map<string, string>): Promise<string> {
+export type BuildMetrics = {
+  itemCount: number;
+  selectorMatches: Record<string, number> | null;
+  dateFallbacks: number;
+  duplicateGuids: number;
+};
+
+export type BuildRSSResult = {
+  xml: string;
+  metrics: BuildMetrics;
+};
+
+export async function buildRSS(res: any, feedConfig: any, dateIndex?: Map<string, string>): Promise<BuildRSSResult> {
   const apiConfig: ApiConfig = feedConfig.config;
   const article = feedConfig.article as CSSTargetFields;
   const reverse: boolean = feedConfig.reverse || false;
@@ -30,6 +42,7 @@ export async function buildRSS(res: any, feedConfig: any, dateIndex?: Map<string
   const elements = $(article.iterator.selector).toArray();
 
   if (article?.iterator?.selector) {
+    let dateFallbacks = 0;
     var input = await Promise.all(
       elements.map(async (el) => {
         const itemData: RSSItemOptions = {
@@ -198,12 +211,13 @@ export async function buildRSS(res: any, feedConfig: any, dateIndex?: Map<string
           itemData.extensions = extensions;
         }
 
-        const rawDate = processDates(
+        const { date: rawDate, isFallback: dateFallback } = processDates(
           await extractField($, el, article.date, advanced, false, false, flaresolverr, cookies),
           article.date?.stripHtml,
           article.date?.dateFormat,
         );
         itemData.date = rawDate;
+        if (dateFallback) dateFallbacks++;
 
         const stableKey = makeItemKey(itemData as Record<string, unknown>);
 
@@ -226,6 +240,20 @@ export async function buildRSS(res: any, feedConfig: any, dateIndex?: Map<string
     if (strict) {
       input = filterStrictly(input);
     }
+
+    const selectorMatches: Record<string, number> = {
+      iterator: elements.length,
+      title: input.filter((i) => i.title && String(i.title).trim() !== "").length,
+      description: input.filter((i) => i.description && String(i.description).trim() !== "").length,
+      link: input.filter((i) => i.link && String(i.link).trim() !== "").length,
+      guid: input.filter((i) => i.guid && String(i.guid).trim() !== "").length,
+    };
+
+    const guidCounts = new Map<string, number>();
+    for (const item of input) {
+      if (item.guid) guidCounts.set(String(item.guid), (guidCounts.get(String(item.guid)) ?? 0) + 1);
+    }
+    const duplicateGuids = [...guidCounts.values()].filter((c) => c > 1).length;
 
     if (reverse) {
       input.reverse();
@@ -348,7 +376,10 @@ export async function buildRSS(res: any, feedConfig: any, dateIndex?: Map<string
       feed.addItem(item);
     }
 
-    return injectDcNamespace(feed.rss2());
+    return {
+      xml: injectDcNamespace(feed.rss2()),
+      metrics: { itemCount: input.length, selectorMatches, dateFallbacks, duplicateGuids },
+    };
   }
   // Fallback if article or iterator is not defined
   const serverUrl =
@@ -359,10 +390,13 @@ export async function buildRSS(res: any, feedConfig: any, dateIndex?: Map<string
     link: apiConfig.baseUrl || "",
     copyright: "",
   });
-  return fallbackFeed.rss2();
+  return {
+    xml: fallbackFeed.rss2(),
+    metrics: { itemCount: 0, selectorMatches: null, dateFallbacks: 0, duplicateGuids: 0 },
+  };
 }
 
-export function buildRSSFromApiData(apiData: any, feedConfig: any, dateIndex?: Map<string, string>): string {
+export function buildRSSFromApiData(apiData: any, feedConfig: any, dateIndex?: Map<string, string>): BuildRSSResult {
   const mapping = feedConfig.apiMapping as ApiMapping;
   const config = feedConfig.config as ApiConfig;
 
@@ -461,8 +495,10 @@ export function buildRSSFromApiData(apiData: any, feedConfig: any, dateIndex?: M
     items.reverse();
   }
 
+  let dateFallbacks = 0;
   items.forEach((item: any) => {
-    const rawDate = processDates(get(item, mapping.date, ""));
+    const { date: rawDate, isFallback: dateFallback } = processDates(get(item, mapping.date, ""));
+    if (dateFallback) dateFallbacks++;
 
     const itemData: RSSItemOptions = {
       title: sanitizeForXML(get(item, mapping.title, "")),
@@ -586,7 +622,16 @@ export function buildRSSFromApiData(apiData: any, feedConfig: any, dateIndex?: M
     feed.addItem(itemData);
   });
 
-  return injectDcNamespace(feed.rss2());
+  const guidCounts = new Map<string, number>();
+  for (const item of items) {
+    if (item.guid) guidCounts.set(String(item.guid), (guidCounts.get(String(item.guid)) ?? 0) + 1);
+  }
+  const duplicateGuids = [...guidCounts.values()].filter((c) => c > 1).length;
+
+  return {
+    xml: injectDcNamespace(feed.rss2()),
+    metrics: { itemCount: items.length, selectorMatches: null, dateFallbacks, duplicateGuids },
+  };
 }
 
 async function processEnclosure(
