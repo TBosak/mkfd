@@ -16,6 +16,13 @@ declare var self: Worker;
 const rssDir = "./public/feeds";
 
 async function fetchDataAndUpdateFeed(feedConfig: any) {
+  const startedAt = Date.now();
+  let httpStatus: number | null = null;
+  let timedOut = false;
+  let lastBuildResult: import("../utilities/rss-builder.utility").BuildRSSResult | null = null;
+  let lastWebhookStatus: "success" | "failed" | "skipped" | null = null;
+  let lastWebhookError: string | null = null;
+
   try {
     let rssXml: string | undefined;
     const dateIndex = await loadDateIndex(feedConfig.feedId);
@@ -61,12 +68,15 @@ async function fetchDataAndUpdateFeed(feedConfig: any) {
           }
         );
 
+        httpStatus = flaresolverrResponse.data?.solution?.status ?? flaresolverrResponse.status ?? null;
+
         if (
           flaresolverrResponse.data?.solution?.response &&
           flaresolverrResponse.data?.solution?.status === 200
         ) {
           const html = flaresolverrResponse.data.solution.response;
-          rssXml = (await buildRSS(html, feedConfig, dateIndex)).xml;
+          lastBuildResult = await buildRSS(html, feedConfig, dateIndex);
+          rssXml = lastBuildResult.xml;
         } else {
           throw new Error(
             `FlareSolverr failed: ${
@@ -122,7 +132,8 @@ async function fetchDataAndUpdateFeed(feedConfig: any) {
         }
         const html = await page.content();
         await browser.close();
-        rssXml = (await buildRSS(html, feedConfig, dateIndex)).xml; // feedConfig now has all RSS options
+        lastBuildResult = await buildRSS(html, feedConfig, dateIndex);
+        rssXml = lastBuildResult.xml;
       } else {
         // Standard web scraping with Axios
         const response = await axios.get(feedConfig.config.baseUrl, {
@@ -133,8 +144,10 @@ async function fetchDataAndUpdateFeed(feedConfig: any) {
           maxContentLength: 2 * 1024 * 1024, // 2MB
           maxBodyLength: 2 * 1024 * 1024, // 2MB
         });
+        httpStatus = response.status;
         const html = response.data;
-        rssXml = (await buildRSS(html, feedConfig, dateIndex)).xml; // feedConfig now has all RSS options
+        lastBuildResult = await buildRSS(html, feedConfig, dateIndex);
+        rssXml = lastBuildResult.xml;
       }
     } else if (feedConfig.feedType === "api") {
       const method = String(feedConfig.config.method || "GET").toUpperCase();
@@ -183,8 +196,10 @@ async function fetchDataAndUpdateFeed(feedConfig: any) {
       console.log("Worker Axios Config:", axiosConfig);
 
       const response = await axios(axiosConfig);
+      httpStatus = response.status;
       const apiData = response.data;
-      rssXml = buildRSSFromApiData(apiData, feedConfig, dateIndex).xml;
+      lastBuildResult = buildRSSFromApiData(apiData, feedConfig, dateIndex);
+      rssXml = lastBuildResult.xml;
     }
 
     if (rssXml) {
@@ -235,10 +250,11 @@ async function fetchDataAndUpdateFeed(feedConfig: any) {
             const success = await sendWebhook(feedConfig.webhook, payload);
 
             if (success) {
-              console.log(
-                `Webhook sent successfully for feed ${feedConfig.feedId}`
-              );
+              lastWebhookStatus = "success";
+              console.log(`Webhook sent successfully for feed ${feedConfig.feedId}`);
             } else {
+              lastWebhookStatus = "failed";
+              lastWebhookError = "Webhook send returned false";
               console.warn(`Webhook failed for feed ${feedConfig.feedId}`);
             }
           }
@@ -246,6 +262,8 @@ async function fetchDataAndUpdateFeed(feedConfig: any) {
           // Store current RSS for future comparison
           await storeFeedHistory(feedConfig.feedId, rssXml);
         } catch (webhookError) {
+          lastWebhookStatus = "failed";
+          lastWebhookError = webhookError.message;
           console.error(
             "Webhook error for feed %s:",
             feedConfig.feedId,
@@ -253,9 +271,27 @@ async function fetchDataAndUpdateFeed(feedConfig: any) {
           );
           // Don't fail the entire feed update if webhook fails
         }
+      } else {
+        lastWebhookStatus = "skipped";
       }
 
-      self.postMessage({ status: "done", feedId: feedConfig.feedId });
+      self.postMessage({
+        status: "done",
+        feedId: feedConfig.feedId,
+        metrics: {
+          startedAt,
+          durationMs: Date.now() - startedAt,
+          httpStatus,
+          timedOut,
+          itemCount: lastBuildResult?.metrics.itemCount ?? null,
+          selectorMatches: lastBuildResult?.metrics.selectorMatches ?? null,
+          dateFallbacks: lastBuildResult?.metrics.dateFallbacks ?? 0,
+          duplicateGuids: lastBuildResult?.metrics.duplicateGuids ?? 0,
+          webhookStatus: lastWebhookStatus,
+          webhookError: lastWebhookError,
+          errorMessage: null,
+        },
+      });
     } else {
       self.postMessage({
         status: "error",
@@ -264,6 +300,14 @@ async function fetchDataAndUpdateFeed(feedConfig: any) {
       });
     }
   } catch (error) {
+    if (
+      error.code === "ECONNABORTED" ||
+      error.message?.toLowerCase().includes("timeout") ||
+      error.message?.toLowerCase().includes("timed out")
+    ) {
+      timedOut = true;
+    }
+
     console.error(
       "Error fetching/processing data for feedId %s:",
       feedConfig.feedId,
@@ -273,7 +317,19 @@ async function fetchDataAndUpdateFeed(feedConfig: any) {
     self.postMessage({
       status: "error",
       feedId: feedConfig.feedId,
-      error: error.message,
+      metrics: {
+        startedAt,
+        durationMs: Date.now() - startedAt,
+        httpStatus,
+        timedOut,
+        itemCount: null,
+        selectorMatches: null,
+        dateFallbacks: 0,
+        duplicateGuids: 0,
+        webhookStatus: null,
+        webhookError: null,
+        errorMessage: error.message,
+      },
     });
   }
 }
