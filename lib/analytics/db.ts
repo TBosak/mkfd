@@ -1,7 +1,7 @@
 import { Database } from "bun:sqlite";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import { migrate } from "drizzle-orm/bun-sqlite/migrator";
-import { and, desc, eq, lt } from "drizzle-orm";
+import { and, desc, eq, inArray, lt } from "drizzle-orm";
 import { mkdirSync } from "node:fs";
 import { dirname } from "node:path";
 import * as schema from "./schema";
@@ -111,8 +111,8 @@ export async function pruneRunLogs(sqlite: Database, feedId: string, s: Retentio
 
     if (rows.length > s.retentionRuns) {
       const idsToDelete = rows.slice(s.retentionRuns).map((r) => r.id);
-      for (const id of idsToDelete) {
-        await db.delete(schema.runLogs).where(eq(schema.runLogs.id, id));
+      if (idsToDelete.length > 0) {
+        await db.delete(schema.runLogs).where(inArray(schema.runLogs.id, idsToDelete));
       }
     }
   }
