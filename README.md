@@ -202,12 +202,44 @@ Some websites structure content across multiple layers:
 - [x] Add option for parallel iterators
 - [ ] Scraping how-to video/gif
 - [ ] Email feed how-to video/gif
+- [ ] API feed how-to video/gif
 - [x] Add feed preview pane
 - [x] Store/compare all feed data to enable timestamping feed items
 - [ ] Backfill tests
 - [ ] Feed config import/export/browse functionality in GUI
 - [ ] Add feed editing functionality in GUI
 - [ ] Implement linting and formatting rules
+- [ ] OPML export functionality
+- [ ] Feed reader mode in GUI with pagination and saved read/unread state
+- [ ] Custom categories for feed items using Transformers.js for automatic tagging
+- [ ] JSON feed support
+- [ ] Feed merging functionality
+- [ ] Per-feed whitelist/blacklist filtering by keyword, regex, etc.
+- [ ] XPath support for feed item extraction
+  - [ ] With selector suggestion engine for XPath
+  - [ ] With drilldown functionality for XPath selectors
+  - [ ] With XML targeting in addition to HTML
+- [ ] Custom field transformers for post-processing extracted data
+- [ ] Feed health dashboard with error logging and analytics
+- [ ] Active feeds page redesign with tagging and filtering capabilities
+- [ ] Custom user agent support for scraping
+- [ ] Proxy support
+- [ ] Timeout and retry logic for feed generation
+- [ ] Field summarization feature using LLMs
+- [ ] Multi-user support with role-based access control
+- [ ] Sitemap XML integration & feed type
+- [ ] GraphQL feed type
+- [ ] Calendar feed type
+- [ ] Filesystem feed type
+- [ ] Webhook feed type
+- [ ] Service connectors feed type
+- [ ] Source assistants that work alongside the selector suggestion engine
+- [ ] Community catalog submission workflow
+  - Browse remote catalog configs from the main branch or GitHub Pages so Mkfd does not need an update when new recipes are added.
+  - Add a per-feed “Submit to Community Catalog” action that validates and sanitizes a local feed config.
+  - Generate a catalog-safe YAML recipe and manifest entry.
+  - Provide a downloadable submission bundle.
+  - Nice-to-have: hosted GitHub App broker that lets users authenticate with GitHub and automatically open a user-attributed pull request.
 - [x] Create dockerfile
 - [x] Create GUI
 - [x] Utilities
