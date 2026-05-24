@@ -42,7 +42,7 @@ const baseWebScrapingConfig = {
   feedLastBuildDate: "",
   feedCategories: [],
   feedDocs: "https://www.rssboard.org/rss-specification",
-  feedGenerator: "MkFD Feed Generator",
+  feedGenerator: "Mkfd Feed Generator",
   feedSkipHours: [],
   feedSkipDays: [],
 };

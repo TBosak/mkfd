@@ -1,0 +1,223 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1600" height="1420" viewBox="0 0 1600 1420">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#f8fafc"/>
+      <stop offset="48%" stop-color="#eef2ff"/>
+      <stop offset="100%" stop-color="#f8fafc"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="140%">
+      <feDropShadow dx="0" dy="10" stdDeviation="12" flood-color="#0f172a" flood-opacity="0.14"/>
+    </filter>
+    <marker id="arrow" markerWidth="12" markerHeight="12" refX="10" refY="6" orient="auto">
+      <path d="M2,2 L10,6 L2,10 Z" fill="#64748b"/>
+    </marker>
+    <style>
+      .title { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 42px; font-weight: 800; fill: #0f172a; }
+      .subtitle { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 20px; fill: #475569; }
+      .tierTitle { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 24px; font-weight: 800; fill: #ffffff; }
+      .tierSubtitle { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 14px; font-weight: 500; fill: #e0f2fe; }
+      .pillText { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 15px; font-weight: 650; fill: #1e293b; }
+      .noteTitle { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 18px; font-weight: 800; fill: #0f172a; }
+      .noteText { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 15px; fill: #334155; }
+      .small { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 13px; fill: #64748b; }
+      .arrowText { font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif; font-size: 13px; font-weight: 700; fill: #64748b; }
+    </style>
+  </defs>
+
+  <rect width="1600" height="1420" fill="url(#bg)"/>
+  <text x="90" y="72" class="title">Mkfd Refined Dependency Tiers</text>
+  <text x="90" y="108" class="subtitle">Updated to include Existing Feed Transformer with basic cleanup transforms</text>
+
+
+    <g filter="url(#shadow)">
+      <rect x="90" y="150" width="700" height="260" rx="28" fill="#eff6ff" stroke="#2563eb" stroke-width="2"/>
+      <rect x="90" y="150" width="700" height="72" rx="28" fill="#2563eb" opacity="0.95"/>
+      <path d="M90 194 H790 V222 H90 Z" fill="#2563eb" opacity="0.95"/>
+      <text x="120" y="182" class="tierTitle">TIER 0 — Foundation</text>
+      <text x="120" y="206" class="tierSubtitle">Stabilize config, secrets, runtime state, and compatibility</text>
+    
+      <rect x="118" y="242" width="315" height="38" rx="19" fill="#ffffff" stroke="#2563eb" stroke-width="1.5"/>
+      <text x="136" y="267" class="pillText">Optional Config Value Encryption</text>
+    
+      <rect x="457" y="242" width="315" height="38" rx="19" fill="#ffffff" stroke="#2563eb" stroke-width="1.5"/>
+      <text x="475" y="267" class="pillText">Feed Configuration Formalization</text>
+    
+      <rect x="118" y="294" width="315" height="38" rx="19" fill="#ffffff" stroke="#2563eb" stroke-width="1.5"/>
+      <text x="136" y="319" class="pillText">SQLite Runtime Substrate</text>
+    
+      <rect x="457" y="294" width="315" height="38" rx="19" fill="#ffffff" stroke="#2563eb" stroke-width="1.5"/>
+      <text x="475" y="319" class="pillText">Feed History Migration</text>
+    
+      <rect x="118" y="346" width="315" height="38" rx="19" fill="#ffffff" stroke="#2563eb" stroke-width="1.5"/>
+      <text x="136" y="371" class="pillText">Minimal Inline Validation</text>
+    
+      <rect x="457" y="346" width="315" height="38" rx="19" fill="#ffffff" stroke="#2563eb" stroke-width="1.5"/>
+      <text x="475" y="371" class="pillText">Footer + Run-log Filter Fixes</text>
+    </g>
+
+    <g filter="url(#shadow)">
+      <rect x="90" y="390" width="700" height="312" rx="28" fill="#ecfeff" stroke="#0891b2" stroke-width="2"/>
+      <rect x="90" y="390" width="700" height="72" rx="28" fill="#0891b2" opacity="0.95"/>
+      <path d="M90 434 H790 V462 H90 Z" fill="#0891b2" opacity="0.95"/>
+      <text x="120" y="422" class="tierTitle">TIER 1 — Output &amp; Operations</text>
+      <text x="120" y="446" class="tierSubtitle">Make every source produce consistent outputs and manageable configs</text>
+    
+      <rect x="118" y="482" width="650" height="38" rx="19" fill="#ffffff" stroke="#0891b2" stroke-width="1.5"/>
+      <text x="136" y="507" class="pillText">Feed Format Refactor</text>
+    
+      <rect x="118" y="534" width="650" height="38" rx="19" fill="#ffffff" stroke="#0891b2" stroke-width="1.5"/>
+      <text x="136" y="559" class="pillText">Normalized Feed Item Pipeline</text>
+    
+      <rect x="118" y="586" width="650" height="38" rx="19" fill="#ffffff" stroke="#0891b2" stroke-width="1.5"/>
+      <text x="136" y="611" class="pillText">Feed Config Management GUI</text>
+    
+      <rect x="118" y="638" width="650" height="38" rx="19" fill="#ffffff" stroke="#0891b2" stroke-width="1.5"/>
+      <text x="136" y="663" class="pillText">My Feeds / Active Feeds Redesign</text>
+    </g>
+
+    <g filter="url(#shadow)">
+      <rect x="90" y="615" width="700" height="312" rx="28" fill="#f5f3ff" stroke="#7c3aed" stroke-width="2"/>
+      <rect x="90" y="615" width="700" height="72" rx="28" fill="#7c3aed" opacity="0.95"/>
+      <path d="M90 659 H790 V687 H90 Z" fill="#7c3aed" opacity="0.95"/>
+      <text x="120" y="647" class="tierTitle">TIER 2 — Transformation &amp; Scraping Intelligence</text>
+      <text x="120" y="671" class="tierSubtitle">Turn discovered sources into usable configured feeds</text>
+    
+      <rect x="118" y="707" width="315" height="38" rx="19" fill="#ffffff" stroke="#7c3aed" stroke-width="1.5"/>
+      <text x="136" y="732" class="pillText">Existing Feed Transformer</text>
+    
+      <rect x="457" y="707" width="315" height="38" rx="19" fill="#ffffff" stroke="#7c3aed" stroke-width="1.5"/>
+      <text x="475" y="732" class="pillText">Basic Cleanup / Field Transforms</text>
+    
+      <rect x="118" y="759" width="315" height="38" rx="19" fill="#ffffff" stroke="#7c3aed" stroke-width="1.5"/>
+      <text x="136" y="784" class="pillText">Source Assistant Spine</text>
+    
+      <rect x="457" y="759" width="315" height="38" rx="19" fill="#ffffff" stroke="#7c3aed" stroke-width="1.5"/>
+      <text x="475" y="784" class="pillText">Existing-feed Apply Target</text>
+    
+      <rect x="118" y="811" width="315" height="38" rx="19" fill="#ffffff" stroke="#7c3aed" stroke-width="1.5"/>
+      <text x="136" y="836" class="pillText">JSON-LD Integration</text>
+    
+      <rect x="457" y="811" width="315" height="38" rx="19" fill="#ffffff" stroke="#7c3aed" stroke-width="1.5"/>
+      <text x="475" y="836" class="pillText">Web Scraping Form Data</text>
+    
+      <rect x="118" y="863" width="315" height="38" rx="19" fill="#ffffff" stroke="#7c3aed" stroke-width="1.5"/>
+      <text x="136" y="888" class="pillText">Fetch Policy / Retry / Fallback</text>
+    
+      <rect x="457" y="863" width="315" height="38" rx="19" fill="#ffffff" stroke="#7c3aed" stroke-width="1.5"/>
+      <text x="475" y="888" class="pillText">Proxy / User-Agent Profiles</text>
+    </g>
+
+    <g filter="url(#shadow)">
+      <rect x="90" y="910" width="700" height="312" rx="28" fill="#fff7ed" stroke="#ea580c" stroke-width="2"/>
+      <rect x="90" y="910" width="700" height="72" rx="28" fill="#ea580c" opacity="0.95"/>
+      <path d="M90 954 H790 V982 H90 Z" fill="#ea580c" opacity="0.95"/>
+      <text x="120" y="942" class="tierTitle">TIER 3 — Catalog &amp; Import</text>
+      <text x="120" y="966" class="tierSubtitle">Make reusable feed recipes safe and shareable</text>
+    
+      <rect x="118" y="1002" width="650" height="38" rx="19" fill="#ffffff" stroke="#ea580c" stroke-width="1.5"/>
+      <text x="136" y="1027" class="pillText">Parameterized Feed Templates</text>
+    
+      <rect x="118" y="1054" width="650" height="38" rx="19" fill="#ffffff" stroke="#ea580c" stroke-width="1.5"/>
+      <text x="136" y="1079" class="pillText">Community Catalog</text>
+    
+      <rect x="118" y="1106" width="650" height="38" rx="19" fill="#ffffff" stroke="#ea580c" stroke-width="1.5"/>
+      <text x="136" y="1131" class="pillText">Catalog Import / Export Flow</text>
+    
+      <rect x="118" y="1158" width="650" height="38" rx="19" fill="#ffffff" stroke="#ea580c" stroke-width="1.5"/>
+      <text x="136" y="1183" class="pillText">Service Connector Request Template</text>
+    </g>
+
+    <g filter="url(#shadow)">
+      <rect x="90" y="1135" width="700" height="260" rx="28" fill="#f0fdf4" stroke="#16a34a" stroke-width="2"/>
+      <rect x="90" y="1135" width="700" height="72" rx="28" fill="#16a34a" opacity="0.95"/>
+      <path d="M90 1179 H790 V1207 H90 Z" fill="#16a34a" opacity="0.95"/>
+      <text x="120" y="1167" class="tierTitle">TIER 4 — New Source Types</text>
+      <text x="120" y="1191" class="tierSubtitle">Add new structured and event-driven feed sources</text>
+    
+      <rect x="118" y="1227" width="315" height="38" rx="19" fill="#ffffff" stroke="#16a34a" stroke-width="1.5"/>
+      <text x="136" y="1252" class="pillText">Sitemap</text>
+    
+      <rect x="457" y="1227" width="315" height="38" rx="19" fill="#ffffff" stroke="#16a34a" stroke-width="1.5"/>
+      <text x="475" y="1252" class="pillText">Calendar</text>
+    
+      <rect x="118" y="1279" width="315" height="38" rx="19" fill="#ffffff" stroke="#16a34a" stroke-width="1.5"/>
+      <text x="136" y="1304" class="pillText">GraphQL</text>
+    
+      <rect x="457" y="1279" width="315" height="38" rx="19" fill="#ffffff" stroke="#16a34a" stroke-width="1.5"/>
+      <text x="475" y="1304" class="pillText">Webhook</text>
+    
+      <rect x="118" y="1331" width="315" height="38" rx="19" fill="#ffffff" stroke="#16a34a" stroke-width="1.5"/>
+      <text x="136" y="1356" class="pillText">Filesystem</text>
+    </g>
+
+    <g filter="url(#shadow)">
+      <rect x="860" y="1135" width="650" height="312" rx="28" fill="#fef2f2" stroke="#dc2626" stroke-width="2"/>
+      <rect x="860" y="1135" width="650" height="72" rx="28" fill="#dc2626" opacity="0.95"/>
+      <path d="M860 1179 H1510 V1207 H860 Z" fill="#dc2626" opacity="0.95"/>
+      <text x="890" y="1167" class="tierTitle">TIER 5 — Service Connectors</text>
+      <text x="890" y="1191" class="tierSubtitle">Build first-class service integrations on the shared substrate</text>
+    
+      <rect x="888" y="1227" width="650" height="38" rx="19" fill="#ffffff" stroke="#dc2626" stroke-width="1.5"/>
+      <text x="906" y="1252" class="pillText">Connector Registry</text>
+    
+      <rect x="888" y="1279" width="650" height="38" rx="19" fill="#ffffff" stroke="#dc2626" stroke-width="1.5"/>
+      <text x="906" y="1304" class="pillText">Jellyfin Reference Connector</text>
+    
+      <rect x="888" y="1331" width="650" height="38" rx="19" fill="#ffffff" stroke="#dc2626" stroke-width="1.5"/>
+      <text x="906" y="1356" class="pillText">Connector Presets</text>
+    
+      <rect x="888" y="1383" width="650" height="38" rx="19" fill="#ffffff" stroke="#dc2626" stroke-width="1.5"/>
+      <text x="906" y="1408" class="pillText">Connector Cursor / State Tables</text>
+    </g>
+
+      <line x1="440.0" y1="422" x2="440.0" y2="372" stroke="#64748b" stroke-width="3" marker-end="url(#arrow)" stroke-dasharray="7 8"/>
+    
+
+      <line x1="440.0" y1="714" x2="440.0" y2="597" stroke="#64748b" stroke-width="3" marker-end="url(#arrow)" stroke-dasharray="7 8"/>
+    
+
+      <line x1="440.0" y1="939" x2="440.0" y2="892" stroke="#64748b" stroke-width="3" marker-end="url(#arrow)" stroke-dasharray="7 8"/>
+    
+
+      <line x1="440.0" y1="1234" x2="440.0" y2="1117" stroke="#64748b" stroke-width="3" marker-end="url(#arrow)" stroke-dasharray="7 8"/>
+    
+
+  <path d="M812 1265.0 C 900 1265.0, 740 1291.0, 838 1291.0"
+        fill="none" stroke="#64748b" stroke-width="3" marker-end="url(#arrow)" stroke-dasharray="7 8"/>
+  <text x="875" y="1243.0" class="arrowText">shared source/runtime patterns</text>
+
+
+  <g filter="url(#shadow)">
+    <rect x="860" y="150" width="650" height="265" rx="28" fill="#ffffff" stroke="#94a3b8" stroke-width="1.5"/>
+    <text x="888" y="188" class="noteTitle">What changed</text>
+    <text x="888" y="226" class="noteText">• Existing Feed Transformer is no longer deferred.</text>
+    <text x="888" y="256" class="noteText">• It ships with basic cleanup transforms, not passthrough only.</text>
+    <text x="888" y="286" class="noteText">• Normalized Feed Item Pipeline moves before transformer work.</text>
+    <text x="888" y="316" class="noteText">• Source Assistant can apply existing-feed recommendations.</text>
+    <text x="888" y="346" class="noteText">• Runtime state remains SQLite-backed, configs remain YAML.</text>
+    <text x="888" y="376" class="noteText">• Feed output files remain feedId-based.</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="860" y="455" width="650" height="280" rx="28" fill="#f8fafc" stroke="#94a3b8" stroke-width="1.5"/>
+    <text x="888" y="493" class="noteTitle">Existing Feed Transformer MVP</text>
+    <text x="888" y="531" class="noteText">Input: RSS, Atom, or JSON Feed</text>
+    <text x="888" y="561" class="noteText">Normalize: shared NormalizedFeedItem[]</text>
+    <text x="888" y="591" class="noteText">Clean: descriptions, links, dates, GUIDs, categories</text>
+    <text x="888" y="621" class="noteText">Filter: simple include/exclude rules</text>
+    <text x="888" y="651" class="noteText">Output: RSS 2.0, Atom, and JSON Feed</text>
+    <text x="888" y="681" class="noteText">Observe: run history, item history, feed health</text>
+  </g>
+
+  <g filter="url(#shadow)">
+    <rect x="860" y="775" width="650" height="200" rx="28" fill="#fff7ed" stroke="#f97316" stroke-width="1.5"/>
+    <text x="888" y="813" class="noteTitle">Still deferred</text>
+    <text x="888" y="851" class="noteText">• Full universal transform engine</text>
+    <text x="888" y="881" class="noteText">• Advanced field expressions / computed fields</text>
+    <text x="888" y="911" class="noteText">• Full change detection feed type</text>
+    <text x="888" y="941" class="noteText">• Feed merging, splitting, and linked-page enrichment</text>
+  </g>
+
+
+  <text x="90" y="1378" class="small">Mkfd roadmap diagram · Updated for Existing Feed Transformer implementation plan</text>
+</svg>

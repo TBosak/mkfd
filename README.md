@@ -240,6 +240,7 @@ Some websites structure content across multiple layers:
   - Generate a catalog-safe YAML recipe and manifest entry.
   - Provide a downloadable submission bundle.
   - Nice-to-have: hosted GitHub App broker that lets users authenticate with GitHub and automatically open a user-attributed pull request.
+- [ ] Auto-save draft functionality for feed creation and editing
 - [x] Create dockerfile
 - [x] Create GUI
 - [x] Utilities

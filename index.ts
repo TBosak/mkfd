@@ -343,7 +343,7 @@ app.post("/", async (ctx) => {
     feedLastBuildDate: "",
     feedCategories: [] as string[],
     feedDocs: "https://www.rssboard.org/rss-specification",
-    feedGenerator: "MkFD Feed Generator",
+    feedGenerator: "Mkfd Feed Generator",
     feedTtl: undefined as number | undefined,
     feedSkipHours: [] as number[],
     feedSkipDays: [] as string[],
@@ -687,7 +687,7 @@ app.post("/preview", async (ctx) => {
       feedLastBuildDate: "",
       feedCategories: [] as string[],
       feedDocs: "https://www.rssboard.org/rss-specification",
-      feedGenerator: "MkFD Preview Generator",
+      feedGenerator: "Mkfd Preview Generator",
       feedTtl: undefined as number | undefined,
       feedSkipHours: [] as number[],
       feedSkipDays: [] as string[],
@@ -1262,7 +1262,7 @@ app.put("/api/feeds/:id", async (ctx) => {
   const feedOptions = {
     feedLanguage: "", feedCopyright: "", feedDescription: "", feedManagingEditor: "",
     feedWebMaster: "", feedPubDate: "", feedLastBuildDate: "", feedCategories: [] as string[],
-    feedDocs: "https://www.rssboard.org/rss-specification", feedGenerator: "MkFD Feed Generator",
+    feedDocs: "https://www.rssboard.org/rss-specification", feedGenerator: "Mkfd Feed Generator",
     feedTtl: undefined as number | undefined, feedSkipHours: [] as number[], feedSkipDays: [] as string[],
     feedImage: undefined as string | undefined,
   };

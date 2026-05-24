@@ -696,7 +696,7 @@ export function buildRSSFromEmailFolder(emails: Email[], feedSetup: RSSFeedOptio
     language: feedSetup.language || "en",
     updated: new Date(),
     copyright: feedSetup.copyright || '',
-    generator: feedSetup.generator || "MkFD IMAP Email Watcher",
+    generator: feedSetup.generator || "Mkfd IMAP Email Watcher",
     ttl: feedSetup.ttl,
     feedLinks: {
       rss: feedSetup.id

@@ -174,7 +174,8 @@ truenas/
 extensions/
 .claude
 .agentarium
-docs/superpowers
+# docs/superpowers
+# docs/features
 
 # Analytics database
 data/
