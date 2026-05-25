@@ -20,7 +20,7 @@ import {
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Info, Link, Wand2 } from "lucide-react";
+import { AlignLeft, CalendarDays, ExternalLink, FileCode2, Fingerprint, Info, Link, Paperclip, Type, User, Wand2 } from "lucide-react";
 import { Section } from "@/components/builder/Section";
 import { SelectorField } from "./SelectorField";
 import { SelectorPlayground } from "./SelectorPlayground";
@@ -92,26 +92,25 @@ export const WebScrapingForm = ({
           </>
         )}
 
-        {/* Title Field */}
-        {show("extract") && (
-          <SelectorField
-            fieldName="title"
-            label="Title"
-            register={register}
-            control={control}
-            setValue={setValue}
-            watch={watch}
-            showStripHtml
-            showTitleCase
-            showDrillChain
-            stripHtmlDefault={true}
-            feedUrl={feedUrl}
-          />
-        )}
-
         {show("extract") && (
           <>
-            <Section title="Description" sub="Selector for item body text" collapsible defaultOpen={false}>
+            <Section icon={<Type className="h-4 w-4" />} title="Title" sub="Selector for item headline" collapsible defaultOpen={false}>
+              <SelectorField
+                fieldName="title"
+                label="Title"
+                register={register}
+                control={control}
+                setValue={setValue}
+                watch={watch}
+                showStripHtml
+                showTitleCase
+                showDrillChain
+                stripHtmlDefault={true}
+                feedUrl={feedUrl}
+              />
+            </Section>
+
+            <Section icon={<AlignLeft className="h-4 w-4" />} title="Description" sub="Selector for item body text" collapsible defaultOpen={false}>
               <SelectorField
                 fieldName="description"
                 label="Description"
@@ -126,7 +125,7 @@ export const WebScrapingForm = ({
               />
             </Section>
 
-            <Section title="Link" sub="Selector for item URL" collapsible defaultOpen={false}>
+            <Section icon={<ExternalLink className="h-4 w-4" />} title="Link" sub="Selector for item URL" collapsible defaultOpen={false}>
               <SelectorField
                 fieldName="link"
                 label="Link"
@@ -140,7 +139,7 @@ export const WebScrapingForm = ({
               />
             </Section>
 
-            <Section title="Enclosure" sub="Image, video, or audio attachment" collapsible defaultOpen={false}>
+            <Section icon={<Paperclip className="h-4 w-4" />} title="Enclosure" sub="Image, video, or audio attachment" collapsible defaultOpen={false}>
               <SelectorField
                 fieldName="enclosure"
                 label="Enclosure"
@@ -154,7 +153,7 @@ export const WebScrapingForm = ({
               />
             </Section>
 
-            <Section title="Author" sub="Selector for item author" collapsible defaultOpen={false}>
+            <Section icon={<User className="h-4 w-4" />} title="Author" sub="Selector for item author" collapsible defaultOpen={false}>
               <SelectorField
                 fieldName="author"
                 label="Author"
@@ -170,7 +169,7 @@ export const WebScrapingForm = ({
               />
             </Section>
 
-            <Section title="Date" sub="Selector for publish date" collapsible defaultOpen={false}>
+            <Section icon={<CalendarDays className="h-4 w-4" />} title="Date" sub="Selector for publish date" collapsible defaultOpen={false}>
               <div className="space-y-4">
                 <SelectorField
                   fieldName="date"
@@ -220,7 +219,7 @@ export const WebScrapingForm = ({
               </div>
             </Section>
 
-            <Section title="Content Encoded" sub="Full article body (CDATA)" collapsible defaultOpen={false}>
+            <Section icon={<FileCode2 className="h-4 w-4" />} title="Content Encoded" sub="Full article body (CDATA)" collapsible defaultOpen={false}>
               <SelectorField
                 fieldName="contentEncoded"
                 label="Content Encoded"
@@ -235,7 +234,7 @@ export const WebScrapingForm = ({
               />
             </Section>
 
-            <Section title="Summary" sub="Short excerpt or teaser" collapsible defaultOpen={false}>
+            <Section icon={<AlignLeft className="h-4 w-4" />} title="Summary" sub="Short excerpt or teaser" collapsible defaultOpen={false}>
               <SelectorField
                 fieldName="summary"
                 label="Summary"
@@ -251,7 +250,7 @@ export const WebScrapingForm = ({
               />
             </Section>
 
-            <Section title="GUID" sub="Unique item identifier" collapsible defaultOpen={false}>
+            <Section icon={<Fingerprint className="h-4 w-4" />} title="GUID" sub="Unique item identifier" collapsible defaultOpen={false}>
               <SelectorField
                 fieldName="guid"
                 label="GUID"
