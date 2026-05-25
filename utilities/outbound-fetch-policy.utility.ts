@@ -375,6 +375,12 @@ export async function assertOutboundFetchAllowed(
       ? await dnsLookupFn(hostname)
       : await resolveHostname(hostname);
 
+    if (resolvedAddresses.length === 0) {
+      throw new Error(
+        `Outbound fetch blocked: DNS resolution returned no addresses for "${hostname}".`
+      );
+    }
+
     for (const addr of resolvedAddresses) {
       if (isBlockedAddress(addr)) {
         if (allowPrivateFetches) {

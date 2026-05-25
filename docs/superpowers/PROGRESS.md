@@ -6,7 +6,7 @@
 | Protected Value Encryption | ✅ | ✅ | ✅ |
 | Feed Config Formalization | ✅ | ✅ | ✅ |
 | SQLite Runtime Substrate + Feed History | ✅ | ✅ | ✅ |
-| Outbound Fetch Policy | ✅ | ✅ | ⬜ |
+| Outbound Fetch Policy | ✅ | ✅ | ✅ |
 
 ## Phase 2 — Output & Operations
 | Feature | Spec | Plan | Impl |

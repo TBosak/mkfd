@@ -54,11 +54,6 @@ function getGlobalFetchPolicyOptions(): OutboundFetchPolicyOptions {
   };
 }
 
-/**
- * Merges feed-level allowPrivateFetches / allowlist overrides on top of global
- * policy options. Feed values take priority when explicitly present on the config.
- */
-
 const REDIRECT_STATUSES_IDX = new Set([301, 302, 303, 307, 308]);
 
 /**
@@ -483,6 +478,10 @@ app.post("/preview", async (ctx) => {
     });
   } catch (error) {
     console.error("Error generating preview:", error);
+    // SSRF/policy errors must return 403, not 400.
+    if (error?.message?.startsWith("Outbound fetch blocked")) {
+      return ctx.text(error.message, 403);
+    }
     // Check if error is an Axios error or similar with a response object
     if (error.response?.data) {
       console.error("Error response data:", error.response.data);
@@ -761,6 +760,17 @@ app.post("/utils/suggest-selectors", async (c) => {
     await assertOutboundFetchAllowed(url, suggestPolicyOptions);
   } catch (policyErr: any) {
     return c.json({ error: policyErr.message }, 403);
+  }
+  // SSRF protection: validate FlareSolverr server URL before posting to it.
+  if (flaresolverr?.enabled && flaresolverr?.serverUrl) {
+    try {
+      await assertOutboundFetchAllowed(
+        `${normalizeUrl(flaresolverr.serverUrl)}/v1`,
+        suggestPolicyOptions
+      );
+    } catch (policyErr: any) {
+      return c.json({ error: policyErr.message }, 403);
+    }
   }
   try {
     // Pass policy options so the utility can re-check on any redirect
