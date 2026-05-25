@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, forwardRef, useImperativeHandle } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import { useFeedDraft } from "@/hooks/useFeedDraft";
@@ -18,339 +18,356 @@ import { FlareSolverrIndicator } from "./FlareSolverrIndicator";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Eye, Rocket, Globe, Code, Mail, Tag, Settings, Pencil, Lock, Save } from "lucide-react";
 
-interface FeedBuilderFormProps {
+export interface FeedBuilderFormHandle {
+  submit: () => void;
+}
+
+export interface FeedBuilderFormProps {
   mode?: "create" | "edit";
   feedId?: string;
   initialData?: Partial<FeedFormData>;
+  activeSection?: string;
+  onValuesChange?: (v: Partial<FeedFormData>) => void;
 }
 
-export const FeedBuilderForm = ({ mode = "create", feedId, initialData }: FeedBuilderFormProps) => {
-  const navigate = useNavigate();
-  const [feedType, setFeedType] = useState<"webScraping" | "api" | "email">(
-    (initialData?.feedType as "webScraping" | "api" | "email") ?? "webScraping"
-  );
-  const [showPreview, setShowPreview] = useState(false);
-  const [previewXml, setPreviewXml] = useState<string | undefined>();
-  const [previewFeedConfig, setPreviewFeedConfig] = useState<Record<string, unknown> | undefined>();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
+export const FeedBuilderForm = forwardRef<FeedBuilderFormHandle, FeedBuilderFormProps>(
+  function FeedBuilderForm({ mode = "create", feedId, initialData, activeSection, onValuesChange }, ref) {
+    const navigate = useNavigate();
+    const [feedType, setFeedType] = useState<"webScraping" | "api" | "email">(
+      (initialData?.feedType as "webScraping" | "api" | "email") ?? "webScraping"
+    );
+    const [showPreview, setShowPreview] = useState(false);
+    const [previewXml, setPreviewXml] = useState<string | undefined>();
+    const [previewFeedConfig, setPreviewFeedConfig] = useState<Record<string, unknown> | undefined>();
+    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
 
-  const defaultValues: Partial<FeedFormData> = {
-    feedType: "webScraping",
-    refreshTime: 5,
-    emailCount: 10,
-    reverse: false,
-    advanced: false,
-    strict: false,
-    titleStripHtml: true,
-    authorStripHtml: true,
-    summaryStripHtml: true,
-    webhook: {
-      enabled: false,
-      newItemsOnly: true,
-    },
-  };
-
-  const {
-    register,
-    handleSubmit,
-    watch,
-    setValue,
-    control,
-    getValues,
-    reset,
-    formState: { errors },
-  } = useForm<FeedFormData>({
-    defaultValues: mode === "edit" && initialData
-      ? { ...defaultValues, ...initialData }
-      : defaultValues,
-  });
-
-  const feedUrl = watch("feedUrl");
-
-  const activeFeedType = watch("feedType") ?? "webScraping";
-  const draftKey = mode === "edit" && feedId
-    ? `mkfd:draft:${feedId}`
-    : `mkfd:draft:new:${activeFeedType}`;
-  const { draft, saveDraft, clearDraft } = useFeedDraft(draftKey);
-  const formValues = watch();
-  useEffect(() => {
-    saveDraft(formValues, activeFeedType, mode ?? "create", feedId);
-  }, [formValues]);
-
-  const onSubmit = async (data: FeedFormData) => {
-    setIsSubmitting(true);
-    try {
-      const url = mode === "edit" && feedId ? `/api/feeds/${feedId}` : "/";
-      const method = mode === "edit" ? "PUT" : "POST";
-      const response = await fetch(url, {
-        method,
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(buildFeedConfigFromFormData(data)),
-      });
-
-      if (response.ok) {
-        const responseBody = await response.json().catch(() => null);
-        const feedUrls = responseBody?.feedUrls;
-        clearDraft();
-        if (mode === "edit") {
-          const msg = feedUrls
-            ? `Feed updated successfully!\n\nFeed URLs:\nRSS 2.0: ${feedUrls.rss2}\nAtom: ${feedUrls.atom}\nJSON Feed: ${feedUrls.json}`
-            : "Feed updated successfully!";
-          alert(msg);
-          navigate("/feeds");
-        } else {
-          const msg = feedUrls
-            ? `Feed created successfully!\n\nFeed URLs:\nRSS 2.0: ${feedUrls.rss2}\nAtom: ${feedUrls.atom}\nJSON Feed: ${feedUrls.json}`
-            : "Feed created successfully!";
-          alert(msg);
-          window.location.reload();
-        }
-      } else {
-        const errorBody = await response.json().catch(() => null);
-        const msg = errorBody?.errors?.map((e: { message: string }) => e.message).join("\n")
-          ?? (mode === "edit" ? "Error updating feed" : "Error creating feed");
-        alert(msg);
-        return;
-      }
-    } catch (error) {
-      console.error("Error:", error);
-      alert(mode === "edit" ? "Error updating feed" : "Error creating feed");
-    } finally {
-      setIsSubmitting(false);
-    }
-  };
-
-  const handlePreview = async () => {
-    // Get all form values, including unregistered fields (they'll be undefined)
-    const formData = getValues();
-
-    // Ensure all fields exist in the data object, even if empty
-    const data = {
-      ...formData,
-      // Fill in any missing fields with empty strings/arrays
-      descriptionSelector: formData.descriptionSelector || "",
-      descriptionAttribute: formData.descriptionAttribute || "",
-      linkSelector: formData.linkSelector || "",
-      linkAttribute: formData.linkAttribute || "",
-      enclosureSelector: formData.enclosureSelector || "",
-      enclosureAttribute: formData.enclosureAttribute || "",
-      authorSelector: formData.authorSelector || "",
-      authorAttribute: formData.authorAttribute || "",
-      dateSelector: formData.dateSelector || "",
-      dateAttribute: formData.dateAttribute || "",
-      contentEncodedSelector: formData.contentEncodedSelector || "",
-      summarySelector: formData.summarySelector || "",
-      guidSelector: formData.guidSelector || "",
-      categoriesSelector: formData.categoriesSelector || "",
-      contributorsSelector: formData.contributorsSelector || "",
-      latSelector: formData.latSelector || "",
-      longSelector: formData.longSelector || "",
-      sourceUrlSelector: formData.sourceUrlSelector || "",
-      sourceTitleSelector: formData.sourceTitleSelector || "",
+    const defaultValues: Partial<FeedFormData> = {
+      feedType: "webScraping",
+      refreshTime: 5,
+      emailCount: 10,
+      reverse: false,
+      advanced: false,
+      strict: false,
+      titleStripHtml: true,
+      authorStripHtml: true,
+      summaryStripHtml: true,
+      webhook: {
+        enabled: false,
+        newItemsOnly: true,
+      },
     };
 
-    console.log("Preview data being sent:", data);
-    setIsGeneratingPreview(true);
-    try {
-      const response = await fetch("/preview", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
-      });
+    const {
+      register,
+      handleSubmit,
+      watch,
+      setValue,
+      control,
+      getValues,
+      reset,
+      formState: { errors },
+    } = useForm<FeedFormData>({
+      defaultValues: mode === "edit" && initialData
+        ? { ...defaultValues, ...initialData }
+        : defaultValues,
+    });
 
-      if (response.ok) {
-        const rssFeedXml = await response.text();
-        setPreviewXml(rssFeedXml);
-        setPreviewFeedConfig(data as Record<string, unknown>);
-        setShowPreview(true);
-      } else {
-        const errorText = await response.text();
-        console.error("Preview error:", errorText);
-        alert("Error generating preview");
+    const feedUrl = watch("feedUrl");
+
+    const activeFeedType = watch("feedType") ?? "webScraping";
+    const draftKey = mode === "edit" && feedId
+      ? `mkfd:draft:${feedId}`
+      : `mkfd:draft:new:${activeFeedType}`;
+    const { draft, saveDraft, clearDraft } = useFeedDraft(draftKey);
+    const formValues = watch();
+    useEffect(() => {
+      saveDraft(formValues, activeFeedType, mode ?? "create", feedId);
+    }, [formValues]);
+
+    // Notify parent of value changes for preview
+    useEffect(() => {
+      onValuesChange?.(formValues);
+    }, [formValues]);
+
+    const onSubmit = async (data: FeedFormData) => {
+      setIsSubmitting(true);
+      try {
+        const url = mode === "edit" && feedId ? `/api/feeds/${feedId}` : "/";
+        const method = mode === "edit" ? "PUT" : "POST";
+        const response = await fetch(url, {
+          method,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(buildFeedConfigFromFormData(data)),
+        });
+
+        if (response.ok) {
+          const responseBody = await response.json().catch(() => null);
+          const feedUrls = responseBody?.feedUrls;
+          clearDraft();
+          if (mode === "edit") {
+            const msg = feedUrls
+              ? `Feed updated successfully!\n\nFeed URLs:\nRSS 2.0: ${feedUrls.rss2}\nAtom: ${feedUrls.atom}\nJSON Feed: ${feedUrls.json}`
+              : "Feed updated successfully!";
+            alert(msg);
+            navigate("/feeds");
+          } else {
+            const msg = feedUrls
+              ? `Feed created successfully!\n\nFeed URLs:\nRSS 2.0: ${feedUrls.rss2}\nAtom: ${feedUrls.atom}\nJSON Feed: ${feedUrls.json}`
+              : "Feed created successfully!";
+            alert(msg);
+            window.location.reload();
+          }
+        } else {
+          const errorBody = await response.json().catch(() => null);
+          const msg = errorBody?.errors?.map((e: { message: string }) => e.message).join("\n")
+            ?? (mode === "edit" ? "Error updating feed" : "Error creating feed");
+          alert(msg);
+          return;
+        }
+      } catch (error) {
+        console.error("Error:", error);
+        alert(mode === "edit" ? "Error updating feed" : "Error creating feed");
+      } finally {
+        setIsSubmitting(false);
       }
-    } catch (error) {
-      console.error("Error:", error);
-      alert("Error generating preview");
-    } finally {
-      setIsGeneratingPreview(false);
-    }
-  };
+    };
 
-  return (
-    <>
-      <DraftRestoreDialog
-        draft={draft}
-        onRestore={() => { reset(draft!.data as FeedFormData); clearDraft(); }}
-        onDiscard={clearDraft}
-      />
-      {/* Loading Overlays */}
-      {isSubmitting && (
-        <LoadingSpinner
-          message={mode === "edit" ? "Updating your feed..." : "Creating your feed..."}
-          fullscreen
+    // Expose submit handle
+    useImperativeHandle(ref, () => ({
+      submit: () => handleSubmit(onSubmit)(),
+    }));
+
+    const handlePreview = async () => {
+      const formData = getValues();
+      const data = {
+        ...formData,
+        descriptionSelector: formData.descriptionSelector || "",
+        descriptionAttribute: formData.descriptionAttribute || "",
+        linkSelector: formData.linkSelector || "",
+        linkAttribute: formData.linkAttribute || "",
+        enclosureSelector: formData.enclosureSelector || "",
+        enclosureAttribute: formData.enclosureAttribute || "",
+        authorSelector: formData.authorSelector || "",
+        authorAttribute: formData.authorAttribute || "",
+        dateSelector: formData.dateSelector || "",
+        dateAttribute: formData.dateAttribute || "",
+        contentEncodedSelector: formData.contentEncodedSelector || "",
+        summarySelector: formData.summarySelector || "",
+        guidSelector: formData.guidSelector || "",
+        categoriesSelector: formData.categoriesSelector || "",
+        contributorsSelector: formData.contributorsSelector || "",
+        latSelector: formData.latSelector || "",
+        longSelector: formData.longSelector || "",
+        sourceUrlSelector: formData.sourceUrlSelector || "",
+        sourceTitleSelector: formData.sourceTitleSelector || "",
+      };
+
+      console.log("Preview data being sent:", data);
+      setIsGeneratingPreview(true);
+      try {
+        const response = await fetch("/preview", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(data),
+        });
+
+        if (response.ok) {
+          const rssFeedXml = await response.text();
+          setPreviewXml(rssFeedXml);
+          setPreviewFeedConfig(data as Record<string, unknown>);
+          setShowPreview(true);
+        } else {
+          const errorText = await response.text();
+          console.error("Preview error:", errorText);
+          alert("Error generating preview");
+        }
+      } catch (error) {
+        console.error("Error:", error);
+        alert("Error generating preview");
+      } finally {
+        setIsGeneratingPreview(false);
+      }
+    };
+
+    return (
+      <>
+        <DraftRestoreDialog
+          draft={draft}
+          onRestore={() => { reset(draft!.data as FeedFormData); clearDraft(); }}
+          onDiscard={clearDraft}
         />
-      )}
-      {isGeneratingPreview && (
-        <LoadingSpinner message="Generating preview..." fullscreen />
-      )}
-
-      <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 animate-in">
-        {/* Edit Mode Banner */}
-        {mode === "edit" && (
-          <div className="flex items-center gap-3 p-4 rounded-lg bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 border-l-4 border-amber-500">
-            <Pencil className="h-5 w-5 text-amber-600 shrink-0" />
-            <div>
-              <p className="font-semibold text-amber-800 dark:text-amber-300">
-                Editing Existing Feed
-              </p>
-              <p className="text-xs text-amber-600 dark:text-amber-400 font-mono mt-0.5">
-                {feedId}
-              </p>
-            </div>
-          </div>
+        {/* Loading Overlays */}
+        {isSubmitting && (
+          <LoadingSpinner
+            message={mode === "edit" ? "Updating your feed..." : "Creating your feed..."}
+            fullscreen
+          />
+        )}
+        {isGeneratingPreview && (
+          <LoadingSpinner message="Generating preview..." fullscreen />
         )}
 
-        {/* Feed Name */}
-        <div className="space-y-2 p-4 rounded-lg bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-950/20 dark:to-red-950/20">
-          <Label htmlFor="feedName" className="flex items-center gap-2">
-            <Tag className="h-4 w-4" />
-            Feed Name
-          </Label>
-          <Input
-            id="feedName"
-            {...register("feedName", { required: true })}
-            placeholder="Enter feed name"
-          />
-          {errors.feedName && (
-            <p className="text-sm text-destructive">Feed name is required</p>
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 animate-in">
+          {/* Edit Mode Banner */}
+          {mode === "edit" && (
+            <div className="flex items-center gap-3 p-4 rounded-lg bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 border-l-4 border-amber-500">
+              <Pencil className="h-5 w-5 text-amber-600 shrink-0" />
+              <div>
+                <p className="font-semibold text-amber-800 dark:text-amber-300">
+                  Editing Existing Feed
+                </p>
+                <p className="text-xs text-amber-600 dark:text-amber-400 font-mono mt-0.5">
+                  {feedId}
+                </p>
+              </div>
+            </div>
           )}
-        </div>
 
-        {/* Feed Type Tabs */}
-        <div className="space-y-2 p-4 rounded-lg bg-slate-50 dark:bg-slate-900/50">
-          <Label className="flex items-center gap-2">
-            <Settings className="h-4 w-4" />
-            Feed Type
-          </Label>
-          <Tabs
-            value={feedType}
-            onValueChange={(value) => {
-              setFeedType(value as typeof feedType);
-              setValue("feedType", value as typeof feedType);
-            }}
-          >
-            <TabsList className="grid w-full grid-cols-3">
-              <TabsTrigger
-                value="webScraping"
-                disabled={mode === "edit" && feedType !== "webScraping"}
-                className={`data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white ${mode === "edit" && feedType !== "webScraping" ? "opacity-40 cursor-not-allowed" : ""}`}
-              >
-                <Globe className="mr-2 h-4 w-4" />
-                Web Scraping
-                {mode === "edit" && feedType === "webScraping" && <Lock className="ml-1 h-3 w-3 opacity-60" />}
-              </TabsTrigger>
-              <TabsTrigger
-                value="api"
-                disabled={mode === "edit" && feedType !== "api"}
-                className={`data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-emerald-500 data-[state=active]:text-white ${mode === "edit" && feedType !== "api" ? "opacity-40 cursor-not-allowed" : ""}`}
-              >
-                <Code className="mr-2 h-4 w-4" />
-                REST API
-                {mode === "edit" && feedType === "api" && <Lock className="ml-1 h-3 w-3 opacity-60" />}
-              </TabsTrigger>
-              <TabsTrigger
-                value="email"
-                disabled={mode === "edit" && feedType !== "email"}
-                className={`data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-violet-500 data-[state=active]:text-white ${mode === "edit" && feedType !== "email" ? "opacity-40 cursor-not-allowed" : ""}`}
-              >
-                <Mail className="mr-2 h-4 w-4" />
-                Email
-                {mode === "edit" && feedType === "email" && <Lock className="ml-1 h-3 w-3 opacity-60" />}
-              </TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="webScraping">
-              <WebScrapingForm
-                register={register}
-                control={control}
-                setValue={setValue}
-                watch={watch}
-                feedUrl={feedUrl}
-              />
-            </TabsContent>
-
-            <TabsContent value="api">
-              <APIForm
-                register={register}
-                control={control}
-                setValue={setValue}
-                watch={watch}
-              />
-            </TabsContent>
-
-            <TabsContent value="email">
-              <EmailForm
-                register={register}
-                control={control}
-                setValue={setValue}
-                watch={watch}
-              />
-            </TabsContent>
-          </Tabs>
-        </div>
-
-        {/* Additional Options */}
-        <AdditionalOptions
-          register={register}
-          control={control}
-          setValue={setValue}
-          watch={watch}
-          feedType={feedType}
-        />
-
-        {/* Submit Buttons */}
-        <div className="flex gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handlePreview}
-            className="flex-1 border-2 border-blue-500 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950"
-            disabled={isGeneratingPreview || isSubmitting}
-          >
-            <Eye className="mr-2 h-4 w-4" />
-            Preview
-          </Button>
-          <Button
-            type="submit"
-            className="flex-1 bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700"
-            disabled={isSubmitting || isGeneratingPreview}
-          >
-            {mode === "edit" ? (
-              <>
-                <Save className="mr-2 h-4 w-4" />
-                Update Feed
-              </>
-            ) : (
-              <>
-                <Rocket className="mr-2 h-4 w-4" />
-                Submit
-              </>
+          {/* Feed Name */}
+          <div className="space-y-2 p-4 rounded-lg bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-950/20 dark:to-red-950/20">
+            <Label htmlFor="feedName" className="flex items-center gap-2">
+              <Tag className="h-4 w-4" />
+              Feed Name
+            </Label>
+            <Input
+              id="feedName"
+              {...register("feedName", { required: true })}
+              placeholder="Enter feed name"
+            />
+            {errors.feedName && (
+              <p className="text-sm text-destructive">Feed name is required</p>
             )}
-          </Button>
-        </div>
+          </div>
 
-        {/* Feed Preview Dialog */}
-        <FeedPreview
-          open={showPreview}
-          onOpenChange={setShowPreview}
-          previewXml={previewXml}
-          feedConfig={previewFeedConfig}
-        />
-      </form>
+          {/* Feed Type Tabs */}
+          <div className="space-y-2 p-4 rounded-lg bg-slate-50 dark:bg-slate-900/50">
+            <Label className="flex items-center gap-2">
+              <Settings className="h-4 w-4" />
+              Feed Type
+            </Label>
+            <Tabs
+              value={feedType}
+              onValueChange={(value) => {
+                setFeedType(value as typeof feedType);
+                setValue("feedType", value as typeof feedType);
+              }}
+            >
+              <TabsList className="grid w-full grid-cols-3">
+                <TabsTrigger
+                  value="webScraping"
+                  disabled={mode === "edit" && feedType !== "webScraping"}
+                  className={`data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white ${mode === "edit" && feedType !== "webScraping" ? "opacity-40 cursor-not-allowed" : ""}`}
+                >
+                  <Globe className="mr-2 h-4 w-4" />
+                  Web Scraping
+                  {mode === "edit" && feedType === "webScraping" && <Lock className="ml-1 h-3 w-3 opacity-60" />}
+                </TabsTrigger>
+                <TabsTrigger
+                  value="api"
+                  disabled={mode === "edit" && feedType !== "api"}
+                  className={`data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-emerald-500 data-[state=active]:text-white ${mode === "edit" && feedType !== "api" ? "opacity-40 cursor-not-allowed" : ""}`}
+                >
+                  <Code className="mr-2 h-4 w-4" />
+                  REST API
+                  {mode === "edit" && feedType === "api" && <Lock className="ml-1 h-3 w-3 opacity-60" />}
+                </TabsTrigger>
+                <TabsTrigger
+                  value="email"
+                  disabled={mode === "edit" && feedType !== "email"}
+                  className={`data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-violet-500 data-[state=active]:text-white ${mode === "edit" && feedType !== "email" ? "opacity-40 cursor-not-allowed" : ""}`}
+                >
+                  <Mail className="mr-2 h-4 w-4" />
+                  Email
+                  {mode === "edit" && feedType === "email" && <Lock className="ml-1 h-3 w-3 opacity-60" />}
+                </TabsTrigger>
+              </TabsList>
 
-      {/* FlareSolverr Status Indicator */}
-      <FlareSolverrIndicator watch={watch} feedType={feedType} />
-    </>
-  );
-};
+              <TabsContent value="webScraping">
+                <WebScrapingForm
+                  register={register}
+                  control={control}
+                  setValue={setValue}
+                  watch={watch}
+                  feedUrl={feedUrl}
+                  activeSection={activeSection}
+                />
+              </TabsContent>
+
+              <TabsContent value="api">
+                <APIForm
+                  register={register}
+                  control={control}
+                  setValue={setValue}
+                  watch={watch}
+                  activeSection={activeSection}
+                />
+              </TabsContent>
+
+              <TabsContent value="email">
+                <EmailForm
+                  register={register}
+                  control={control}
+                  setValue={setValue}
+                  watch={watch}
+                  activeSection={activeSection}
+                />
+              </TabsContent>
+            </Tabs>
+          </div>
+
+          {/* Additional Options */}
+          <AdditionalOptions
+            register={register}
+            control={control}
+            setValue={setValue}
+            watch={watch}
+            feedType={feedType}
+          />
+
+          {/* Submit Buttons */}
+          <div className="flex gap-2">
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handlePreview}
+              className="flex-1 border-2 border-blue-500 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950"
+              disabled={isGeneratingPreview || isSubmitting}
+            >
+              <Eye className="mr-2 h-4 w-4" />
+              Preview
+            </Button>
+            <Button
+              type="submit"
+              className="flex-1 bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700"
+              disabled={isSubmitting || isGeneratingPreview}
+            >
+              {mode === "edit" ? (
+                <>
+                  <Save className="mr-2 h-4 w-4" />
+                  Update Feed
+                </>
+              ) : (
+                <>
+                  <Rocket className="mr-2 h-4 w-4" />
+                  Submit
+                </>
+              )}
+            </Button>
+          </div>
+
+          {/* Feed Preview Dialog */}
+          <FeedPreview
+            open={showPreview}
+            onOpenChange={setShowPreview}
+            previewXml={previewXml}
+            feedConfig={previewFeedConfig}
+          />
+        </form>
+
+        {/* FlareSolverr Status Indicator */}
+        <FlareSolverrIndicator watch={watch} feedType={feedType} />
+      </>
+    );
+  }
+);
