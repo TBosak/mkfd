@@ -11,11 +11,13 @@ import { chromium } from "patchright";
 import { getChromiumLaunchOptions } from "../utilities/chrome-extensions.utility";
 import { getRandomUserAgent } from "../utilities/user-agents.utility";
 import { loadDateIndex, saveDateIndex, getPreviousFeedHistory, storeFeedHistory } from "../utilities/feed-history.utility";
+import { resolveProtectedValues } from "../utilities/protected-values.utility";
 
 declare var self: Worker;
 const rssDir = "./public/feeds";
 
 async function fetchDataAndUpdateFeed(feedConfig: any) {
+  const encKey = process.env.ENCRYPTION_KEY ?? "";
   const startedAt = Date.now();
   let httpStatus: number | null = null;
   let timedOut = false;
@@ -29,7 +31,10 @@ async function fetchDataAndUpdateFeed(feedConfig: any) {
 
     // Common: Convert cookie array to string for Axios, or format for Playwright
     const cookieString = (feedConfig.cookies || [])
-      .map((c) => `${c.name}=${c.value}`)
+      .map((c: any) => {
+        const val = resolveProtectedValues(c.value, { encryptionKey: encKey });
+        return `${c.name}=${val}`;
+      })
       .join("; ");
 
     if (feedConfig.feedType === "webScraping") {
@@ -136,10 +141,18 @@ async function fetchDataAndUpdateFeed(feedConfig: any) {
         rssXml = lastBuildResult.xml;
       } else {
         // Standard web scraping with Axios
-        const response = await axios.get(feedConfig.config.baseUrl, {
+        const resolvedBaseUrl = resolveProtectedValues(
+          feedConfig.config.baseUrl as string,
+          { encryptionKey: encKey },
+        );
+        const resolvedHeaders = resolveProtectedValues(
+          feedConfig.headers ?? {},
+          { encryptionKey: encKey },
+        );
+        const response = await axios.get(resolvedBaseUrl, {
           headers: {
-            ...(feedConfig.headers || {}), // Use general headers
-            ...(cookieString && { Cookie: cookieString }), // Add cookie string if cookies exist
+            ...resolvedHeaders,
+            ...(cookieString && { Cookie: cookieString }),
           },
           maxContentLength: 2 * 1024 * 1024, // 2MB
           maxBodyLength: 2 * 1024 * 1024, // 2MB
