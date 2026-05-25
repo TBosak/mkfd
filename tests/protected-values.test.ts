@@ -4,6 +4,8 @@ import {
   isProtectedValue,
   protectValue,
   envValue,
+  resolveProtectedValue,
+  resolveProtectedValues,
 } from "../utilities/protected-values.utility";
 
 const TEST_KEY = "a18c1fd2211edd76a18c1fd2211edd76";
@@ -63,5 +65,65 @@ describe("envValue", () => {
   it("creates env reference without prefix", () => {
     const result = envValue("MY_TOKEN");
     expect(result).toEqual({ type: "env", value: "MY_TOKEN", prefix: undefined });
+  });
+});
+
+describe("resolveProtectedValue", () => {
+  it("decrypts a protected value back to plaintext", () => {
+    const pv = protectValue("my-secret", TEST_KEY);
+    expect(resolveProtectedValue(pv, TEST_KEY)).toBe("my-secret");
+  });
+
+  it("resolves an env value with prefix", () => {
+    process.env.TEST_RESOLVE_TOKEN = "abc123";
+    const pv = envValue("TEST_RESOLVE_TOKEN", "Bearer ");
+    expect(resolveProtectedValue(pv, TEST_KEY)).toBe("Bearer abc123");
+    delete process.env.TEST_RESOLVE_TOKEN;
+  });
+
+  it("resolves an env value without prefix", () => {
+    process.env.TEST_PLAIN_TOKEN = "xyz";
+    const pv = envValue("TEST_PLAIN_TOKEN");
+    expect(resolveProtectedValue(pv, TEST_KEY)).toBe("xyz");
+    delete process.env.TEST_PLAIN_TOKEN;
+  });
+
+  it("throws when env var is missing", () => {
+    delete process.env.MISSING_VAR;
+    expect(() => resolveProtectedValue(envValue("MISSING_VAR"), TEST_KEY)).toThrow(
+      "Missing environment variable: MISSING_VAR",
+    );
+  });
+});
+
+describe("resolveProtectedValues", () => {
+  it("passes plain strings through unchanged", () => {
+    expect(resolveProtectedValues("plain", { encryptionKey: TEST_KEY })).toBe("plain");
+  });
+
+  it("resolves a top-level ProtectedValue", () => {
+    const pv = protectValue("top-secret", TEST_KEY);
+    expect(resolveProtectedValues(pv, { encryptionKey: TEST_KEY })).toBe("top-secret");
+  });
+
+  it("resolves protected values nested inside an object", () => {
+    process.env.TEST_HEADER_TOKEN = "token-value";
+    const input = {
+      Accept: "application/json",
+      Authorization: envValue("TEST_HEADER_TOKEN", "Bearer "),
+    };
+    const result = resolveProtectedValues(input, { encryptionKey: TEST_KEY });
+    expect(result.Accept).toBe("application/json");
+    expect(result.Authorization).toBe("Bearer token-value");
+    delete process.env.TEST_HEADER_TOKEN;
+  });
+
+  it("resolves protected values inside arrays", () => {
+    process.env.TEST_ARR_TOKEN = "arr-value";
+    const input = ["plain", envValue("TEST_ARR_TOKEN")];
+    const result = resolveProtectedValues(input, { encryptionKey: TEST_KEY });
+    expect(result[0]).toBe("plain");
+    expect(result[1]).toBe("arr-value");
+    delete process.env.TEST_ARR_TOKEN;
   });
 });

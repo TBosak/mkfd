@@ -24,3 +24,33 @@ export function envValue(
 ): ProtectedValue & { type: "env" } {
   return { type: "env", value: varName, prefix };
 }
+
+export function resolveProtectedValue(pv: ProtectedValue, encryptionKey: string): string {
+  if (pv.type === "env") {
+    const resolved = process.env[pv.value];
+    if (!resolved) throw new Error(`Missing environment variable: ${pv.value}`);
+    return `${pv.prefix ?? ""}${resolved}`;
+  }
+  return decrypt(pv.value, encryptionKey);
+}
+
+export function resolveProtectedValues<T>(
+  input: T,
+  options: { encryptionKey: string },
+): T {
+  if (isProtectedValue(input)) {
+    return resolveProtectedValue(input, options.encryptionKey) as T;
+  }
+  if (Array.isArray(input)) {
+    return input.map((item) => resolveProtectedValues(item, options)) as T;
+  }
+  if (input && typeof input === "object") {
+    return Object.fromEntries(
+      Object.entries(input as Record<string, unknown>).map(([k, v]) => [
+        k,
+        resolveProtectedValues(v, options),
+      ]),
+    ) as T;
+  }
+  return input;
+}
