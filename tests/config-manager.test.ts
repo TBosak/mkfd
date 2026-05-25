@@ -3,7 +3,7 @@ import { mkdirSync, rmSync, writeFileSync, existsSync } from "node:fs";
 import { join } from "node:path";
 import {
   listFeedConfigs, readFeedConfig, writeFeedConfig, deleteFeedConfig,
-  duplicateFeedConfig, exportFeedConfig, safeFeedId,
+  duplicateFeedConfig, exportFeedConfig, safeFeedId, assertSafeFeedId,
 } from "../utilities/config-manager.utility";
 
 const TEST_DIR = "./test-configs-tmp";
@@ -90,5 +90,20 @@ describe("safeFeedId", () => {
   });
   it("strips .yaml extension", () => {
     expect(safeFeedId("foo.yaml")).toBe("foo");
+  });
+});
+
+describe("assertSafeFeedId", () => {
+  it("throws on path traversal", () => {
+    expect(() => assertSafeFeedId("../etc/passwd")).toThrow("Invalid feedId");
+  });
+  it("throws on slash", () => {
+    expect(() => assertSafeFeedId("feed/bad")).toThrow("Invalid feedId");
+  });
+  it("throws on dot", () => {
+    expect(() => assertSafeFeedId(".hidden")).toThrow("Invalid feedId");
+  });
+  it("allows valid feed id", () => {
+    expect(() => assertSafeFeedId("my-feed_123")).not.toThrow();
   });
 });

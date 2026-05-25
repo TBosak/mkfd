@@ -1,6 +1,6 @@
 import { useState, useEffect } from "react";
 import { useParams, useNavigate } from "react-router-dom";
-import { FeedBuilderForm } from "@/components/forms/FeedBuilderForm";
+import { BuildFeedPage } from "./BuildFeedPage";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { Button } from "@/components/ui/button";
 import { configToFormData } from "@/lib/configToFormData";
@@ -41,7 +41,7 @@ export const EditFeedPage = () => {
     );
 
   return (
-    <FeedBuilderForm
+    <BuildFeedPage
       mode="edit"
       feedId={id}
       initialData={initialData ?? undefined}
