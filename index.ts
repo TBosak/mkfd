@@ -1340,7 +1340,7 @@ app.put("/api/feeds/:id", async (ctx) => {
       password: newPassword
         ? protectValue(newPassword, encryptionKey)
         : existingConfig.config?.password ?? (
-            existingConfig.config?.encryptedPassword
+            (existingConfig.config?.encryptedPassword && existingConfig.config.encryptedPassword.trim().length > 0)
               ? { type: "protected" as const, value: existingConfig.config.encryptedPassword }
               : undefined
           ),

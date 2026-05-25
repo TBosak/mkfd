@@ -54,7 +54,7 @@ async function fetchDataAndUpdateFeed(feedConfig: any) {
         if (feedConfig.cookies && feedConfig.cookies.length > 0) {
           flaresolverrPayload.cookies = feedConfig.cookies.map((c: any) => ({
             name: c.name,
-            value: c.value,
+            value: resolveProtectedValues(c.value, { encryptionKey: encKey }),
           }));
         }
 
@@ -107,7 +107,9 @@ async function fetchDataAndUpdateFeed(feedConfig: any) {
         const page = await context.newPage();
 
         if (feedConfig.headers && Object.keys(feedConfig.headers).length) {
-          await page.setExtraHTTPHeaders(feedConfig.headers); // Use general headers
+          await page.setExtraHTTPHeaders(
+            resolveProtectedValues(feedConfig.headers, { encryptionKey: encKey }),
+          );
         }
 
         if (feedConfig.cookies && feedConfig.cookies.length > 0) {
@@ -115,7 +117,7 @@ async function fetchDataAndUpdateFeed(feedConfig: any) {
           // Playwright expects cookies in a specific format
           const playwrightCookies = feedConfig.cookies.map((c) => ({
             name: c.name,
-            value: c.value,
+            value: resolveProtectedValues(c.value, { encryptionKey: encKey }),
             domain: domain,
             path: "/", // Common default path
             // Potentially add other fields like expires, httpOnly, secure if available in your cookie object
@@ -204,8 +206,6 @@ async function fetchDataAndUpdateFeed(feedConfig: any) {
       if (hasBody) axiosConfig.data = body;
 
       axiosConfig.timeout = 60000;
-
-      console.log("Worker Axios Config:", axiosConfig);
 
       const response = await axios(axiosConfig);
       httpStatus = response.status;

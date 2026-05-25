@@ -184,4 +184,10 @@ describe("preserveMaskedProtectedValues", () => {
   it("passes through plain strings unchanged", () => {
     expect(preserveMaskedProtectedValues("plain", "old")).toBe("plain");
   });
+
+  it("returns the masked sentinel when existing is undefined (new field, no prior value)", () => {
+    const incoming = { type: "protected" as const, value: "********" };
+    const result = preserveMaskedProtectedValues(incoming, undefined as any);
+    expect((result as { value: string }).value).toBe("********");
+  });
 });
