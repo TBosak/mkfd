@@ -1,18 +1,46 @@
 import React, { useState } from "react";
+import { ChevronDown } from "lucide-react";
 
 interface SectionProps {
   icon?: React.ReactNode;
   title: string;
   sub?: string;
   right?: React.ReactNode;
+  collapsible?: boolean;
   defaultOpen?: boolean;
   children: React.ReactNode;
 }
 
 export const Section: React.FC<SectionProps> = ({
-  icon, title, sub, right, defaultOpen = true, children,
+  icon, title, sub, right, collapsible = false, defaultOpen = true, children,
 }) => {
   const [open, setOpen] = useState(defaultOpen);
+  const isOpen = collapsible ? open : true;
+
+  const header = (
+    <>
+      {icon && (
+        <span style={{ color: "hsl(var(--muted-foreground))", flexShrink: 0 }}>{icon}</span>
+      )}
+      <div style={{ flex: 1, minWidth: 0 }}>
+        <div style={{ fontWeight: 600, fontSize: 14 }}>{title}</div>
+        {sub && <div style={{ fontSize: 12, color: "hsl(var(--muted-foreground))", marginTop: 1 }}>{sub}</div>}
+      </div>
+      {right && <div style={{ flexShrink: 0 }}>{right}</div>}
+      {collapsible && (
+        <ChevronDown
+          size={14}
+          aria-hidden="true"
+          style={{
+            flexShrink: 0,
+            color: "hsl(var(--muted-foreground))",
+            transform: open ? "rotate(180deg)" : "rotate(0deg)",
+            transition: "transform 0.18s ease",
+          }}
+        />
+      )}
+    </>
+  );
 
   return (
     <div
@@ -24,43 +52,25 @@ export const Section: React.FC<SectionProps> = ({
         background: "hsl(var(--card))",
       }}
     >
-      <button
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        style={{
-          display: "flex",
-          alignItems: "center",
-          gap: 10,
-          width: "100%",
-          padding: "12px 14px",
-          background: "transparent",
-          border: 0,
-          cursor: "pointer",
-          textAlign: "left",
-        }}
-      >
-        {icon && (
-          <span style={{ color: "hsl(var(--muted-foreground))", flexShrink: 0 }}>{icon}</span>
-        )}
-        <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ fontWeight: 600, fontSize: 14 }}>{title}</div>
-          {sub && <div style={{ fontSize: 12, color: "hsl(var(--muted-foreground))", marginTop: 1 }}>{sub}</div>}
-        </div>
-        {right && <div style={{ flexShrink: 0 }}>{right}</div>}
-        <span
+      {collapsible ? (
+        <button
+          type="button"
+          onClick={() => setOpen((v) => !v)}
           style={{
-            flexShrink: 0,
-            fontSize: 12,
-            color: "hsl(var(--muted-foreground))",
-            transform: open ? "rotate(180deg)" : "rotate(0deg)",
-            transition: "transform 0.18s ease",
+            display: "flex", alignItems: "center", gap: 10, width: "100%",
+            padding: "12px 14px", background: "transparent", border: 0,
+            cursor: "pointer", textAlign: "left",
           }}
         >
-          ▾
-        </span>
-      </button>
-      {open && (
-        <div style={{ padding: "0 14px 14px", borderTop: "1px solid hsl(var(--border))", paddingTop: 12 }}>
+          {header}
+        </button>
+      ) : (
+        <div style={{ display: "flex", alignItems: "center", gap: 10, padding: "12px 14px" }}>
+          {header}
+        </div>
+      )}
+      {isOpen && (
+        <div style={{ padding: "12px 14px 14px", borderTop: "1px solid hsl(var(--border))" }}>
           {children}
         </div>
       )}
