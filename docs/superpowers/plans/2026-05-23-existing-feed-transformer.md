@@ -1588,11 +1588,12 @@ git commit -m "feat: add feed-transformer orchestrator utility"
 ### Task 7: API — probe endpoint, preview extension, save validation
 
 **Files:**
-- Modify: `index.ts`
+- Modify: `routes/feeds.ts`
+- Modify: `utilities/preview-generator.utility.ts`
 
-- [ ] **Step 1: Add the probe endpoint**
+- [ ] **Step 1: Add the probe endpoint to `routes/feeds.ts`**
 
-In `index.ts`, add this route before the `export default app` line (or after the `/preview` route, around line 868):
+In `routes/feeds.ts`, add this route inside the `feedsRouter` factory, before the final `return app;` statement:
 
 ```ts
 app.post("/api/feeds/transformer/probe", async (ctx) => {
@@ -1607,13 +1608,13 @@ app.post("/api/feeds/transformer/probe", async (ctx) => {
     if (!url || !/^https?:\/\//i.test(url)) {
       return ctx.json({ error: "url must be a valid HTTP/HTTPS URL" }, 400);
     }
-    const { assertOutboundFetchAllowed } = await import("./utilities/outbound-fetch-policy.utility");
+    const { assertOutboundFetchAllowed } = await import("../utilities/outbound-fetch-policy.utility");
     await assertOutboundFetchAllowed(url, {
       allowPrivateFetches: process.env.ALLOW_PRIVATE_FETCHES === "true",
       allowlistHosts: (process.env.OUTBOUND_FETCH_ALLOWLIST ?? "").split(",").map((s) => s.trim()).filter(Boolean),
     });
 
-    const { parseExistingFeed } = await import("./utilities/existing-feed-parser.utility");
+    const { parseExistingFeed } = await import("../utilities/existing-feed-parser.utility");
     const result = await parseExistingFeed({
       url,
       format: format as any,
@@ -1646,27 +1647,27 @@ app.post("/api/feeds/transformer/probe", async (ctx) => {
 });
 ```
 
-- [ ] **Step 2: Extend `generatePreview` to handle `feedTransformer`**
+- [ ] **Step 2: Extend `generatePreview` in `utilities/preview-generator.utility.ts`**
 
-In `index.ts`, find the `generatePreview` function (around line 1843). Add a `feedTransformer` branch before the final `return` statement:
+In `utilities/preview-generator.utility.ts`, find the `generatePreview` function. Add a `feedTransformer` branch before the final `return rssXml!;` statement (or inside the `if/else` block):
 
 ```ts
 // Inside generatePreview, add after the existing feedType branches:
 if (feedConfig.feedType === "feedTransformer") {
-  const { runFeedTransformer } = await import("./utilities/feed-transformer.utility");
+  const { runFeedTransformer } = await import("./feed-transformer.utility");
   const serverUrl = process.env.SERVER_URL || "http://localhost:5000";
   const result = await runFeedTransformer({
     config: feedConfig,
-    encryptionKey,
+    encryptionKey: (feedConfig as any).encryptionKey || "", // Ensure key is passed if needed
     serverUrl,
   });
   return result.feed.rss2();
 }
 ```
 
-- [ ] **Step 3: Add feedTransformer validation to the save routes**
+- [ ] **Step 3: Add feedTransformer validation to the save routes in `routes/feeds.ts`**
 
-In `index.ts`, find the `POST /` handler (around line 192) and the `PUT /api/feeds/:id` handler (around line 1220). In both, add feedTransformer extraction and validation after the existing `feedType` branches:
+In `routes/feeds.ts`, find the `POST /` handler and the `PUT /api/feeds/:id` handler. In both, add feedTransformer extraction and validation after the existing `feedType === "email"` branches:
 
 ```ts
 // After the existing else if (feedType === "email") block in both POST / and PUT /api/feeds/:id:
@@ -1698,6 +1699,7 @@ else if (feedType === "feedTransformer") {
     ...(ftBlock.items?.filters?.include || []),
     ...(ftBlock.items?.filters?.exclude || []),
   ];
+```
   for (const rule of filterRules) {
     if (rule.type === "regex") {
       try { new RegExp(rule.value); } catch {
@@ -1737,7 +1739,7 @@ Expected: JSON response with `detectedFormat`, `feed.title`, `feed.itemCount`.
 - [ ] **Step 6: Commit**
 
 ```bash
-git add index.ts
+git add routes/feeds.ts utilities/preview-generator.utility.ts
 git commit -m "feat: add probe endpoint and feedTransformer support in preview/save"
 ```
 
@@ -2430,6 +2432,6 @@ to:
 - [ ] **Step 5: Final commit**
 
 ```bash
-git add tests/ utilities/ models/ workers/ index.ts frontend/src/
+git add tests/ utilities/ models/ workers/ routes/feeds.ts frontend/src/
 git commit -m "feat: Existing Feed Transformer — multi-source merge, cleanup, and republish"
 ```

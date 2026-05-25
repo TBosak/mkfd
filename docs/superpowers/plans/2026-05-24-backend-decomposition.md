@@ -1512,6 +1512,8 @@ git commit -m "feat: extract utils routes"
 **Files:**
 - Create: `routes/feeds.ts`
 
+> **CRITICAL PHASE 2 COMPATIBILITY NOTE:** If the `My Feeds Redesign` plan (Phase 2) has already been executed, `index.ts` will contain an updated `GET /api/feeds` powered by Drizzle, as well as 5 new routes (`PATCH /api/feeds/:id/metadata`, `PATCH /api/feeds/:id/enabled`, `POST /api/feeds/:id/duplicate`, `GET /api/feeds/:id/export`, `DELETE /api/feeds/:id`). **You MUST extract and preserve these existing routes from `index.ts` into `routes/feeds.ts`.** Do NOT blindly copy the legacy `GET /api/feeds` or `POST /delete-feed` code below if the newer implementations exist in `index.ts`. Ensure all necessary imports (`drizzle-orm`, `config-manager.utility.ts`, etc.) are also migrated.
+
 - [ ] **Step 1: Create `routes/feeds.ts`**
 
 ```ts
@@ -1533,6 +1535,7 @@ import {
   clearFeedUpdaterInterval,
   terminateWorker,
 } from "../utilities/worker-manager.utility";
+// MIGRATION NOTE: Add imports for config-manager.utility, config-metadata.utility, and drizzle here if they exist in index.ts!
 
 async function deleteFeed(feedId: string, configsDir: string): Promise<boolean> {
   try {
@@ -1636,32 +1639,10 @@ export function feedsRouter(deps: {
     `);
   });
 
+  // MIGRATION NOTE: Extract the actual GET /api/feeds from index.ts here!
   app.get("/api/feeds", async (ctx) => {
-    const files = await readdir(configsDir);
-    const feeds = [];
-    for (const f of files.filter((f) => f.endsWith(".yaml"))) {
-      const config = yaml.load(await readFile(join(configsDir, f), "utf8")) as any;
-      let lastBuildDate = "Not yet built";
-      try {
-        const xmlContent = await readFile(join(feedPath, `${config.feedId}.xml`), "utf8");
-        const parser = new DOMParser();
-        const xmlDoc = parser.parseFromString(xmlContent, "application/xml");
-        const node = xmlDoc.getElementsByTagName("lastBuildDate")[0];
-        if (node?.textContent) {
-          lastBuildDate = new Date(node.textContent).toLocaleString();
-        }
-      } catch {
-        // XML not yet generated — leave as "Not yet built"
-      }
-      feeds.push({
-        feedId: config.feedId,
-        feedName: config.feedName,
-        feedType: config.feedType,
-        lastBuildDate,
-        webhookEnabled: !!(config.webhook?.enabled && config.webhook?.url),
-      });
-    }
-    return ctx.json(feeds);
+    // ... legacy fallback code omitted for brevity ...
+    // Extract this route and any newer PATCH/DELETE/POST routes directly from index.ts
   });
 
   app.get("/api/feeds/:id/config", async (ctx) => {
@@ -1715,6 +1696,7 @@ export function feedsRouter(deps: {
     });
   });
 
+  // MIGRATION NOTE: Ensure you copy the DELETE /api/feeds/:id route here if it exists!
   app.post("/delete-feed", async (c) => {
     const data = await c.req.parseBody();
     const feedId = data.feedId;
@@ -1822,9 +1804,11 @@ git commit -m "feat: extract preview route"
 **Files:**
 - Modify: `index.ts`
 
+> **CRITICAL PHASE 2 & 2.5 COMPATIBILITY NOTE:** If earlier plans have been implemented, `index.ts` will contain new imports and middleware, including the `settingsRouter` from the Phase 2.5 "Settings Page" plan. **You MUST preserve and re-mount any existing routers and middleware that are not explicitly replaced by this decomposition.**
+
 - [ ] **Step 1: Replace `index.ts` entirely**
 
-Replace the full contents of `index.ts` with:
+Replace the contents of `index.ts` with the following skeleton, making sure to inject the Phase 2.5 `settingsRouter` if it is present in the current file:
 
 ```ts
 import { file } from "bun";
@@ -1847,6 +1831,7 @@ import { feedsRouter } from "./routes/feeds";
 import { previewRouter } from "./routes/preview";
 import { healthRouter } from "./routes/health";
 import { utilsRouter } from "./routes/utils";
+// MIGRATION NOTE: Import settingsRouter here if it exists in the current index.ts!
 
 const args = minimist(process.argv.slice(3));
 const SSL = process.env.SSL === "true" || args.ssl === true;
@@ -1933,6 +1918,7 @@ app.route("/", feedsRouter({ encryptionKey, configsDir, feedPath }));
 app.route("/", previewRouter({ encryptionKey }));
 app.route("/", healthRouter({ runLogEmitter }));
 app.route("/", utilsRouter({ configsDir, feedPath }));
+// MIGRATION NOTE: Mount settingsRouter here if it exists in the current index.ts!
 
 export default {
   port: 5000,
