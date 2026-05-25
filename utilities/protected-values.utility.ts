@@ -54,3 +54,50 @@ export function resolveProtectedValues<T>(
   }
   return input;
 }
+
+export function maskProtectedValues<T>(input: T): T {
+  if (isProtectedValue(input)) {
+    if (input.type === "env") return input;
+    return { ...input, value: "********" } as T;
+  }
+  if (Array.isArray(input)) {
+    return input.map(maskProtectedValues) as T;
+  }
+  if (input && typeof input === "object") {
+    return Object.fromEntries(
+      Object.entries(input as Record<string, unknown>).map(([k, v]) => [k, maskProtectedValues(v)]),
+    ) as T;
+  }
+  return input;
+}
+
+export function preserveMaskedProtectedValues<T>(incoming: T, existing: T): T {
+  if (
+    isProtectedValue(incoming) &&
+    incoming.type === "protected" &&
+    incoming.value === "********" &&
+    isProtectedValue(existing)
+  ) {
+    return existing as T;
+  }
+  if (isProtectedValue(incoming) && incoming.type === "env") {
+    return incoming;
+  }
+  if (Array.isArray(incoming) && Array.isArray(existing)) {
+    return incoming.map((item, i) => preserveMaskedProtectedValues(item, existing[i])) as T;
+  }
+  if (
+    incoming &&
+    existing &&
+    typeof incoming === "object" &&
+    typeof existing === "object"
+  ) {
+    return Object.fromEntries(
+      Object.entries(incoming as Record<string, unknown>).map(([k, v]) => [
+        k,
+        preserveMaskedProtectedValues(v, (existing as Record<string, unknown>)[k]),
+      ]),
+    ) as T;
+  }
+  return incoming;
+}

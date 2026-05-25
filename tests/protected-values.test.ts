@@ -6,6 +6,8 @@ import {
   envValue,
   resolveProtectedValue,
   resolveProtectedValues,
+  maskProtectedValues,
+  preserveMaskedProtectedValues,
 } from "../utilities/protected-values.utility";
 
 const TEST_KEY = "a18c1fd2211edd76a18c1fd2211edd76";
@@ -125,5 +127,61 @@ describe("resolveProtectedValues", () => {
     expect(result[0]).toBe("plain");
     expect(result[1]).toBe("arr-value");
     delete process.env.TEST_ARR_TOKEN;
+  });
+});
+
+describe("maskProtectedValues", () => {
+  it("replaces protected value's value with ********", () => {
+    const pv = protectValue("real-secret", TEST_KEY);
+    const masked = maskProtectedValues(pv) as { type: string; value: string };
+    expect(masked.type).toBe("protected");
+    expect(masked.value).toBe("********");
+  });
+
+  it("masks nested protected values in objects", () => {
+    const input = { Authorization: protectValue("token", TEST_KEY), Accept: "text/html" };
+    const masked = maskProtectedValues(input) as typeof input;
+    expect((masked.Authorization as { value: string }).value).toBe("********");
+    expect(masked.Accept).toBe("text/html");
+  });
+
+  it("leaves plain strings untouched", () => {
+    expect(maskProtectedValues("plain")).toBe("plain");
+  });
+
+  it("masks inside arrays", () => {
+    const input = [protectValue("secret", TEST_KEY), "plain"];
+    const masked = maskProtectedValues(input) as Array<unknown>;
+    expect((masked[0] as { value: string }).value).toBe("********");
+    expect(masked[1]).toBe("plain");
+  });
+});
+
+describe("preserveMaskedProtectedValues", () => {
+  it("restores original ciphertext when incoming value is ********", () => {
+    const original = protectValue("real-secret", TEST_KEY);
+    const incoming = { type: "protected" as const, value: "********" };
+    const result = preserveMaskedProtectedValues(incoming, original);
+    expect(result).toEqual(original);
+  });
+
+  it("keeps new ciphertext when incoming is not ********", () => {
+    const original = protectValue("old-secret", TEST_KEY);
+    const newPv = protectValue("new-secret", TEST_KEY);
+    const result = preserveMaskedProtectedValues(newPv, original);
+    expect(result).toEqual(newPv);
+  });
+
+  it("works recursively on objects", () => {
+    const existing = { Authorization: protectValue("real-token", TEST_KEY) };
+    const incoming = { Authorization: { type: "protected" as const, value: "********" } };
+    const result = preserveMaskedProtectedValues(incoming, existing) as typeof existing;
+    expect((result.Authorization as { value: string }).value).toBe(
+      (existing.Authorization as { value: string }).value,
+    );
+  });
+
+  it("passes through plain strings unchanged", () => {
+    expect(preserveMaskedProtectedValues("plain", "old")).toBe("plain");
   });
 });
