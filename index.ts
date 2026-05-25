@@ -27,7 +27,8 @@ import { getChromiumLaunchOptions } from "./utilities/chrome-extensions.utility"
 import { getRandomUserAgent } from "./utilities/user-agents.utility";
 import * as cheerio from "cheerio";
 import { EventEmitter } from "node:events";
-import { initDb, getDb, insertRunLog, pruneRunLogs, getSettings, saveSettings } from "./lib/analytics/db";
+import { initDb, getDb, insertRunLog, pruneRunLogs, getSettings, saveSettings, createFeedHistoryStore, migrateLegacyFeedHistory } from "./lib/analytics/db";
+import { setFeedHistoryStore } from "./utilities/feed-history.utility";
 import type { RunLog } from "./lib/analytics/schema";
 import { sql, and, eq, gte, lte, desc } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/bun-sqlite";
@@ -136,6 +137,22 @@ try {
   initDb();
 } catch (e) {
   console.error("[Analytics] Failed to initialize DB — health tracking disabled:", e);
+}
+
+try {
+  const runtimeDb = getDb();
+  setFeedHistoryStore(createFeedHistoryStore(runtimeDb));
+  const migrationResult = await migrateLegacyFeedHistory(runtimeDb);
+  console.log(
+    `[Startup] Feed history migration complete: ` +
+    `${migrationResult.snapshots} snapshots, ` +
+    `${migrationResult.dateIndexes} date indexes migrated.`,
+  );
+} catch (err) {
+  console.error(
+    "[Startup] Feed history DB init failed — continuing with file-based fallback:",
+    err,
+  );
 }
 processFeedsAtStart();
 //ALLOW LOCAL NETWORK TO ACCESS API
