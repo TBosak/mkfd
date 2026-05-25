@@ -16,6 +16,7 @@ import { buildRSS, buildRSSFromApiData } from "./utilities/rss-builder.utility";
 import type { Config } from "node-imap";
 import { listImapFolders } from "./utilities/imap.utility";
 import { encrypt } from "./utilities/security.utility";
+import { maskProtectedValues } from "./utilities/protected-values.utility";
 import { CookieStore, sessionMiddleware } from "hono-sessions";
 import { suggestSelectors } from "./utilities/suggestion-engine.utility";
 import { chromium } from "patchright";
@@ -564,7 +565,7 @@ app.post("/", async (ctx) => {
       message: "RSS feed is being generated.",
       feedUrl: `public/feeds/${feedId}.xml`,
       feedId: feedId,
-      config: finalFeedConfig,
+      config: maskProtectedValues(finalFeedConfig),
     });
   }
 
@@ -1192,7 +1193,7 @@ app.get("/api/feeds/:id/config", async (ctx) => {
 
   const yamlContent = await readFile(configPath, "utf8");
   const config = yaml.load(yamlContent);
-  return ctx.json(config);
+  return ctx.json(maskProtectedValues(config));
 });
 
 app.put("/api/feeds/:id", async (ctx) => {
@@ -1391,7 +1392,7 @@ app.put("/api/feeds/:id", async (ctx) => {
     message: "Feed updated successfully.",
     feedUrl: `public/feeds/${feedId}.xml`,
     feedId,
-    config: finalFeedConfig,
+    config: maskProtectedValues(finalFeedConfig),
   });
 });
 
