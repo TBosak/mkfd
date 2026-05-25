@@ -13,7 +13,7 @@ import { getChromiumLaunchOptions } from "../utilities/chrome-extensions.utility
 import { getRandomUserAgent } from "../utilities/user-agents.utility";
 import { loadDateIndex, saveDateIndex, getPreviousFeedHistory, storeFeedHistory } from "../utilities/feed-history.utility";
 import { resolveProtectedValues } from "../utilities/protected-values.utility";
-import { assertOutboundFetchAllowed, parseAllowlist, type OutboundFetchPolicyOptions } from "../utilities/outbound-fetch-policy.utility";
+import { assertOutboundFetchAllowed, mergeFeedPolicyOptions, parseAllowlist, type OutboundFetchPolicyOptions } from "../utilities/outbound-fetch-policy.utility";
 
 declare var self: Worker;
 const rssDir = "./public/feeds";
@@ -23,6 +23,10 @@ const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 /**
  * Performs an axios GET that manually follows redirects, re-checking the
  * outbound fetch policy before each hop. Prevents redirect-based SSRF.
+ *
+ * Validates the initial URL first (defence-in-depth). Then makes the initial
+ * request outside the redirect loop. The redirect loop runs at most
+ * `maxRedirects` times, so total network calls = 1 + maxRedirects.
  */
 async function axiosGetWithPolicyRedirects(
   url: string,
@@ -30,13 +34,19 @@ async function axiosGetWithPolicyRedirects(
   policyOptions: OutboundFetchPolicyOptions,
   maxRedirects = 5,
 ): Promise<import("axios").AxiosResponse> {
+  // Defence-in-depth: validate the initial URL even if the caller already did.
+  await assertOutboundFetchAllowed(url, policyOptions);
+
   let currentUrl = url;
-  for (let hop = 0; hop <= maxRedirects; hop++) {
-    const response = await axios.get(currentUrl, { ...config, maxRedirects: 0 });
-    if (!REDIRECT_STATUSES.has(response.status)) {
-      return response;
+  // Initial request (not a redirect hop).
+  let currentResponse = await axios.get(currentUrl, { ...config, maxRedirects: 0 });
+
+  // Follow up to maxRedirects redirect hops.
+  for (let hop = 0; hop < maxRedirects; hop++) {
+    if (!REDIRECT_STATUSES.has(currentResponse.status)) {
+      return currentResponse;
     }
-    const location = response.headers["location"];
+    const location = currentResponse.headers["location"];
     if (!location) {
       throw new Error(`Redirect from "${currentUrl}" had no Location header.`);
     }
@@ -44,6 +54,11 @@ async function axiosGetWithPolicyRedirects(
     const nextUrl = new URL(location, currentUrl).toString();
     await assertOutboundFetchAllowed(nextUrl, policyOptions);
     currentUrl = nextUrl;
+    currentResponse = await axios.get(currentUrl, { ...config, maxRedirects: 0 });
+  }
+
+  if (!REDIRECT_STATUSES.has(currentResponse.status)) {
+    return currentResponse;
   }
   throw new Error(`Too many redirects (>${maxRedirects}) following "${url}".`);
 }
@@ -73,21 +88,11 @@ async function fetchDataAndUpdateFeed(rawConfig: Record<string, unknown>) {
     // check and for re-checking redirect targets).
     const globalAllowPrivate = process.env.ALLOW_PRIVATE_FETCHES === "true";
     const globalAllowlist = parseAllowlist(process.env.OUTBOUND_FETCH_ALLOWLIST);
-    // Fix: feed value takes priority when explicitly set; fall back to global only if absent.
-    const hasFeedOverride = 'allowPrivateFetches' in feedConfig;
-    const effectivePolicyOptions: OutboundFetchPolicyOptions = {
-      allowPrivateFetches: hasFeedOverride
-        ? (feedConfig as any).allowPrivateFetches
-        : globalAllowPrivate,
-      allowlist: [...new Set([
-        ...globalAllowlist,
-        ...parseAllowlist(
-          Array.isArray((feedConfig as any).allowlist)
-            ? (feedConfig as any).allowlist.join(",")
-            : (feedConfig as any).allowlist
-        ),
-      ])],
+    const globalPolicyOptions: OutboundFetchPolicyOptions = {
+      allowPrivateFetches: globalAllowPrivate,
+      allowlist: globalAllowlist,
     };
+    const effectivePolicyOptions = mergeFeedPolicyOptions(globalPolicyOptions, feedConfig as any);
 
     if (feedUrl) {
       await assertOutboundFetchAllowed(feedUrl, effectivePolicyOptions);
@@ -107,6 +112,9 @@ async function fetchDataAndUpdateFeed(rawConfig: Record<string, unknown>) {
         const flaresolverrUrl =
           feedConfig.flaresolverr.serverUrl || "http://localhost:8191";
         const timeout = feedConfig.flaresolverr.timeout || 60000;
+
+        // SSRF protection: validate FlareSolverr server URL before posting to it.
+        await assertOutboundFetchAllowed(`${flaresolverrUrl}/v1`, effectivePolicyOptions);
 
         const flaresolverrPayload: any = {
           cmd: "request.get",

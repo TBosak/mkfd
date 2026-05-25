@@ -11,7 +11,7 @@
  * must be replaced with effective settings lookups.
  */
 
-import * as dns from "node:dns/promises";
+import { resolve4, resolve6 } from "node:dns/promises";
 import * as net from "node:net";
 
 // ──────────────────────────────────────────────────────────────────────────────
@@ -231,8 +231,10 @@ function isBlockedIPv6(ip: string): boolean {
   // 100::/64 — discard prefix
   if (inIPv6Range(bytes, "100::", 64)) return true;
 
-  // 2001::/32 — Teredo
-  if (inIPv6Range(bytes, "2001::", 32)) return true;
+  // 2001:0000::/32 — Teredo (RFC 4380); only block when second 16-bit group is 0x0000.
+  // Using /32 on the base 2001:0000:: correctly matches only the Teredo range,
+  // not e.g. 2001:4860:: (Google's public IPv6 DNS).
+  if (inIPv6Range(bytes, "2001:0000::", 32)) return true;
 
   // 2002::/16 — 6to4 (can reach private IPv4 ranges)
   if (inIPv6Range(bytes, "2002::", 16)) return true;
@@ -259,6 +261,35 @@ export interface OutboundFetchPolicyOptions {
    * Receives a hostname and returns a list of resolved IP addresses.
    */
   _dnsLookupFn?: (hostname: string) => Promise<string[]>;
+}
+
+/**
+ * Merges feed-level policy overrides on top of a global policy baseline.
+ *
+ * Precedence: feed override > global setting > safe default (false / empty).
+ * - If feedConfig explicitly contains `allowPrivateFetches`, that value wins.
+ * - The allowlist is the union of the global allowlist and any feed-level allowlist.
+ *
+ * @param global - The baseline outbound-fetch policy (e.g. from env vars or app config).
+ * @param feedConfig - Any object that may carry `allowPrivateFetches` and/or `allowlist`
+ *   overrides (raw feed body, stored feed config, etc.).
+ */
+export function mergeFeedPolicyOptions(
+  global: OutboundFetchPolicyOptions,
+  feedConfig: Record<string, any> | null | undefined,
+): OutboundFetchPolicyOptions {
+  const hasFeedOverride = feedConfig != null && "allowPrivateFetches" in feedConfig;
+  const feedAllowlist: string[] = parseAllowlist(
+    Array.isArray(feedConfig?.allowlist)
+      ? feedConfig.allowlist.join(",")
+      : feedConfig?.allowlist
+  );
+  return {
+    allowPrivateFetches: hasFeedOverride
+      ? (feedConfig!.allowPrivateFetches as boolean)
+      : (global.allowPrivateFetches ?? false),
+    allowlist: [...new Set([...(global.allowlist ?? []), ...feedAllowlist])],
+  };
 }
 
 /**
@@ -359,12 +390,22 @@ export async function assertOutboundFetchAllowed(
 }
 
 /**
- * Resolves a hostname to its IP addresses using node:dns/promises.
+ * Resolves a hostname to its IP addresses (both A and AAAA records).
+ * Fails closed: if no addresses are resolved at all, throws a policy error.
  */
 async function resolveHostname(hostname: string): Promise<string[]> {
   try {
-    const addresses = await dns.resolve(hostname);
-    return addresses;
+    const [v4, v6] = await Promise.allSettled([
+      resolve4(hostname),
+      resolve6(hostname),
+    ]);
+    const addrs: string[] = [];
+    if (v4.status === "fulfilled") addrs.push(...v4.value);
+    if (v6.status === "fulfilled") addrs.push(...v6.value);
+    if (addrs.length === 0) {
+      throw new Error(`DNS resolution returned no addresses for "${hostname}".`);
+    }
+    return addrs;
   } catch {
     // If DNS fails, we can't confirm the address is safe — fail closed.
     throw new Error(

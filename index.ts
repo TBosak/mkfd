@@ -28,7 +28,7 @@ import { getRandomUserAgent } from "./utilities/user-agents.utility";
 import * as cheerio from "cheerio";
 import { EventEmitter } from "node:events";
 import { initDb, getDb, insertRunLog, pruneRunLogs, getSettings, saveSettings, createFeedHistoryStore, migrateLegacyFeedHistory } from "./lib/analytics/db";
-import { assertOutboundFetchAllowed, parseAllowlist, type OutboundFetchPolicyOptions } from "./utilities/outbound-fetch-policy.utility";
+import { assertOutboundFetchAllowed, mergeFeedPolicyOptions, parseAllowlist, type OutboundFetchPolicyOptions } from "./utilities/outbound-fetch-policy.utility";
 import { setFeedHistoryStore } from "./utilities/feed-history.utility";
 import type { RunLog } from "./lib/analytics/schema";
 import { sql, and, eq, gte, lte, desc } from "drizzle-orm";
@@ -58,29 +58,16 @@ function getGlobalFetchPolicyOptions(): OutboundFetchPolicyOptions {
  * Merges feed-level allowPrivateFetches / allowlist overrides on top of global
  * policy options. Feed values take priority when explicitly present on the config.
  */
-function mergeFeedPolicyOptions(
-  global: OutboundFetchPolicyOptions,
-  feedConfig: any,
-): OutboundFetchPolicyOptions {
-  const hasFeedOverride = feedConfig != null && 'allowPrivateFetches' in feedConfig;
-  const feedAllowlist: string[] = parseAllowlist(
-    Array.isArray(feedConfig?.allowlist)
-      ? feedConfig.allowlist.join(",")
-      : feedConfig?.allowlist
-  );
-  return {
-    allowPrivateFetches: hasFeedOverride
-      ? (feedConfig.allowPrivateFetches as boolean)
-      : (global.allowPrivateFetches ?? false),
-    allowlist: [...new Set([...(global.allowlist ?? []), ...feedAllowlist])],
-  };
-}
 
 const REDIRECT_STATUSES_IDX = new Set([301, 302, 303, 307, 308]);
 
 /**
  * Performs an axios GET that manually follows redirects, re-checking the
  * outbound fetch policy on each hop. Prevents redirect-based SSRF.
+ *
+ * Validates the initial URL first (defence-in-depth for callers that forget).
+ * Then makes the initial request outside the redirect loop. The redirect loop
+ * runs at most `maxRedirects` times, so total network calls = 1 + maxRedirects.
  */
 async function axiosGetWithPolicyRedirects(
   url: string,
@@ -88,19 +75,30 @@ async function axiosGetWithPolicyRedirects(
   policyOptions: OutboundFetchPolicyOptions,
   maxRedirects = 5,
 ): Promise<import("axios").AxiosResponse> {
+  // Defence-in-depth: validate the initial URL even if the caller already did.
+  await assertOutboundFetchAllowed(url, policyOptions);
+
   let currentUrl = url;
-  for (let hop = 0; hop <= maxRedirects; hop++) {
-    const response = await axios.get(currentUrl, { ...config, maxRedirects: 0 });
-    if (!REDIRECT_STATUSES_IDX.has(response.status)) {
-      return response;
+  // Initial request (not a redirect hop).
+  let currentResponse = await axios.get(currentUrl, { ...config, maxRedirects: 0 });
+
+  // Follow up to maxRedirects redirect hops.
+  for (let hop = 0; hop < maxRedirects; hop++) {
+    if (!REDIRECT_STATUSES_IDX.has(currentResponse.status)) {
+      return currentResponse;
     }
-    const location = response.headers["location"];
+    const location = currentResponse.headers["location"];
     if (!location) {
       throw new Error(`Redirect from "${currentUrl}" had no Location header.`);
     }
     const nextUrl = new URL(location, currentUrl).toString();
     await assertOutboundFetchAllowed(nextUrl, policyOptions);
     currentUrl = nextUrl;
+    currentResponse = await axios.get(currentUrl, { ...config, maxRedirects: 0 });
+  }
+
+  if (!REDIRECT_STATUSES_IDX.has(currentResponse.status)) {
+    return currentResponse;
   }
   throw new Error(`Too many redirects (>${maxRedirects}) following "${url}".`);
 }
@@ -342,6 +340,9 @@ app.post("/", async (ctx) => {
           parseInt(flaresolverrData.timeout || "60000", 10) || 60000;
 
         if (flaresolverrEnabled && flaresolverrUrl) {
+          // SSRF protection: validate FlareSolverr server URL before posting to it.
+          await assertOutboundFetchAllowed(`${flaresolverrUrl}/v1`, sampleHtmlPolicyOptions);
+
           // Use FlareSolverr to fetch sample HTML
           const flaresolverrPayload: any = {
             cmd: "request.get",
@@ -388,7 +389,12 @@ app.post("/", async (ctx) => {
           }, sampleHtmlPolicyOptions);
           sampleHtml = response.data;
         }
-      } catch (e) {
+      } catch (e: any) {
+        // Re-throw SSRF/policy errors — these must not be silently swallowed.
+        if (e?.message?.startsWith("Outbound fetch blocked")) {
+          throw e;
+        }
+        // Transient network errors: log and continue without sample HTML.
         console.warn(
           "Could not fetch sample HTML for URL analysis:",
           e.message
@@ -396,7 +402,10 @@ app.post("/", async (ctx) => {
         sampleHtml = "";
       }
     }
-  } catch (e) {
+  } catch (e: any) {
+    if (e?.message?.startsWith("Outbound fetch blocked")) {
+      return ctx.text(e.message, 403);
+    }
     console.error("Error parsing request body:", e);
     return ctx.text("Invalid request body.", 400);
   }
@@ -577,6 +586,13 @@ app.get("/proxy", async (ctx) => {
     let html: string;
 
     if (flaresolverrEnabled && flaresolverrUrl) {
+      // SSRF protection: validate FlareSolverr server URL before posting to it.
+      try {
+        await assertOutboundFetchAllowed(`${flaresolverrUrl}/v1`, proxyPolicyOptions);
+      } catch (policyErr: any) {
+        return ctx.text(policyErr.message, 403);
+      }
+
       // Use FlareSolverr to fetch the page
       const flaresolverrPayload = {
         cmd: "request.get",
@@ -883,6 +899,9 @@ app.put("/api/feeds/:id", async (ctx) => {
         const flaresolverrTimeout = parseInt(flaresolverrData.timeout || "60000", 10) || 60000;
 
         if (flaresolverrEnabled && flaresolverrUrl) {
+          // SSRF protection: validate FlareSolverr server URL before posting to it.
+          await assertOutboundFetchAllowed(`${flaresolverrUrl}/v1`, putSamplePolicyOptions);
+
           const payload: any = { cmd: "request.get", url: body.feedUrl, maxTimeout: flaresolverrTimeout };
           if (body.cookies?.length > 0) payload.cookies = body.cookies.map((c: any) => ({ name: c.name, value: c.value }));
           const resp = await axios.post(`${flaresolverrUrl}/v1`, payload, { headers: { "Content-Type": "application/json" }, timeout: flaresolverrTimeout + 5000 });
@@ -892,11 +911,18 @@ app.put("/api/feeds/:id", async (ctx) => {
           const resp = await axiosGetWithPolicyRedirects(body.feedUrl, { maxContentLength: 2 * 1024 * 1024, maxBodyLength: 2 * 1024 * 1024 }, putSamplePolicyOptions);
           sampleHtml = resp.data;
         }
-      } catch (e) {
+      } catch (e: any) {
+        // Re-throw SSRF/policy errors — these must not be silently swallowed.
+        if (e?.message?.startsWith("Outbound fetch blocked")) {
+          throw e;
+        }
         console.warn("Could not fetch sample HTML for URL analysis:", e.message);
       }
     }
-  } catch (e) {
+  } catch (e: any) {
+    if (e?.message?.startsWith("Outbound fetch blocked")) {
+      return ctx.text(e.message, 403);
+    }
     console.error("Error parsing request body:", e);
     return ctx.text("Invalid request body.", 400);
   }
@@ -1438,6 +1464,9 @@ async function generatePreview(feedConfig: any) {
           feedConfig.flaresolverr.serverUrl || "http://localhost:8191"
         );
         const timeout = feedConfig.flaresolverr.timeout || 60000;
+
+        // SSRF protection: validate FlareSolverr server URL before posting to it.
+        await assertOutboundFetchAllowed(`${flaresolverrUrl}/v1`, previewPolicyOptions);
 
         const flaresolverrPayload: any = {
           cmd: "request.get",

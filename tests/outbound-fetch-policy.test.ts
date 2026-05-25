@@ -144,10 +144,10 @@ describe("isBlockedAddress — IPv6 other", () => {
 describe("isBlockedAddress — public IPv6", () => {
   it("allows 2606:4700::1111 (Cloudflare DNS)", () =>
     expect(isBlockedAddress("2606:4700::1111")).toBe(false));
-  it("allows 2606:4700::1111 (second Cloudflare DNS check)", () =>
-    // Note: 2001:4860:4860::8888 (Google DNS) is in the 2001::/32 (Teredo) range and is blocked.
-    // This test verifies that 2606:4700::1111 (Cloudflare) is allowed.
-    expect(isBlockedAddress("2606:4700::1111")).toBe(false));
+  it("allows 2001:4860:4860::8888 (Google public DNS — not Teredo)", () =>
+    // Teredo is 2001:0000::/32 (second 16-bit group = 0x0000).
+    // Google's 2001:4860:: has second group 0x4860, so it is NOT in the Teredo range.
+    expect(isBlockedAddress("2001:4860:4860::8888")).toBe(false));
 });
 
 // ──────────────────────────────────────────────────────────────────────────────

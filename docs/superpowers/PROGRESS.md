@@ -3,9 +3,9 @@
 ## Phase 1 — Foundation
 | Feature | Spec | Plan | Impl |
 |---|---|---|---|
-| Protected Value Encryption | ✅ | ✅ | ⬜ |
-| Feed Config Formalization | ✅ | ✅ | ⬜ |
-| SQLite Runtime Substrate + Feed History | ✅ | ✅ | ⬜ |
+| Protected Value Encryption | ✅ | ✅ | ✅ |
+| Feed Config Formalization | ✅ | ✅ | ✅ |
+| SQLite Runtime Substrate + Feed History | ✅ | ✅ | ✅ |
 | Outbound Fetch Policy | ✅ | ✅ | ⬜ |
 
 ## Phase 2 — Output & Operations
