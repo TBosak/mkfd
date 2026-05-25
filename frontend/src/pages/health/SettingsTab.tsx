@@ -5,7 +5,37 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { cn } from "@/lib/utils";
-import type { HealthSettings } from "@/types/health";
+
+// ---------------------------------------------------------------------------
+// API response types for GET /api/settings
+// ---------------------------------------------------------------------------
+
+type EffectiveSetting = {
+  value: string | number | boolean | string[];
+  source: "db" | "env" | "default";
+  restartRequired: boolean;
+  class: "A" | "B" | "C";
+  masked: boolean;
+};
+
+type SettingsResponse = {
+  settings: Record<string, EffectiveSetting>;
+  meta?: {
+    dbPath?: string;
+  };
+};
+
+// Local state — only the retention-scoped keys shown in this tab
+type RetentionState = {
+  retentionDays: number;
+  retentionDaysEnabled: boolean;
+  retentionRuns: number;
+  retentionRunsEnabled: boolean;
+};
+
+// ---------------------------------------------------------------------------
+// Switch component
+// ---------------------------------------------------------------------------
 
 function Switch({
   checked,
@@ -35,31 +65,62 @@ function Switch({
   );
 }
 
+// ---------------------------------------------------------------------------
+// SettingsTab
+// ---------------------------------------------------------------------------
+
 export function SettingsTab() {
-  const [settings, setSettings] = useState<HealthSettings | null>(null);
+  const [retention, setRetention] = useState<RetentionState | null>(null);
+  const [dbPath, setDbPath] = useState<string>("./data/runtime.db");
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
 
   useEffect(() => {
-    fetch("/api/health/settings")
+    fetch("/api/settings")
       .then((r) => r.json())
-      .then(setSettings);
+      .then((data: SettingsResponse) => {
+        const s = data.settings;
+        setRetention({
+          retentionDays: s.retention_days?.value as number ?? 90,
+          retentionDaysEnabled: s.retention_days_enabled?.value as boolean ?? false,
+          retentionRuns: s.retention_runs?.value as number ?? 1000,
+          retentionRunsEnabled: s.retention_runs_enabled?.value as boolean ?? true,
+        });
+        setDbPath(data.meta?.dbPath ?? "./data/runtime.db");
+      });
   }, []);
 
   const save = async () => {
-    if (!settings) return;
+    if (!retention) return;
     setSaving(true);
-    await fetch("/api/health/settings", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(settings),
-    });
-    setSaving(false);
-    setSaved(true);
-    setTimeout(() => setSaved(false), 2000);
+    setSaveError(null);
+    try {
+      const res = await fetch("/api/settings", {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          retention_days: retention.retentionDays,
+          retention_days_enabled: retention.retentionDaysEnabled,
+          retention_runs: retention.retentionRuns,
+          retention_runs_enabled: retention.retentionRunsEnabled,
+        }),
+      });
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({})) as { error?: string };
+        setSaveError(body.error ?? `Server error (${res.status})`);
+      } else {
+        setSaved(true);
+        setTimeout(() => setSaved(false), 2000);
+      }
+    } catch (err) {
+      setSaveError(err instanceof Error ? err.message : "Network error");
+    } finally {
+      setSaving(false);
+    }
   };
 
-  if (!settings) return <LoadingSpinner message="Loading settings..." />;
+  if (!retention) return <LoadingSpinner message="Loading settings..." />;
 
   return (
     <div className="space-y-6 max-w-lg">
@@ -70,8 +131,8 @@ export function SettingsTab() {
         <CardContent className="space-y-3">
           <div className="flex items-center gap-3">
             <Switch
-              checked={settings.retentionDaysEnabled}
-              onCheckedChange={(v) => setSettings({ ...settings, retentionDaysEnabled: v })}
+              checked={retention.retentionDaysEnabled}
+              onCheckedChange={(v) => setRetention({ ...retention, retentionDaysEnabled: v })}
             />
             <Label>Enable time-based pruning</Label>
           </div>
@@ -80,9 +141,9 @@ export function SettingsTab() {
               type="number"
               min={1}
               className="w-24"
-              disabled={!settings.retentionDaysEnabled}
-              value={settings.retentionDays}
-              onChange={(e) => setSettings({ ...settings, retentionDays: Number(e.target.value) })}
+              disabled={!retention.retentionDaysEnabled}
+              value={retention.retentionDays}
+              onChange={(e) => setRetention({ ...retention, retentionDays: Number(e.target.value) })}
             />
             <Label className="text-muted-foreground">days</Label>
           </div>
@@ -96,8 +157,8 @@ export function SettingsTab() {
         <CardContent className="space-y-3">
           <div className="flex items-center gap-3">
             <Switch
-              checked={settings.retentionRunsEnabled}
-              onCheckedChange={(v) => setSettings({ ...settings, retentionRunsEnabled: v })}
+              checked={retention.retentionRunsEnabled}
+              onCheckedChange={(v) => setRetention({ ...retention, retentionRunsEnabled: v })}
             />
             <Label>Enable count-based pruning</Label>
           </div>
@@ -106,9 +167,9 @@ export function SettingsTab() {
               type="number"
               min={1}
               className="w-24"
-              disabled={!settings.retentionRunsEnabled}
-              value={settings.retentionRuns}
-              onChange={(e) => setSettings({ ...settings, retentionRuns: Number(e.target.value) })}
+              disabled={!retention.retentionRunsEnabled}
+              value={retention.retentionRuns}
+              onChange={(e) => setRetention({ ...retention, retentionRuns: Number(e.target.value) })}
             />
             <Label className="text-muted-foreground">runs per feed</Label>
           </div>
@@ -119,18 +180,23 @@ export function SettingsTab() {
         <CardContent className="pt-4">
           <p className="text-xs text-muted-foreground">
             <span className="font-medium text-foreground">Database path: </span>
-            <code className="text-xs bg-muted px-1 py-0.5 rounded">{settings.dbPath}</code>
+            <code className="text-xs bg-muted px-1 py-0.5 rounded">{dbPath}</code>
           </p>
         </CardContent>
       </Card>
 
-      <Button
-        onClick={save}
-        disabled={saving}
-        className="bg-primary text-primary-foreground hover:bg-primary/90"
-      >
-        {saving ? "Saving…" : saved ? "Saved!" : "Save Settings"}
-      </Button>
+      <div className="flex items-center gap-3">
+        <Button
+          onClick={save}
+          disabled={saving}
+          className="bg-primary text-primary-foreground hover:bg-primary/90"
+        >
+          {saving ? "Saving…" : saved ? "Saved!" : "Save Settings"}
+        </Button>
+        {saveError && (
+          <p className="text-sm text-destructive">{saveError}</p>
+        )}
+      </div>
     </div>
   );
 }

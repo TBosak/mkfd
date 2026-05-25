@@ -28,7 +28,8 @@ import { getChromiumLaunchOptions } from "./utilities/chrome-extensions.utility"
 import { getRandomUserAgent } from "./utilities/user-agents.utility";
 import * as cheerio from "cheerio";
 import { EventEmitter } from "node:events";
-import { initDb, getDb, insertRunLog, pruneRunLogs, getSettings, saveSettings, createFeedHistoryStore, migrateLegacyFeedHistory } from "./lib/analytics/db";
+import { initDb, getDb, insertRunLog, pruneRunLogs, createFeedHistoryStore, migrateLegacyFeedHistory } from "./lib/analytics/db";
+import { getEffectiveSettings } from "./utilities/app-settings.utility";
 import { assertOutboundFetchAllowed, mergeFeedPolicyOptions, parseAllowlist, type OutboundFetchPolicyOptions } from "./utilities/outbound-fetch-policy.utility";
 import { setFeedHistoryStore } from "./utilities/feed-history.utility";
 import type { RunLog } from "./lib/analytics/schema";
@@ -39,6 +40,7 @@ import { streamSSE } from "hono/streaming";
 import { listFeedConfigs, readFeedConfig, deleteFeedConfig, duplicateFeedConfig, exportFeedConfig, assertSafeFeedId } from "./utilities/config-manager.utility";
 import { patchMetadata, patchEnabled } from "./utilities/config-metadata.utility";
 import { buildFeedSummary } from "./utilities/feed-summary.utility";
+import { settingsRouter } from "./routes/settings";
 
 const app = new Hono();
 const runLogEmitter = new EventEmitter();
@@ -1171,21 +1173,7 @@ app.get("/api/health/chart/:feedId", async (c) => {
   return c.json({ runs: rows.reverse() });
 });
 
-app.get("/api/health/settings", async (c) => {
-  const s = await getSettings(getDb());
-  return c.json({ ...s, dbPath: process.env.RUNTIME_DB_PATH ?? "./data/runtime.db" });
-});
-
-app.put("/api/health/settings", async (c) => {
-  const body = await c.req.json();
-  await saveSettings(getDb(), {
-    retentionDays: Number(body.retentionDays),
-    retentionDaysEnabled: Boolean(body.retentionDaysEnabled),
-    retentionRuns: Number(body.retentionRuns),
-    retentionRunsEnabled: Boolean(body.retentionRunsEnabled),
-  });
-  return c.json({ ok: true });
-});
+app.route("/api/settings", settingsRouter);
 
 app.get("/api/health/stream", (c) => {
   return streamSSE(c, async (stream) => {
@@ -1467,7 +1455,13 @@ function initializeWorker(feedConfig: any) {
           webhookError: metrics.webhookError ?? null,
         });
         runLogEmitter.emit("run", row);
-        await pruneRunLogs(getDb(), feedConfig.feedId, await getSettings(getDb()));
+        const effectiveSettings = await getEffectiveSettings(getDb());
+        await pruneRunLogs(getDb(), feedConfig.feedId, {
+          retentionDays: effectiveSettings.retention_days.value as number,
+          retentionDaysEnabled: effectiveSettings.retention_days_enabled.value as boolean,
+          retentionRuns: effectiveSettings.retention_runs.value as number,
+          retentionRunsEnabled: effectiveSettings.retention_runs_enabled.value as boolean,
+        });
       } catch (e) {
         console.error("[Analytics] Failed to log run:", e);
       }
@@ -1494,7 +1488,13 @@ function initializeWorker(feedConfig: any) {
           webhookError:    message.data.metrics.webhookError ?? null,
         });
         runLogEmitter.emit("run", row);
-        await pruneRunLogs(getDb(), feedConfig.feedId, await getSettings(getDb()));
+        const effectiveSettings2 = await getEffectiveSettings(getDb());
+        await pruneRunLogs(getDb(), feedConfig.feedId, {
+          retentionDays: effectiveSettings2.retention_days.value as number,
+          retentionDaysEnabled: effectiveSettings2.retention_days_enabled.value as boolean,
+          retentionRuns: effectiveSettings2.retention_runs.value as number,
+          retentionRunsEnabled: effectiveSettings2.retention_runs_enabled.value as boolean,
+        });
       } catch (logErr) {
         console.error("[IMAP] Failed to insert run log:", logErr);
       }
@@ -1521,7 +1521,13 @@ function initializeWorker(feedConfig: any) {
           webhookError:    null,
         });
         runLogEmitter.emit("run", row);
-        await pruneRunLogs(getDb(), feedConfig.feedId, await getSettings(getDb()));
+        const effectiveSettings3 = await getEffectiveSettings(getDb());
+        await pruneRunLogs(getDb(), feedConfig.feedId, {
+          retentionDays: effectiveSettings3.retention_days.value as number,
+          retentionDaysEnabled: effectiveSettings3.retention_days_enabled.value as boolean,
+          retentionRuns: effectiveSettings3.retention_runs.value as number,
+          retentionRunsEnabled: effectiveSettings3.retention_runs_enabled.value as boolean,
+        });
       } catch (logErr) {
         console.error("[IMAP] Failed to insert run log:", logErr);
       }

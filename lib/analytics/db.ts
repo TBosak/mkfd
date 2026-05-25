@@ -34,13 +34,6 @@ export type RunLogInput = {
   webhookError: string | null;
 };
 
-const DEFAULT_SETTINGS: RetentionSettings = {
-  retentionDays: 30,
-  retentionDaysEnabled: true,
-  retentionRuns: 100,
-  retentionRunsEnabled: true,
-};
-
 let _sqlite: Database | null = null;
 
 export function initDb(dbPath: string = process.env.RUNTIME_DB_PATH ?? "./data/runtime.db"): Database {
@@ -120,31 +113,35 @@ export async function pruneRunLogs(sqlite: Database, feedId: string, s: Retentio
   }
 }
 
-export async function getSettings(sqlite: Database): Promise<RetentionSettings> {
+// ---------------------------------------------------------------------------
+// App Settings (key/value store for typed settings)
+// ---------------------------------------------------------------------------
+
+/**
+ * Reads all rows from the app_settings table and returns them as a plain
+ * Record<string, string>. Keys are the setting identifiers; values are raw
+ * serialized strings.
+ */
+export async function getAppSettings(sqlite: Database): Promise<Record<string, string>> {
   const db = drizzle(sqlite, { schema });
-  const rows = await db.select().from(schema.settings);
-  const map = Object.fromEntries(rows.map((r) => [r.key, r.value]));
-  return {
-    retentionDays: map.retention_days !== undefined ? Number(map.retention_days) : DEFAULT_SETTINGS.retentionDays,
-    retentionDaysEnabled: map.retention_days_enabled !== undefined ? map.retention_days_enabled === "true" : DEFAULT_SETTINGS.retentionDaysEnabled,
-    retentionRuns: map.retention_runs !== undefined ? Number(map.retention_runs) : DEFAULT_SETTINGS.retentionRuns,
-    retentionRunsEnabled: map.retention_runs_enabled !== undefined ? map.retention_runs_enabled === "true" : DEFAULT_SETTINGS.retentionRunsEnabled,
-  };
+  const rows = await db.select().from(schema.appSettings);
+  return Object.fromEntries(rows.map((r) => [r.key, r.value]));
 }
 
-export async function saveSettings(sqlite: Database, s: RetentionSettings): Promise<void> {
+/**
+ * Persists a partial update to the app_settings table. Each entry in the
+ * provided record is upserted individually.
+ */
+export async function saveAppSettings(
+  sqlite: Database,
+  values: Record<string, string>,
+): Promise<void> {
   const db = drizzle(sqlite, { schema });
-  const entries = [
-    { key: "retention_days", value: String(s.retentionDays) },
-    { key: "retention_days_enabled", value: String(s.retentionDaysEnabled) },
-    { key: "retention_runs", value: String(s.retentionRuns) },
-    { key: "retention_runs_enabled", value: String(s.retentionRunsEnabled) },
-  ];
-  for (const entry of entries) {
+  for (const [key, value] of Object.entries(values)) {
     await db
-      .insert(schema.settings)
-      .values(entry)
-      .onConflictDoUpdate({ target: schema.settings.key, set: { value: entry.value } });
+      .insert(schema.appSettings)
+      .values({ key, value })
+      .onConflictDoUpdate({ target: schema.appSettings.key, set: { value } });
   }
 }
 

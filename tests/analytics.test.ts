@@ -6,8 +6,6 @@ import * as schema from "../lib/analytics/schema";
 import {
   insertRunLog,
   pruneRunLogs,
-  getSettings,
-  saveSettings,
   getLastItemCount,
 } from "../lib/analytics/db";
 import type { RetentionSettings, RunLogInput } from "../lib/analytics/db";
@@ -114,35 +112,6 @@ describe("pruneRunLogs", () => {
     const rows = await db.select().from(schema.runLogs).all();
     expect(rows.length).toBe(1);
     expect(rows[0].feedId).toBe("feed-2");
-  });
-});
-
-describe("getSettings / saveSettings", () => {
-  it("returns defaults when no settings have been saved", async () => {
-    const { sqlite } = makeTestDb();
-    const s = await getSettings(sqlite);
-    expect(s.retentionDays).toBe(30);
-    expect(s.retentionDaysEnabled).toBe(true);
-    expect(s.retentionRuns).toBe(100);
-    expect(s.retentionRunsEnabled).toBe(true);
-  });
-
-  it("returns saved values after saveSettings", async () => {
-    const { sqlite } = makeTestDb();
-    await saveSettings(sqlite, { retentionDays: 7, retentionDaysEnabled: false, retentionRuns: 50, retentionRunsEnabled: true });
-    const s = await getSettings(sqlite);
-    expect(s.retentionDays).toBe(7);
-    expect(s.retentionDaysEnabled).toBe(false);
-    expect(s.retentionRuns).toBe(50);
-    expect(s.retentionRunsEnabled).toBe(true);
-  });
-
-  it("saveSettings is idempotent (upsert behavior)", async () => {
-    const { sqlite } = makeTestDb();
-    await saveSettings(sqlite, { retentionDays: 14, retentionDaysEnabled: true, retentionRuns: 200, retentionRunsEnabled: true });
-    await saveSettings(sqlite, { retentionDays: 7, retentionDaysEnabled: false, retentionRuns: 50, retentionRunsEnabled: false });
-    const s = await getSettings(sqlite);
-    expect(s.retentionDays).toBe(7);
   });
 });
 
