@@ -41,7 +41,7 @@ const DEFAULT_SETTINGS: RetentionSettings = {
 
 let _sqlite: Database | null = null;
 
-export function initDb(dbPath: string = process.env.DB_PATH ?? "./data/health.db"): Database {
+export function initDb(dbPath: string = process.env.RUNTIME_DB_PATH ?? "./data/runtime.db"): Database {
   mkdirSync(dirname(dbPath), { recursive: true });
   _sqlite = new Database(dbPath);
   const db = drizzle(_sqlite, { schema });

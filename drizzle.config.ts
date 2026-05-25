@@ -5,6 +5,6 @@ export default defineConfig({
   out: "./drizzle/migrations",
   dialect: "sqlite",
   dbCredentials: {
-    url: process.env.DB_PATH ?? "./data/health.db",
+    url: process.env.RUNTIME_DB_PATH ?? "./data/runtime.db",
   },
 });

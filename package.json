@@ -9,6 +9,7 @@
     "start": "bun run index.ts",
     "dev": "bun run index.ts --watch --passkey=admin123 --cookieSecret=a18c1fd2211edd76a18c1fd2211edd76 --encryptionKey=a18c1fd2211edd76",
     "lint": "bunx @biomejs/biome lint .",
+    "db:generate": "bunx drizzle-kit generate --config=drizzle.config.ts",
     "test": "bun test tests/"
   },
   "dependencies": {
