@@ -12,6 +12,15 @@
 
 **Tech Stack:** React 18, TypeScript, Tailwind CSS, shadcn/ui, react-hook-form, `feeds-tokens.css` (same token bridge as My Feeds)
 
+> **Color scheme — Muted Iris base16:** Use the palette below for all colors instead of the warm-cream/orange palette in `docs/features/Mkfd UI Redesign/styles.css`. Preserve every layout, spacing, shadow, and component shape from the design files exactly — only substitute colors. Map each design-doc color to the nearest Muted Iris equivalent by role (backgrounds → base00–02, mid-tones → base03–05, foregrounds → base05–07, accents → base08–0F).
+>
+> ```
+> base00 #12100f  base01 #1e1918  base02 #2c2020  base03 #4a3b37
+> base04 #7a6760  base05 #d7b8aa  base06 #ecd1c5  base07 #f8e7df
+> base08 #a96560  base09 #b77f59  base0A #c7a36e  base0B #68745e
+> base0C #6f8587  base0D #6b7983  base0E #887183  base0F #5a3b2f
+> ```
+
 **Depends on:**
 - Auto-save Draft — `useFeedDraft` + `DraftRestoreDialog` wired into `BuildFeedPage`
 - Protected Value Encryption — `StorageSelect` uses `{ type: "protected" }` shape

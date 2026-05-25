@@ -10,6 +10,15 @@
 
 **Tech Stack:** React 18, TypeScript, Tailwind CSS, shadcn/ui (Tooltip), lucide-react, react-router-dom (NavLink), Bun
 
+> **Color scheme — Muted Iris base16:** Use the palette below for any custom colors instead of the warm-cream/orange palette in `docs/features/Mkfd UI Redesign/styles.css`. Preserve every layout, spacing, and component shape from the design files exactly — only substitute colors. Most shell chrome uses Tailwind semantic classes (`bg-background`, `text-muted-foreground`, etc.); where design-doc hex values appear directly, replace with Muted Iris equivalents.
+>
+> ```
+> base00 #12100f  base01 #1e1918  base02 #2c2020  base03 #4a3b37
+> base04 #7a6760  base05 #d7b8aa  base06 #ecd1c5  base07 #f8e7df
+> base08 #a96560  base09 #b77f59  base0A #c7a36e  base0B #68745e
+> base0C #6f8587  base0D #6b7983  base0E #887183  base0F #5a3b2f
+> ```
+
 ---
 
 ## File Map
