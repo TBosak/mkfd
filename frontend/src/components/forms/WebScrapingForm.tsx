@@ -16,12 +16,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
-import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
@@ -113,11 +107,9 @@ export const WebScrapingForm = ({
           />
         )}
 
-        {/* Description in Accordion */}
-        {show("extract") && <Accordion type="multiple" className="w-full">
-          <AccordionItem value="description">
-            <AccordionTrigger>Description</AccordionTrigger>
-            <AccordionContent>
+        {show("extract") && (
+          <>
+            <Section title="Description" sub="Selector for item body text" collapsible defaultOpen={false}>
               <SelectorField
                 fieldName="description"
                 label="Description"
@@ -130,12 +122,9 @@ export const WebScrapingForm = ({
                 showDrillChain
                 feedUrl={feedUrl}
               />
-            </AccordionContent>
-          </AccordionItem>
+            </Section>
 
-          <AccordionItem value="link">
-            <AccordionTrigger>Link</AccordionTrigger>
-            <AccordionContent>
+            <Section title="Link" sub="Selector for item URL" collapsible defaultOpen={false}>
               <SelectorField
                 fieldName="link"
                 label="Link"
@@ -147,12 +136,9 @@ export const WebScrapingForm = ({
                 showDrillChain
                 feedUrl={feedUrl}
               />
-            </AccordionContent>
-          </AccordionItem>
+            </Section>
 
-          <AccordionItem value="enclosure">
-            <AccordionTrigger>Enclosure (Image, Video, Etc.)</AccordionTrigger>
-            <AccordionContent>
+            <Section title="Enclosure" sub="Image, video, or audio attachment" collapsible defaultOpen={false}>
               <SelectorField
                 fieldName="enclosure"
                 label="Enclosure"
@@ -164,12 +150,9 @@ export const WebScrapingForm = ({
                 showDrillChain
                 feedUrl={feedUrl}
               />
-            </AccordionContent>
-          </AccordionItem>
+            </Section>
 
-          <AccordionItem value="author">
-            <AccordionTrigger>Author</AccordionTrigger>
-            <AccordionContent>
+            <Section title="Author" sub="Selector for item author" collapsible defaultOpen={false}>
               <SelectorField
                 fieldName="author"
                 label="Author"
@@ -183,12 +166,9 @@ export const WebScrapingForm = ({
                 stripHtmlDefault={true}
                 feedUrl={feedUrl}
               />
-            </AccordionContent>
-          </AccordionItem>
+            </Section>
 
-          <AccordionItem value="date">
-            <AccordionTrigger>Date</AccordionTrigger>
-            <AccordionContent>
+            <Section title="Date" sub="Selector for publish date" collapsible defaultOpen={false}>
               <div className="space-y-4">
                 <SelectorField
                   fieldName="date"
@@ -200,7 +180,6 @@ export const WebScrapingForm = ({
                   showDrillChain
                   feedUrl={feedUrl}
                 />
-
                 <div className="space-y-2">
                   <div className="flex items-center gap-2">
                     <Label htmlFor="dateFormat">Date Format (optional)</Label>
@@ -209,16 +188,13 @@ export const WebScrapingForm = ({
                         <Info className="h-4 w-4 text-muted-foreground" />
                       </TooltipTrigger>
                       <TooltipContent>
-                        Most common formats (e.g., Unix timestamps, ISO) are
-                        auto-detected. Only specify if needed.
+                        Most common formats (e.g., Unix timestamps, ISO) are auto-detected. Only specify if needed.
                       </TooltipContent>
                     </Tooltip>
                   </div>
                   <Select
                     value={dateFormat || "auto"}
-                    onValueChange={(value) =>
-                      setValue("dateFormat", value === "auto" ? "" : value)
-                    }
+                    onValueChange={(value) => setValue("dateFormat", value === "auto" ? "" : value)}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="Auto Detect" />
@@ -232,27 +208,17 @@ export const WebScrapingForm = ({
                       <SelectItem value="other">Other (specify)</SelectItem>
                     </SelectContent>
                   </Select>
-
                   {dateFormat === "other" && (
                     <div className="space-y-2">
-                      <Label htmlFor="customDateFormat">
-                        Custom Date Format
-                      </Label>
-                      <Input
-                        id="customDateFormat"
-                        {...register("customDateFormat")}
-                        placeholder="e.g. YYYY/MM/DD HH:mm"
-                      />
+                      <Label htmlFor="customDateFormat">Custom Date Format</Label>
+                      <Input id="customDateFormat" {...register("customDateFormat")} placeholder="e.g. YYYY/MM/DD HH:mm" />
                     </div>
                   )}
                 </div>
               </div>
-            </AccordionContent>
-          </AccordionItem>
+            </Section>
 
-          <AccordionItem value="contentEncoded">
-            <AccordionTrigger>Content Encoded (CDATA)</AccordionTrigger>
-            <AccordionContent>
+            <Section title="Content Encoded" sub="Full article body (CDATA)" collapsible defaultOpen={false}>
               <SelectorField
                 fieldName="contentEncoded"
                 label="Content Encoded"
@@ -265,12 +231,9 @@ export const WebScrapingForm = ({
                 showDrillChain
                 feedUrl={feedUrl}
               />
-            </AccordionContent>
-          </AccordionItem>
+            </Section>
 
-          <AccordionItem value="summary">
-            <AccordionTrigger>Summary/Excerpt</AccordionTrigger>
-            <AccordionContent>
+            <Section title="Summary" sub="Short excerpt or teaser" collapsible defaultOpen={false}>
               <SelectorField
                 fieldName="summary"
                 label="Summary"
@@ -284,12 +247,9 @@ export const WebScrapingForm = ({
                 stripHtmlDefault={true}
                 feedUrl={feedUrl}
               />
-            </AccordionContent>
-          </AccordionItem>
+            </Section>
 
-          <AccordionItem value="guid">
-            <AccordionTrigger>GUID (Unique ID)</AccordionTrigger>
-            <AccordionContent>
+            <Section title="GUID" sub="Unique item identifier" collapsible defaultOpen={false}>
               <SelectorField
                 fieldName="guid"
                 label="GUID"
@@ -304,17 +264,13 @@ export const WebScrapingForm = ({
                 <Checkbox
                   id="guidIsPermaLink"
                   checked={watch("guidIsPermaLink")}
-                  onCheckedChange={(checked) =>
-                    setValue("guidIsPermaLink", checked as boolean)
-                  }
+                  onCheckedChange={(checked) => setValue("guidIsPermaLink", checked as boolean)}
                 />
                 <Label htmlFor="guidIsPermaLink">Is GUID a PermaLink?</Label>
               </div>
-            </AccordionContent>
-          </AccordionItem>
-
-          {/* Add more accordion items for other fields... */}
-        </Accordion>}
+            </Section>
+          </>
+        )}
       </div>
     </>
   );
