@@ -63,11 +63,6 @@ export const WebScrapingForm = ({
                 placeholder="https://example.com"
               />
             </div>
-            <SelectorPlayground
-              feedUrl={feedUrl}
-              setValue={setValue}
-              flaresolverr={watch("flaresolverr")}
-            />
           </Section>
         )}
 
@@ -76,6 +71,13 @@ export const WebScrapingForm = ({
             <h3 className="text-sm font-semibold mt-2 pb-2 border-b text-foreground flex items-center gap-2">
               <Wand2 className="h-5 w-5 text-primary" />
               CSS Selectors for RSS Feed Items
+              <span className="ml-auto">
+                <SelectorPlayground
+                  feedUrl={feedUrl}
+                  setValue={setValue}
+                  flaresolverr={watch("flaresolverr")}
+                />
+              </span>
             </h3>
 
             {/* Item Iterator */}

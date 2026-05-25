@@ -28,21 +28,19 @@ export const SelectorPlayground = ({ feedUrl, setValue, flaresolverr }: Selector
   }
 
   useEffect(() => {
-    // Listen for selector updates from the iframe
     const handleMessage = (event: MessageEvent) => {
       if (!event.data) return
       if (event.data.type === 'selectorUpdated') {
         setCurrentSelector(event.data.selector)
       }
     }
-
     window.addEventListener('message', handleMessage)
     return () => window.removeEventListener('message', handleMessage)
   }, [])
 
   const handleOpenPlayground = () => {
     if (!feedUrl) {
-      alert('Please enter a target URL first.')
+      alert('Please enter a target URL on the Basic tab first.')
       return
     }
     setIsPlaygroundOpen(true)
@@ -84,21 +82,20 @@ export const SelectorPlayground = ({ feedUrl, setValue, flaresolverr }: Selector
 
   return (
     <>
-      {/* Floating Playground Button */}
-      {feedUrl && !isPlaygroundOpen && (
-        <Button
-          type="button"
-          variant="outline"
-          onClick={handleOpenPlayground}
-          className="fixed top-4 right-4 z-[9999] shadow-lg"
-          size="sm"
-        >
-          <Wand2 className="mr-2 h-4 w-4" />
-          Selector Playground
-        </Button>
-      )}
+      {/* Inline trigger button — lives in the selectors tab header row */}
+      <Button
+        type="button"
+        variant="outline"
+        onClick={handleOpenPlayground}
+        size="sm"
+        disabled={!feedUrl}
+        title={feedUrl ? 'Open selector playground' : 'Enter a target URL on the Basic tab first'}
+      >
+        <Wand2 className="mr-2 h-4 w-4" />
+        Selector Playground
+      </Button>
 
-      {/* Floating Selector Actions Sidebar */}
+      {/* Floating selector field sidebar — only shown while playground is open */}
       {showSelectorActions && (
         <div
           className="fixed top-6 left-0 z-[10000] bg-white rounded-r-lg border-2 border-l-0 border-gray-300 shadow-lg p-2 flex flex-col gap-2 w-44 max-h-[80vh] overflow-y-auto"
@@ -117,19 +114,14 @@ export const SelectorPlayground = ({ feedUrl, setValue, flaresolverr }: Selector
                 {label}
               </Button>
             ))}
-            <Button
-              type="button"
-              size="sm"
-              onClick={handleClosePlayground}
-              className="w-full"
-            >
+            <Button type="button" size="sm" onClick={handleClosePlayground} className="w-full">
               Close
             </Button>
           </div>
         </div>
       )}
 
-      {/* Playground Overlay with Iframe */}
+      {/* Fullscreen iframe overlay */}
       {isPlaygroundOpen && (
         <div
           className="fixed inset-0 bg-black/50 z-[9999] flex items-center justify-center p-4"
