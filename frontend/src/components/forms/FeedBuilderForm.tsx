@@ -1,6 +1,8 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
+import { useFeedDraft } from "@/hooks/useFeedDraft";
+import { DraftRestoreDialog } from "./DraftRestoreDialog";
 import { FeedFormData } from "@/types/feed";
 import { buildFeedConfigFromFormData } from "@/lib/feed-config-builder";
 import { Button } from "@/components/ui/button";
@@ -56,6 +58,7 @@ export const FeedBuilderForm = ({ mode = "create", feedId, initialData }: FeedBu
     setValue,
     control,
     getValues,
+    reset,
     formState: { errors },
   } = useForm<FeedFormData>({
     defaultValues: mode === "edit" && initialData
@@ -64,6 +67,16 @@ export const FeedBuilderForm = ({ mode = "create", feedId, initialData }: FeedBu
   });
 
   const feedUrl = watch("feedUrl");
+
+  const activeFeedType = watch("feedType") ?? "webScraping";
+  const draftKey = mode === "edit" && feedId
+    ? `mkfd:draft:${feedId}`
+    : `mkfd:draft:new:${activeFeedType}`;
+  const { draft, saveDraft, clearDraft } = useFeedDraft(draftKey);
+  const formValues = watch();
+  useEffect(() => {
+    saveDraft(formValues, activeFeedType, mode ?? "create", feedId);
+  }, [formValues]);
 
   const onSubmit = async (data: FeedFormData) => {
     setIsSubmitting(true);
@@ -79,6 +92,7 @@ export const FeedBuilderForm = ({ mode = "create", feedId, initialData }: FeedBu
       if (response.ok) {
         const responseBody = await response.json().catch(() => null);
         const feedUrls = responseBody?.feedUrls;
+        clearDraft();
         if (mode === "edit") {
           const msg = feedUrls
             ? `Feed updated successfully!\n\nFeed URLs:\nRSS 2.0: ${feedUrls.rss2}\nAtom: ${feedUrls.atom}\nJSON Feed: ${feedUrls.json}`
@@ -165,6 +179,11 @@ export const FeedBuilderForm = ({ mode = "create", feedId, initialData }: FeedBu
 
   return (
     <>
+      <DraftRestoreDialog
+        draft={draft}
+        onRestore={() => { reset(draft!.data as FeedFormData); clearDraft(); }}
+        onDiscard={clearDraft}
+      />
       {/* Loading Overlays */}
       {isSubmitting && (
         <LoadingSpinner
