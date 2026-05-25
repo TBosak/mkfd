@@ -17,17 +17,21 @@ import {
 } from "@/components/ui/select";
 import { FolderOpen, Mail, Lock } from "lucide-react";
 import { useState } from "react";
+import { StorageSelect, type StorageMode } from "@/components/builder/StorageSelect";
 
 interface EmailFormProps {
   register: UseFormRegister<FeedFormData>;
   control: Control<FeedFormData>;
   setValue: UseFormSetValue<FeedFormData>;
   watch: UseFormWatch<FeedFormData>;
+  activeSection?: string;
 }
 
-export const EmailForm = ({ register, setValue, watch }: EmailFormProps) => {
+export const EmailForm = ({ register, setValue, watch, activeSection }: EmailFormProps) => {
   const [folders, setFolders] = useState<string[]>([]);
   const [loadingFolders, setLoadingFolders] = useState(false);
+  const [passwordStorage, setPasswordStorage] = useState<StorageMode>("protected");
+  const show = (id: string) => !activeSection || activeSection === id;
 
   const emailHost = watch("emailHost");
   const emailPort = watch("emailPort");
@@ -68,103 +72,115 @@ export const EmailForm = ({ register, setValue, watch }: EmailFormProps) => {
 
   return (
     <div className="space-y-6 mt-4">
-      <h3 className="text-lg font-semibold flex items-center gap-2">
-        <Mail className="h-5 w-5" />
-        Email Configuration
-      </h3>
+      {show("connection") && (
+        <>
+          <h3 className="text-lg font-semibold flex items-center gap-2">
+            <Mail className="h-5 w-5" />
+            Email Configuration
+          </h3>
 
-      {/* IMAP Server */}
-      <div className="space-y-2">
-        <Label htmlFor="emailHost">IMAP Server</Label>
-        <Input
-          id="emailHost"
-          {...register("emailHost")}
-          placeholder="imap.gmail.com"
-        />
-      </div>
+          {/* IMAP Server */}
+          <div className="space-y-2">
+            <Label htmlFor="emailHost">IMAP Server</Label>
+            <Input
+              id="emailHost"
+              {...register("emailHost")}
+              placeholder="imap.gmail.com"
+            />
+          </div>
 
-      {/* IMAP Port */}
-      <div className="space-y-2">
-        <Label htmlFor="emailPort">IMAP Port</Label>
-        <Input
-          id="emailPort"
-          type="number"
-          {...register("emailPort")}
-          placeholder="993"
-        />
-      </div>
+          {/* IMAP Port */}
+          <div className="space-y-2">
+            <Label htmlFor="emailPort">IMAP Port</Label>
+            <Input
+              id="emailPort"
+              type="number"
+              {...register("emailPort")}
+              placeholder="993"
+            />
+          </div>
 
-      {/* Username */}
-      <div className="space-y-2">
-        <Label htmlFor="emailUsername">Username</Label>
-        <Input
-          id="emailUsername"
-          {...register("emailUsername")}
-          placeholder="your-email@example.com"
-        />
-      </div>
+          {/* Username */}
+          <div className="space-y-2">
+            <Label htmlFor="emailUsername">Username</Label>
+            <Input
+              id="emailUsername"
+              {...register("emailUsername")}
+              placeholder="your-email@example.com"
+            />
+          </div>
 
-      {/* Password */}
-      <div className="space-y-2">
-        <Label htmlFor="emailPassword" className="flex items-center gap-2">
-          <Lock className="h-4 w-4" />
-          Password
-        </Label>
-        <Input
-          id="emailPassword"
-          type="password"
-          {...register("emailPassword")}
-          placeholder="••••••••"
-        />
-      </div>
+          {/* Password */}
+          <div className="space-y-2">
+            <div className="flex items-center gap-2 mb-1">
+              <Label htmlFor="emailPassword" className="flex items-center gap-2">
+                <Lock className="h-4 w-4" />
+                Password
+              </Label>
+              <StorageSelect value={passwordStorage} onChange={setPasswordStorage} sensitiveKey />
+            </div>
+            <Input
+              id="emailPassword"
+              type="password"
+              {...register("emailPassword")}
+              placeholder="••••••••"
+            />
+          </div>
 
-      {/* Folder Selection */}
-      <div className="space-y-2">
-        <Label htmlFor="emailFolder">Folder</Label>
-        <div className="flex gap-2">
-          <Select
-            value={emailFolder || ""}
-            onValueChange={(value) => setValue("emailFolder", value)}
-          >
-            <SelectTrigger className="flex-1">
-              <SelectValue placeholder="Select folder" />
-            </SelectTrigger>
-            <SelectContent>
-              {folders.length === 0 ? (
-                <SelectItem value="INBOX">INBOX</SelectItem>
-              ) : (
-                folders.map((folder) => (
-                  <SelectItem key={folder} value={folder}>
-                    {folder}
-                  </SelectItem>
-                ))
-              )}
-            </SelectContent>
-          </Select>
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleFetchFolders}
-            disabled={loadingFolders}
-          >
-            <FolderOpen className="mr-2 h-4 w-4" />
-            {loadingFolders ? "Loading..." : "Load Folders"}
-          </Button>
-        </div>
-      </div>
+          {/* Folder Selection */}
+          <div className="space-y-2">
+            <Label htmlFor="emailFolder">Folder</Label>
+            <div className="flex gap-2">
+              <Select
+                value={emailFolder || ""}
+                onValueChange={(value) => setValue("emailFolder", value)}
+              >
+                <SelectTrigger className="flex-1">
+                  <SelectValue placeholder="Select folder" />
+                </SelectTrigger>
+                <SelectContent>
+                  {folders.length === 0 ? (
+                    <SelectItem value="INBOX">INBOX</SelectItem>
+                  ) : (
+                    folders.map((folder) => (
+                      <SelectItem key={folder} value={folder}>
+                        {folder}
+                      </SelectItem>
+                    ))
+                  )}
+                </SelectContent>
+              </Select>
+              <Button
+                type="button"
+                variant="outline"
+                onClick={handleFetchFolders}
+                disabled={loadingFolders}
+              >
+                <FolderOpen className="mr-2 h-4 w-4" />
+                {loadingFolders ? "Loading..." : "Load Folders"}
+              </Button>
+            </div>
+          </div>
+        </>
+      )}
 
-      {/* Max Emails */}
-      <div className="space-y-2">
-        <Label htmlFor="emailCount">Max Emails in Feed</Label>
-        <Input
-          id="emailCount"
-          type="number"
-          {...register("emailCount")}
-          min="1"
-          max="1000"
-          defaultValue="10"
-        />
-      </div>
+      {/* Filter section */}
+      {show("filter") && (
+        <>
+          {/* Max Emails */}
+          <div className="space-y-2">
+            <Label htmlFor="emailCount">Max Emails in Feed</Label>
+            <Input
+              id="emailCount"
+              type="number"
+              {...register("emailCount")}
+              min="1"
+              max="1000"
+              defaultValue="10"
+            />
+          </div>
+        </>
+      )}
     </div>
   );
 };

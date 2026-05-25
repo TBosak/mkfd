@@ -1,6 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 
-export type StorageMode = "plain" | "encrypted" | "env";
+export type StorageMode = "plain" | "encrypted" | "env" | "protected";
 
 interface StorageSelectProps {
   value: StorageMode;
@@ -22,11 +22,13 @@ export const StorageSelect: React.FC<StorageSelectProps> = ({ value, onChange, s
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
 
-  const currentMeta = {
-    plain:     { label: "Plain", bg: sensitiveKey ? "#fadcd9" : "#f8fafc", color: sensitiveKey ? "#b91c1c" : "#64748b", border: sensitiveKey ? "#fca5a5" : "#e2e8f0" },
+  const META_MAP: Record<StorageMode, { label: string; bg: string; color: string; border: string }> = {
+    plain:     { label: "Plain",     bg: sensitiveKey ? "#fadcd9" : "#f8fafc", color: sensitiveKey ? "#b91c1c" : "#64748b", border: sensitiveKey ? "#fca5a5" : "#e2e8f0" },
     encrypted: { label: "Encrypted", bg: "#dde6fb", color: "#1e40af", border: "#bfdbfe" },
-    env:       { label: "Env var", bg: "#fdecc8", color: "#78350f", border: "#fde68a" },
-  }[value];
+    protected: { label: "Protected", bg: "#dde6fb", color: "#1e40af", border: "#bfdbfe" },
+    env:       { label: "Env var",   bg: "#fdecc8", color: "#78350f", border: "#fde68a" },
+  };
+  const currentMeta = META_MAP[value] ?? META_MAP.plain;
 
   return (
     <div ref={ref} style={{ position: "relative", display: "inline-block" }}>
@@ -48,10 +50,11 @@ export const StorageSelect: React.FC<StorageSelectProps> = ({ value, onChange, s
           borderRadius: 8, boxShadow: "var(--shadow-pop, 0 8px 24px rgba(0,0,0,0.12))",
           minWidth: 130, padding: "4px",
         }}>
-          {(["plain", "encrypted", "env"] as StorageMode[]).map((mode) => {
+          {(["plain", "encrypted", "protected", "env"] as StorageMode[]).map((mode) => {
             const meta = {
               plain:     { label: "Plain",     desc: "Stored as text" },
               encrypted: { label: "Encrypted", desc: "AES encrypted" },
+              protected: { label: "Protected", desc: "Masked in UI" },
               env:       { label: "Env var",   desc: "From environment" },
             }[mode];
             return (
