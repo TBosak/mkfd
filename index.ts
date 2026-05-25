@@ -28,6 +28,7 @@ import { getRandomUserAgent } from "./utilities/user-agents.utility";
 import * as cheerio from "cheerio";
 import { EventEmitter } from "node:events";
 import { initDb, getDb, insertRunLog, pruneRunLogs, getSettings, saveSettings, createFeedHistoryStore, migrateLegacyFeedHistory } from "./lib/analytics/db";
+import { assertOutboundFetchAllowed, parseAllowlist } from "./utilities/outbound-fetch-policy.utility";
 import { setFeedHistoryStore } from "./utilities/feed-history.utility";
 import type { RunLog } from "./lib/analytics/schema";
 import { sql, and, eq, gte, lte, desc } from "drizzle-orm";
@@ -40,6 +41,21 @@ const runLogEmitter = new EventEmitter();
 runLogEmitter.setMaxListeners(100);
 const store = new CookieStore();
 const args = minimist(process.argv.slice(3));
+
+/**
+ * Returns outbound fetch policy options derived from environment variables.
+ * Migration note: replace these env reads with settings lookups when the
+ * Settings Page is implemented.
+ */
+function getGlobalFetchPolicyOptions(): {
+  allowPrivateFetches: boolean;
+  allowlist: string[];
+} {
+  return {
+    allowPrivateFetches: process.env.ALLOW_PRIVATE_FETCHES === "true",
+    allowlist: parseAllowlist(process.env.OUTBOUND_FETCH_ALLOWLIST),
+  };
+}
 
 async function prompt(question: string): Promise<string> {
   const rl = createInterface({
@@ -262,6 +278,9 @@ app.post("/", async (ctx) => {
 
     if (body.feedType === "webScraping" && body.feedUrl) {
       try {
+        // SSRF protection: validate feed URL before fetching sample HTML
+        await assertOutboundFetchAllowed(body.feedUrl, getGlobalFetchPolicyOptions());
+
         // Check if FlareSolverr is enabled for this request
         const flaresolverrData = body.flaresolverr || {};
         const flaresolverrEnabled =
@@ -496,6 +515,13 @@ app.get("/proxy", async (ctx) => {
     ctx.req.query("flaresolverrTimeout") || "60000", 10
   );
 
+  // SSRF protection: validate target URL before fetching
+  try {
+    await assertOutboundFetchAllowed(targetUrl, getGlobalFetchPolicyOptions());
+  } catch (policyErr: any) {
+    return ctx.text(policyErr.message, 403);
+  }
+
   try {
     let html: string;
 
@@ -662,6 +688,12 @@ app.post("/imap/folders", async (c) => {
 
 app.post("/utils/suggest-selectors", async (c) => {
   const { url, flaresolverr, cookies } = await c.req.json();
+  // SSRF protection: validate URL before fetching for selector suggestions
+  try {
+    await assertOutboundFetchAllowed(url, getGlobalFetchPolicyOptions());
+  } catch (policyErr: any) {
+    return c.json({ error: policyErr.message }, 403);
+  }
   try {
     const selectors = await suggestSelectors(url, flaresolverr, cookies);
     return c.json(selectors);
@@ -779,6 +811,9 @@ app.put("/api/feeds/:id", async (ctx) => {
 
     if (body.feedType === "webScraping" && body.feedUrl) {
       try {
+        // SSRF protection: validate feed URL before fetching sample HTML
+        await assertOutboundFetchAllowed(body.feedUrl, getGlobalFetchPolicyOptions());
+
         const flaresolverrData = body.flaresolverr || {};
         const flaresolverrEnabled = typeof flaresolverrData.enabled === "boolean" ? flaresolverrData.enabled : false;
         const flaresolverrUrl = normalizeUrl(flaresolverrData.serverUrl || "");
@@ -961,7 +996,7 @@ app.get("/api/health/chart/:feedId", async (c) => {
 
 app.get("/api/health/settings", async (c) => {
   const s = await getSettings(getDb());
-  return c.json({ ...s, dbPath: process.env.DB_PATH ?? "./data/health.db" });
+  return c.json({ ...s, dbPath: process.env.RUNTIME_DB_PATH ?? "./data/runtime.db" });
 });
 
 app.put("/api/health/settings", async (c) => {
@@ -1311,6 +1346,15 @@ async function generatePreview(feedConfig: any) {
     let rssXml;
     // The feedConfig passed here should now be the fully expanded one
     // including all item and feed level options as defined in POST / and /preview routes.
+
+    // SSRF protection: validate the target URL before any fetch in preview generation
+    const previewUrl =
+      feedConfig.feedType === "webScraping" || feedConfig.feedType === "api" || feedConfig.feedType === "rest"
+        ? ((feedConfig.config?.baseUrl || "") + (feedConfig.config?.route || "")).trim()
+        : null;
+    if (previewUrl) {
+      await assertOutboundFetchAllowed(previewUrl, getGlobalFetchPolicyOptions());
+    }
 
     if (feedConfig.feedType === "webScraping") {
       // feedConfig.config contains baseUrl, advanced settings

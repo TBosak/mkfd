@@ -13,6 +13,7 @@ import { getChromiumLaunchOptions } from "../utilities/chrome-extensions.utility
 import { getRandomUserAgent } from "../utilities/user-agents.utility";
 import { loadDateIndex, saveDateIndex, getPreviousFeedHistory, storeFeedHistory } from "../utilities/feed-history.utility";
 import { resolveProtectedValues } from "../utilities/protected-values.utility";
+import { assertOutboundFetchAllowed, parseAllowlist } from "../utilities/outbound-fetch-policy.utility";
 
 declare var self: Worker;
 const rssDir = "./public/feeds";
@@ -30,6 +31,29 @@ async function fetchDataAndUpdateFeed(rawConfig: Record<string, unknown>) {
   try {
     let rssXml: string | undefined;
     const dateIndex = await loadDateIndex(feedConfig.feedId);
+
+    // SSRF protection: validate the feed URL before any fetch.
+    // Migration note: replace env reads with settings lookups when Settings Page lands.
+    const feedUrl =
+      feedConfig.feedType === "webScraping" || feedConfig.feedType === "api" || feedConfig.feedType === "rest"
+        ? ((feedConfig.config?.baseUrl || "") + (feedConfig.config?.route || "")).trim()
+        : null;
+
+    if (feedUrl) {
+      // Per-feed overrides (feed-level allowPrivateFetches / allowlist) merge over globals.
+      const globalAllowPrivate = process.env.ALLOW_PRIVATE_FETCHES === "true";
+      const globalAllowlist = parseAllowlist(process.env.OUTBOUND_FETCH_ALLOWLIST);
+      const feedAllowPrivate = (feedConfig as any).allowPrivateFetches ?? false;
+      const feedAllowlist: string[] = parseAllowlist(
+        Array.isArray((feedConfig as any).allowlist)
+          ? (feedConfig as any).allowlist.join(",")
+          : (feedConfig as any).allowlist
+      );
+      await assertOutboundFetchAllowed(feedUrl, {
+        allowPrivateFetches: feedAllowPrivate || globalAllowPrivate,
+        allowlist: [...new Set([...globalAllowlist, ...feedAllowlist])],
+      });
+    }
 
     // Common: Convert cookie array to string for Axios, or format for Playwright
     const cookieString = (feedConfig.cookies || [])
