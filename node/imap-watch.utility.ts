@@ -126,6 +126,320 @@ export interface Email {
   headers?: Map<string, string | string[]>;
 }
 
+// Helper: build a self-contained HTML page for a single email.
+// Used as the per-item <link> target so RSS readers (especially mobile/WebView-
+// based ones like Cubic, Current, FocusReader) can open something — they
+// reject `mailto:` URLs as unsafe.
+//
+// The body is treated as untrusted: it has already been run through
+// `sanitizeEmailHtmlForPage` (which strips dangerous tags/attrs) and we
+// further constrain execution via a strict Content-Security-Policy meta tag.
+function buildEmailItemHtml(
+  subject: string,
+  from: string,
+  date: Date | undefined,
+  bodyHtml: string,
+): string {
+  const esc = (s: string) =>
+    s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
+  const subjectEsc = esc(subject || "(No Subject)");
+  const fromEsc = from ? esc(from) : "";
+  const dateStr = date ? esc(date.toUTCString()) : "";
+  // CSP: no scripts, no plugins, no frames, only http(s)/data images, only
+  // inline style (needed for our own <style> block and email inline styles).
+  const csp = "default-src 'none'; img-src https: http: data: cid:; style-src 'unsafe-inline'; font-src https: data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
+  return `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta http-equiv="Content-Security-Policy" content="${csp}">
+<meta name="referrer" content="no-referrer">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>${subjectEsc}</title>
+<style>
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 760px; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; color: #222; }
+  header { border-bottom: 1px solid #ddd; margin-bottom: 1.5rem; padding-bottom: 1rem; }
+  header h1 { font-size: 1.5rem; margin: 0 0 .5rem; word-wrap: break-word; }
+  header .meta { color: #666; font-size: .9rem; }
+  header .meta div { margin: .15rem 0; }
+  .content { word-wrap: break-word; overflow-wrap: break-word; }
+  .content img { max-width: 100%; height: auto; }
+  .content a { color: #0366d6; }
+  .content pre { white-space: pre-wrap; }
+  @media (prefers-color-scheme: dark) {
+    body { background: #1a1a1a; color: #e6e6e6; }
+    header { border-color: #333; }
+    header .meta { color: #aaa; }
+    .content a { color: #58a6ff; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>${subjectEsc}</h1>
+  <div class="meta">
+    ${fromEsc ? `<div><strong>From:</strong> ${fromEsc}</div>` : ""}
+    ${dateStr ? `<div><strong>Date:</strong> ${dateStr}</div>` : ""}
+  </div>
+</header>
+<article class="content">${bodyHtml}</article>
+</body>
+</html>
+`;
+}
+
+// Strip dangerous constructs from email HTML before embedding it in a page
+// served from our own origin. Defense-in-depth alongside the page's CSP.
+function sanitizeEmailHtmlForPage(html: string): string {
+  if (!html) return "";
+  const $ = cheerio.load(html, {}, false);
+  // Remove tags that can execute or otherwise mis-direct navigation.
+  $("script, style, link, iframe, object, embed, form, base, meta, svg, math, frame, frameset, applet, audio, video, source, track").remove();
+  $("*").each((_i, el: any) => {
+    if (!el?.attribs) return;
+    for (const attr of Object.keys(el.attribs)) {
+      const lower = attr.toLowerCase();
+      // Strip all event handlers.
+      if (lower.startsWith("on")) {
+        delete el.attribs[attr];
+        continue;
+      }
+      // Strip dangerous URL schemes from anything that navigates or fetches.
+      if (lower === "href" || lower === "src" || lower === "action" || lower === "formaction" || lower === "xlink:href") {
+        const v = String(el.attribs[attr] || "").trim();
+        // Allow only http(s), mailto, tel, cid, data:image/* (images use CSP),
+        // protocol-relative, and same-doc fragments/relative paths.
+        const isSafe =
+          v === "" ||
+          /^(https?:|mailto:|tel:|cid:|#|\/|\.{0,2}\/)/i.test(v) ||
+          /^data:image\//i.test(v);
+        if (!isSafe) delete el.attribs[attr];
+      }
+    }
+  });
+  return $.html();
+}
+
+// Compute a filesystem-safe, stable, opaque ID for an email.
+function emailItemId(email: Email): string {
+  const seed = email.messageId || `uid:${email.UID}`;
+  return createHash("sha256").update(seed).digest("hex").slice(0, 16);
+}
+
+// Validate a path component (we use feedId as a directory name). feedIds
+// are uuidv4() in the main process, but defense-in-depth in case future
+// callers pass something else.
+function isSafePathComponent(s: string | undefined): s is string {
+  return !!s && /^[A-Za-z0-9._-]{1,128}$/.test(s) && s !== "." && s !== "..";
+}
+
+export interface BuildRSSResult {
+  feed: Feed;
+  /** Call AFTER the feed has been durably written to disk. Deletes
+   * per-item HTML files no longer referenced by the new feed. Safe to call
+   * multiple times; safe to skip on failure (stale files just linger). */
+  commit: () => void;
+}
+
+export function buildRSSFromEmailFolder(emails: Email[], feedSetup: RSSFeedOptions): BuildRSSResult {
+  const feed = new Feed({
+    id: feedSetup.id,
+    title: feedSetup.feedName || feedSetup.title || "Email Feed",
+    link: feedSetup.link || feedSetup.id,
+    description: feedSetup.description || `Email feed from ${feedSetup.config?.folder || 'folder'}`,
+    image: feedSetup.image,
+    language: feedSetup.language || "en",
+    updated: new Date(),
+    copyright: feedSetup.copyright || '',
+    generator: feedSetup.generator || "Mkfd IMAP Email Watcher",
+    ttl: feedSetup.ttl,
+    feedLinks: {
+      rss: feedSetup.id
+    }
+  });
+
+  // Helper function to sanitize content for XML/RSS
+  const sanitizeForXML = (content: string): string => {
+    if (!content) return content;
+    return content
+      .replace(/]]>/g, ']]&gt;') // Escape CDATA closing sequence
+      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // Remove invalid XML characters
+      .replace(/&(?!(?:amp|lt|gt|quot|apos|nbsp);)/g, '&amp;'); // Escape unescaped ampersands
+  };
+
+  // Per-item HTML page setup. We write a static .html per email under
+  // public/feeds/<feedId>/ so the <link> can be a real http(s) URL instead
+  // of an unsupported `mailto:` scheme. Falls back to a relative URL if
+  // SERVER_URL isn't explicitly configured.
+  const feedId = feedSetup.feedId;
+  const safeFeedId = isSafePathComponent(feedId) ? feedId : null;
+  const itemsDir = safeFeedId ? path.join(__dirname, "../public/feeds", safeFeedId) : null;
+  const explicitBase = (feedSetup.serverUrl || "").replace(/\/+$/, "");
+  if (itemsDir) {
+    try {
+      mkdirSync(itemsDir, { recursive: true });
+    } catch (e: any) {
+      console.error(`[IMAP] Could not create items dir ${itemsDir}:`, e?.message);
+    }
+  }
+  const writtenIds = new Set<string>();
+
+  emails.forEach((email) => {
+    let descriptionText: string | undefined = email.textBody;
+    let contentEncodedHtml: string | undefined = email.htmlBody || email.textBody;
+
+    if (email.htmlBody) {
+      const $ = cheerio.load(email.htmlBody);
+      // Remove script, style tags, and linked stylesheets
+      $('script, style, link[rel="stylesheet"]').remove();
+
+      // For descriptionText, if email.textBody was not good:
+      if (!descriptionText || descriptionText.trim() === "") {
+        // Prefer text from <body>, fallback to :root
+        const textSource = $('body').length ? $('body') : $(':root');
+        const extractedText = textSource.text();
+
+        // Normalize all whitespace (including newlines) to single spaces and trim
+        descriptionText = extractedText.replace(/\s+/g, ' ').trim();
+      }
+
+      // For contentEncodedHtml, get the HTML content after removals
+      // Prefer HTML from <body>, fallback to :root
+      contentEncodedHtml = ($('body').length ? $('body') : $(':root')).html() || $.html();
+    }
+
+    // Fallback for descriptionText if it's still empty after all attempts
+    if (!descriptionText || descriptionText.trim() === "") {
+      descriptionText = "(No descriptive content)";
+    }
+
+    // Keep a copy of the (cleaned but not XML-escaped) HTML for the per-item
+    // page. The XML sanitizer escapes ampersands etc. for embedding inside
+    // CDATA; for a standalone HTML file we want the original markup.
+    const itemPageHtml = contentEncodedHtml || "";
+
+    // Sanitize both description and content for XML
+    descriptionText = sanitizeForXML(descriptionText || "");
+    contentEncodedHtml = sanitizeForXML(contentEncodedHtml || "");
+
+    // Write the per-item HTML page and compute its link.
+    const itemId = emailItemId(email);
+    let itemLink = "";
+    if (itemsDir && safeFeedId) {
+      try {
+        const safeBody = sanitizeEmailHtmlForPage(itemPageHtml);
+        const pageHtml = buildEmailItemHtml(
+          email.subject || "",
+          email.from || "",
+          email.date ? new Date(email.date) : undefined,
+          safeBody,
+        );
+        writeFileSync(path.join(itemsDir, `${itemId}.html`), pageHtml, "utf8");
+        writtenIds.add(`${itemId}.html`);
+        const relPath = `/public/feeds/${safeFeedId}/${itemId}.html`;
+        itemLink = explicitBase ? `${explicitBase}${relPath}` : relPath;
+      } catch (e: any) {
+        console.error(`[IMAP] Failed to write item page for ${itemId}:`, e?.message);
+      }
+    }
+
+    const itemOptions: RSSItemOptions = {
+      title: sanitizeForXML(email.subject || "(No Subject)"),
+      description: descriptionText,
+      date: email.date ? new Date(email.date) : new Date(),
+      guid: email.messageId || email.UID.toString(), // Use Message-ID as GUID, fallback to UID
+      link: itemLink, // http(s) (or relative) link to the per-item page; readers reject `mailto:`
+      content: contentEncodedHtml, // Content is now a standard field
+    };
+
+    // Handle author (convert to Author array)
+    const authorName = sanitizeForXML(email.from || "");
+    if (authorName) {
+      itemOptions.author = [{ name: authorName }];
+    }
+
+    // Handle categories (convert to Category array)
+    const keywords = email.headers?.get('keywords') ? String(email.headers.get('keywords')).split(',').map(k => sanitizeForXML(k.trim())) : [];
+    if (keywords.length > 0) {
+      itemOptions.category = keywords.map(name => ({ name }));
+    }
+
+    // Add enclosure if present
+    if (email.attachments && email.attachments.length > 0 && email.attachments[0].content && email.attachments[0].size && email.attachments[0].contentType) {
+      const enclosureUrl = email.attachments[0].filename ? `cid:${sanitizeForXML(email.attachments[0].filename)}` : (email.attachments[0].contentId ? `cid:${sanitizeForXML(email.attachments[0].contentId)}` : undefined);
+      if (enclosureUrl) {
+        itemOptions.enclosure = {
+          url: enclosureUrl,
+          length: email.attachments[0].size,
+          type: email.attachments[0].contentType,
+        };
+      }
+    }
+
+    feed.addItem(itemOptions);
+  });
+
+  // Pruning is deferred: we only want to delete stale per-item pages once
+  // the new feed XML is durably on disk. Otherwise a write failure could
+  // leave the existing XML referencing files we just deleted.
+  const commit = () => {
+    if (!itemsDir) return;
+    try {
+      for (const name of readdirSync(itemsDir)) {
+        if (name.endsWith(".html") && !writtenIds.has(name)) {
+          try { unlinkSync(path.join(itemsDir, name)); } catch { /* ignore */ }
+        }
+      }
+    } catch {
+      // Directory may not exist yet on a brand-new feed; that's fine.
+    }
+  };
+
+  return { feed, commit };
+}
+
+export interface EmailItemSnapshot {
+  id: string;
+  date: string;
+  title?: string;
+  link?: string;
+}
+
+export function extractEmailItems(feed: Feed): EmailItemSnapshot[] {
+  return feed.items.map((item: any) => ({
+    id: item.guid ?? item.id ?? "",
+    date: (item.date instanceof Date ? item.date : new Date(item.date ?? Date.now())).toISOString(),
+    title: item.title,
+    link: item.link,
+  }));
+}
+
+export interface EmailFeedMessage {
+  type: "feed_ready";
+  feedId: string;
+  feedMeta: {
+    id: string;
+    title: string;
+    link: string;
+    description: string;
+    language?: string;
+    copyright?: string;
+    generator?: string;
+    image?: string;
+    ttl?: number;
+    updated: string;
+  };
+  items: EmailItemSnapshot[];
+  webhookConfig?: {
+    enabled: boolean;
+    url?: string;
+    format?: "xml" | "json";
+    newItemsOnly?: boolean;
+  };
+}
+
+if (import.meta.main) {
+
 if (!encryptionKey || !configHash) {
   console.error(
     "[IMAP Node Watcher] Usage: node imap-watcher.service.ts --key=<encryptionKey> --hash=<configHash>",
@@ -177,6 +491,33 @@ const imapOriginalConfig = {
 
 if (!imapOriginalConfig.password) {
     console.error(`[IMAP Node Watcher] Password for ${imapOriginalConfig.user} is missing or decryption failed. Ensure password or encryptedPassword is present in YAML and key is correct.`);
+}
+
+function sendFeedReady(feed: Feed, config: RSSFeedOptions): void {
+  const message: EmailFeedMessage = {
+    type: "feed_ready",
+    feedId: config.feedId!,
+    feedMeta: {
+      id:          config.id,
+      title:       config.title || config.feedName || "Email Feed",
+      link:        config.link || config.id,
+      description: config.description || "",
+      language:    config.language,
+      copyright:   config.copyright,
+      generator:   config.generator,
+      image:       config.image,
+      ttl:         config.ttl,
+      updated:     new Date().toISOString(),
+    },
+    items: extractEmailItems(feed),
+    webhookConfig: config.webhook ? {
+      enabled:      config.webhook.enabled,
+      url:          config.webhook.url,
+      format:       config.webhook.format,
+      newItemsOnly: config.webhook.newItemsOnly,
+    } : undefined,
+  };
+  process.stdout.write(JSON.stringify(message) + "\n");
 }
 
 class ImapWatcher {
@@ -337,11 +678,8 @@ class ImapWatcher {
 
           if (emails.length > 0) {
             console.log("[IMAP] Startup emails fetched");
-            const { xml: rss, commit } = buildRSSFromEmailFolder(emails, this.config);
-            writeFileSync(
-              path.join(__dirname, "../public/feeds", `${this.config.feedId}.xml`),
-              rss,
-            );
+            const { feed, commit } = buildRSSFromEmailFolder(emails, this.config);
+            sendFeedReady(feed, this.config);
             commit(); // prune stale per-item HTML files now that XML is durable
             console.log("[IMAP] RSS Feed generated");
           } else {
@@ -445,21 +783,10 @@ class ImapWatcher {
 
           if (emails.length > 0) {
             console.log(`[IMAP] Recent emails fetched for feed ${this.config.feedId}, updating RSS with ${emails.length} emails...`);
-            const { xml: rss, commit } = buildRSSFromEmailFolder(emails, this.config);
-            writeFileSync(
-              path.join(__dirname, "../public/feeds", `${this.config.feedId}.xml`),
-              rss,
-            );
+            const { feed, commit } = buildRSSFromEmailFolder(emails, this.config);
+            sendFeedReady(feed, this.config);
             commit(); // prune stale per-item HTML files now that XML is durable
             console.log(`[IMAP] RSS Feed regenerated for feed ${this.config.feedId}`);
-            
-            // Handle webhook if configured
-            if (this.config.webhook?.enabled && this.config.webhook?.url) {
-              console.log(`[IMAP] Calling webhook handler for feed ${this.config.feedId}`);
-              this.handleWebhook(rss);
-            } else {
-              console.log(`[IMAP] Webhook not configured for feed ${this.config.feedId} - enabled: ${this.config.webhook?.enabled}, url: ${!!this.config.webhook?.url}`);
-            }
           } else {
             console.log(`[IMAP] No valid emails found for feed ${this.config.feedId}`);
           }
@@ -485,368 +812,6 @@ class ImapWatcher {
     }
   }
 
-  private async handleWebhook(rssXml: string): Promise<void> {
-    try {
-      console.log(`[IMAP] Webhook handler called for feed ${this.config.feedId}`);
-      
-      if (!this.config.webhook?.enabled || !this.config.webhook?.url) {
-        console.log(`[IMAP] Webhook not configured for feed ${this.config.feedId} - enabled: ${this.config.webhook?.enabled}, url: ${!!this.config.webhook?.url}`);
-        return;
-      }
-      
-      console.log(`[IMAP] Webhook configured for feed ${this.config.feedId} - URL: ${this.config.webhook.url}, format: ${this.config.webhook.format}, newItemsOnly: ${this.config.webhook.newItemsOnly}`);
-
-      let shouldSendWebhook = true;
-      let webhookRssXml = rssXml;
-      
-      // Check if only new items should be sent
-      if (this.config.webhook.newItemsOnly) {
-        const historyPath = path.join(__dirname, "../feed-history", `${this.config.feedId}.xml`);
-        let previousRss = null;
-        
-        try {
-          if (existsSync(historyPath)) {
-            previousRss = readFileSync(historyPath, "utf8");
-          }
-        } catch (err) {
-          console.warn("[IMAP] Could not read feed history:", err.message);
-        }
-        
-        // Use centralized new item detection
-        try {
-          const { getNewItemsFromRSS } = await import("../utilities/webhook.utility.ts");
-          const newItemsRss = getNewItemsFromRSS(rssXml, previousRss);
-          
-          if (!newItemsRss) {
-            shouldSendWebhook = false;
-            console.log(`[IMAP] No new items detected for feed ${this.config.feedId}, skipping webhook`);
-          } else {
-            webhookRssXml = newItemsRss;
-            console.log(`[IMAP] New items detected for feed ${this.config.feedId}, will send webhook`);
-          }
-        } catch (importErr) {
-          console.warn("[IMAP] Could not import webhook utilities, falling back to simple comparison:", importErr.message);
-          // Fallback to simple comparison
-          if (previousRss && previousRss.trim() === rssXml.trim()) {
-            shouldSendWebhook = false;
-            console.log("[IMAP] No changes detected, skipping webhook");
-          }
-        }
-      }
-      
-      if (shouldSendWebhook) {
-        try {
-          // Use centralized webhook system
-          const { sendWebhook, createWebhookPayload, createJsonWebhookPayload } = await import("../utilities/webhook.utility.ts");
-          
-          const payload = this.config.webhook.format === "json"
-            ? createJsonWebhookPayload(this.config, webhookRssXml, "automatic")
-            : createWebhookPayload(this.config, webhookRssXml, "automatic");
-
-          const success = await sendWebhook(this.config.webhook, payload);
-          
-          if (success) {
-            console.log(`[IMAP] Webhook sent successfully for feed ${this.config.feedId} to ${this.config.webhook.url}`);
-            
-            // Store current RSS for future comparison using centralized history utility
-            try {
-              const { storeFeedHistory } = await import("../utilities/feed-history.utility.ts");
-              await storeFeedHistory(this.config.feedId, rssXml);
-              console.log(`[IMAP] Feed history stored for feed ${this.config.feedId}`);
-            } catch (historyErr) {
-              console.warn(`[IMAP] Could not store feed history for feed ${this.config.feedId}:`, historyErr.message);
-              // Fallback to manual file storage
-              const historyDir = path.join(__dirname, "../feed-history");
-              if (!existsSync(historyDir)) {
-                mkdirSync(historyDir, { recursive: true });
-              }
-              writeFileSync(path.join(historyDir, `${this.config.feedId}.xml`), rssXml, "utf8");
-              console.log(`[IMAP] Feed history stored manually for feed ${this.config.feedId}`);
-            }
-          } else {
-            console.warn(`[IMAP] Webhook failed for feed ${this.config.feedId} to ${this.config.webhook.url}`);
-          }
-        } catch (webhookErr) {
-          console.error(`[IMAP] Error using centralized webhook system:`, webhookErr.message);
-        }
-      }
-    } catch (error) {
-      console.error(`[IMAP] Webhook error:`, error.message);
-    }
-  }
-
-}
-
-// Helper: build a self-contained HTML page for a single email.
-// Used as the per-item <link> target so RSS readers (especially mobile/WebView-
-// based ones like Cubic, Current, FocusReader) can open something — they
-// reject `mailto:` URLs as unsafe.
-//
-// The body is treated as untrusted: it has already been run through
-// `sanitizeEmailHtmlForPage` (which strips dangerous tags/attrs) and we
-// further constrain execution via a strict Content-Security-Policy meta tag.
-function buildEmailItemHtml(
-  subject: string,
-  from: string,
-  date: Date | undefined,
-  bodyHtml: string,
-): string {
-  const esc = (s: string) =>
-    s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
-  const subjectEsc = esc(subject || "(No Subject)");
-  const fromEsc = from ? esc(from) : "";
-  const dateStr = date ? esc(date.toUTCString()) : "";
-  // CSP: no scripts, no plugins, no frames, only http(s)/data images, only
-  // inline style (needed for our own <style> block and email inline styles).
-  const csp = "default-src 'none'; img-src https: http: data: cid:; style-src 'unsafe-inline'; font-src https: data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
-  return `<!doctype html>
-<html lang="en">
-<head>
-<meta charset="utf-8">
-<meta http-equiv="Content-Security-Policy" content="${csp}">
-<meta name="referrer" content="no-referrer">
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>${subjectEsc}</title>
-<style>
-  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; max-width: 760px; margin: 2rem auto; padding: 0 1rem; line-height: 1.5; color: #222; }
-  header { border-bottom: 1px solid #ddd; margin-bottom: 1.5rem; padding-bottom: 1rem; }
-  header h1 { font-size: 1.5rem; margin: 0 0 .5rem; word-wrap: break-word; }
-  header .meta { color: #666; font-size: .9rem; }
-  header .meta div { margin: .15rem 0; }
-  .content { word-wrap: break-word; overflow-wrap: break-word; }
-  .content img { max-width: 100%; height: auto; }
-  .content a { color: #0366d6; }
-  .content pre { white-space: pre-wrap; }
-  @media (prefers-color-scheme: dark) {
-    body { background: #1a1a1a; color: #e6e6e6; }
-    header { border-color: #333; }
-    header .meta { color: #aaa; }
-    .content a { color: #58a6ff; }
-  }
-</style>
-</head>
-<body>
-<header>
-  <h1>${subjectEsc}</h1>
-  <div class="meta">
-    ${fromEsc ? `<div><strong>From:</strong> ${fromEsc}</div>` : ""}
-    ${dateStr ? `<div><strong>Date:</strong> ${dateStr}</div>` : ""}
-  </div>
-</header>
-<article class="content">${bodyHtml}</article>
-</body>
-</html>
-`;
-}
-
-// Strip dangerous constructs from email HTML before embedding it in a page
-// served from our own origin. Defense-in-depth alongside the page's CSP.
-function sanitizeEmailHtmlForPage(html: string): string {
-  if (!html) return "";
-  const $ = cheerio.load(html, {}, false);
-  // Remove tags that can execute or otherwise mis-direct navigation.
-  $("script, style, link, iframe, object, embed, form, base, meta, svg, math, frame, frameset, applet, audio, video, source, track").remove();
-  $("*").each((_i, el: any) => {
-    if (!el?.attribs) return;
-    for (const attr of Object.keys(el.attribs)) {
-      const lower = attr.toLowerCase();
-      // Strip all event handlers.
-      if (lower.startsWith("on")) {
-        delete el.attribs[attr];
-        continue;
-      }
-      // Strip dangerous URL schemes from anything that navigates or fetches.
-      if (lower === "href" || lower === "src" || lower === "action" || lower === "formaction" || lower === "xlink:href") {
-        const v = String(el.attribs[attr] || "").trim();
-        // Allow only http(s), mailto, tel, cid, data:image/* (images use CSP),
-        // protocol-relative, and same-doc fragments/relative paths.
-        const isSafe =
-          v === "" ||
-          /^(https?:|mailto:|tel:|cid:|#|\/|\.{0,2}\/)/i.test(v) ||
-          /^data:image\//i.test(v);
-        if (!isSafe) delete el.attribs[attr];
-      }
-    }
-  });
-  return $.html();
-}
-
-// Compute a filesystem-safe, stable, opaque ID for an email.
-function emailItemId(email: Email): string {
-  const seed = email.messageId || `uid:${email.UID}`;
-  return createHash("sha256").update(seed).digest("hex").slice(0, 16);
-}
-
-// Validate a path component (we use feedId as a directory name). feedIds
-// are uuidv4() in the main process, but defense-in-depth in case future
-// callers pass something else.
-function isSafePathComponent(s: string | undefined): s is string {
-  return !!s && /^[A-Za-z0-9._-]{1,128}$/.test(s) && s !== "." && s !== "..";
-}
-
-export interface BuildRSSResult {
-  xml: string;
-  /** Call AFTER the feed XML has been durably written to disk. Deletes
-   * per-item HTML files no longer referenced by the new feed. Safe to call
-   * multiple times; safe to skip on failure (stale files just linger). */
-  commit: () => void;
-}
-
-export function buildRSSFromEmailFolder(emails: Email[], feedSetup: RSSFeedOptions): BuildRSSResult {
-  const feed = new Feed({
-    id: feedSetup.id,
-    title: feedSetup.feedName || feedSetup.title || "Email Feed",
-    link: feedSetup.link || feedSetup.id,
-    description: feedSetup.description || `Email feed from ${feedSetup.config?.folder || 'folder'}`,
-    image: feedSetup.image,
-    language: feedSetup.language || "en",
-    updated: new Date(),
-    copyright: feedSetup.copyright || '',
-    generator: feedSetup.generator || "Mkfd IMAP Email Watcher",
-    ttl: feedSetup.ttl,
-    feedLinks: {
-      rss: feedSetup.id
-    }
-  });
-
-  // Helper function to sanitize content for XML/RSS
-  const sanitizeForXML = (content: string): string => {
-    if (!content) return content;
-    return content
-      .replace(/]]>/g, ']]&gt;') // Escape CDATA closing sequence
-      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // Remove invalid XML characters
-      .replace(/&(?!(?:amp|lt|gt|quot|apos|nbsp);)/g, '&amp;'); // Escape unescaped ampersands
-  };
-
-  // Per-item HTML page setup. We write a static .html per email under
-  // public/feeds/<feedId>/ so the <link> can be a real http(s) URL instead
-  // of an unsupported `mailto:` scheme. Falls back to a relative URL if
-  // SERVER_URL isn't explicitly configured.
-  const feedId = feedSetup.feedId;
-  const safeFeedId = isSafePathComponent(feedId) ? feedId : null;
-  const itemsDir = safeFeedId ? path.join(__dirname, "../public/feeds", safeFeedId) : null;
-  const explicitBase = (feedSetup.serverUrl || "").replace(/\/+$/, "");
-  if (itemsDir) {
-    try {
-      mkdirSync(itemsDir, { recursive: true });
-    } catch (e: any) {
-      console.error(`[IMAP] Could not create items dir ${itemsDir}:`, e?.message);
-    }
-  }
-  const writtenIds = new Set<string>();
-
-  emails.forEach((email) => {
-    let descriptionText: string | undefined = email.textBody;
-    let contentEncodedHtml: string | undefined = email.htmlBody || email.textBody;
-
-    if (email.htmlBody) {
-      const $ = cheerio.load(email.htmlBody);
-      // Remove script, style tags, and linked stylesheets
-      $('script, style, link[rel="stylesheet"]').remove();
-
-      // For descriptionText, if email.textBody was not good:
-      if (!descriptionText || descriptionText.trim() === "") {
-        // Prefer text from <body>, fallback to :root
-        const textSource = $('body').length ? $('body') : $(':root');
-        const extractedText = textSource.text();
-        
-        // Normalize all whitespace (including newlines) to single spaces and trim
-        descriptionText = extractedText.replace(/\s+/g, ' ').trim();
-      }
-
-      // For contentEncodedHtml, get the HTML content after removals
-      // Prefer HTML from <body>, fallback to :root
-      contentEncodedHtml = ($('body').length ? $('body') : $(':root')).html() || $.html();
-    }
-    
-    // Fallback for descriptionText if it's still empty after all attempts
-    if (!descriptionText || descriptionText.trim() === "") {
-      descriptionText = "(No descriptive content)";
-    }
-
-    // Keep a copy of the (cleaned but not XML-escaped) HTML for the per-item
-    // page. The XML sanitizer escapes ampersands etc. for embedding inside
-    // CDATA; for a standalone HTML file we want the original markup.
-    const itemPageHtml = contentEncodedHtml || "";
-
-    // Sanitize both description and content for XML
-    descriptionText = sanitizeForXML(descriptionText || "");
-    contentEncodedHtml = sanitizeForXML(contentEncodedHtml || "");
-
-    // Write the per-item HTML page and compute its link.
-    const itemId = emailItemId(email);
-    let itemLink = "";
-    if (itemsDir && safeFeedId) {
-      try {
-        const safeBody = sanitizeEmailHtmlForPage(itemPageHtml);
-        const pageHtml = buildEmailItemHtml(
-          email.subject || "",
-          email.from || "",
-          email.date ? new Date(email.date) : undefined,
-          safeBody,
-        );
-        writeFileSync(path.join(itemsDir, `${itemId}.html`), pageHtml, "utf8");
-        writtenIds.add(`${itemId}.html`);
-        const relPath = `/public/feeds/${safeFeedId}/${itemId}.html`;
-        itemLink = explicitBase ? `${explicitBase}${relPath}` : relPath;
-      } catch (e: any) {
-        console.error(`[IMAP] Failed to write item page for ${itemId}:`, e?.message);
-      }
-    }
-
-    const itemOptions: RSSItemOptions = {
-      title: sanitizeForXML(email.subject || "(No Subject)"),
-      description: descriptionText,
-      date: email.date ? new Date(email.date) : new Date(),
-      guid: email.messageId || email.UID.toString(), // Use Message-ID as GUID, fallback to UID
-      link: itemLink, // http(s) (or relative) link to the per-item page; readers reject `mailto:`
-      content: contentEncodedHtml, // Content is now a standard field
-    };
-
-    // Handle author (convert to Author array)
-    const authorName = sanitizeForXML(email.from || "");
-    if (authorName) {
-      itemOptions.author = [{ name: authorName }];
-    }
-
-    // Handle categories (convert to Category array)
-    const keywords = email.headers?.get('keywords') ? String(email.headers.get('keywords')).split(',').map(k => sanitizeForXML(k.trim())) : [];
-    if (keywords.length > 0) {
-      itemOptions.category = keywords.map(name => ({ name }));
-    }
-
-    // Add enclosure if present
-    if (email.attachments && email.attachments.length > 0 && email.attachments[0].content && email.attachments[0].size && email.attachments[0].contentType) {
-      const enclosureUrl = email.attachments[0].filename ? `cid:${sanitizeForXML(email.attachments[0].filename)}` : (email.attachments[0].contentId ? `cid:${sanitizeForXML(email.attachments[0].contentId)}` : undefined);
-      if (enclosureUrl) {
-        itemOptions.enclosure = {
-          url: enclosureUrl,
-          length: email.attachments[0].size,
-          type: email.attachments[0].contentType,
-        };
-      }
-    }
-
-    feed.addItem(itemOptions);
-  });
-
-  // Pruning is deferred: we only want to delete stale per-item pages once
-  // the new feed XML is durably on disk. Otherwise a write failure could
-  // leave the existing XML referencing files we just deleted.
-  const commit = () => {
-    if (!itemsDir) return;
-    try {
-      for (const name of readdirSync(itemsDir)) {
-        if (name.endsWith(".html") && !writtenIds.has(name)) {
-          try { unlinkSync(path.join(itemsDir, name)); } catch { /* ignore */ }
-        }
-      }
-    } catch {
-      // Directory may not exist yet on a brand-new feed; that's fine.
-    }
-  };
-
-  return { xml: feed.rss2(), commit };
 }
 
 const explicitServerUrl = (rawConfig.serverUrl || process.env.SERVER_URL || '').replace(/\/+$/, '');
@@ -878,6 +843,8 @@ console.log("[IMAP Node Watcher] Webhook configuration:", JSON.stringify({
     newItemsOnly: completeFeedConfig.webhook?.newItemsOnly
 }, null, 2));
 
-const watcher = new ImapWatcher(completeFeedConfig); 
+const watcher = new ImapWatcher(completeFeedConfig);
 
 watcher.start();
+
+} // end if (import.meta.main)
