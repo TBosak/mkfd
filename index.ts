@@ -16,7 +16,7 @@ import { buildRSS, buildRSSFromApiData } from "./utilities/rss-builder.utility";
 import type { Config } from "node-imap";
 import { listImapFolders } from "./utilities/imap.utility";
 import { encrypt } from "./utilities/security.utility";
-import { maskProtectedValues } from "./utilities/protected-values.utility";
+import { maskProtectedValues, preserveMaskedProtectedValues, protectValue } from "./utilities/protected-values.utility";
 import { CookieStore, sessionMiddleware } from "hono-sessions";
 import { suggestSelectors } from "./utilities/suggestion-engine.utility";
 import { chromium } from "patchright";
@@ -501,7 +501,7 @@ app.post("/", async (ctx) => {
       host: extract("emailHost"),
       port: parseInt(extract("emailPort", "993"), 10) || 993,
       user: extract("emailUsername"),
-      encryptedPassword: encrypt(extract("emailPassword"), encryptionKey),
+      password: protectValue(extract("emailPassword"), encryptionKey),
       folder: extract("emailFolder"),
       emailCount: parseInt(extract("emailCount", "10"), 10) || 10,
     };
@@ -1243,6 +1243,9 @@ app.put("/api/feeds/:id", async (ctx) => {
     return ctx.text("Invalid request body.", 400);
   }
 
+  const configWithPreservedSecrets = preserveMaskedProtectedValues(body, existingConfig) as Record<string, any>;
+  body = configWithPreservedSecrets;
+
   const extract = makeExtract(body);
   const extractBool = makeExtractBool(body);
   const extractJson = makeExtractJson(body);
@@ -1334,7 +1337,14 @@ app.put("/api/feeds/:id", async (ctx) => {
     emailConfigData = {
       host: extract("emailHost"), port: parseInt(extract("emailPort", "993"), 10) || 993,
       user: extract("emailUsername"),
-      encryptedPassword: newPassword ? encrypt(newPassword, encryptionKey) : existingConfig.config?.encryptedPassword,
+      password: newPassword
+        ? protectValue(newPassword, encryptionKey)
+        : existingConfig.config?.password ?? (
+            existingConfig.config?.encryptedPassword
+              ? { type: "protected" as const, value: existingConfig.config.encryptedPassword }
+              : undefined
+          ),
+      encryptedPassword: undefined,
       folder: extract("emailFolder"),
       emailCount: parseInt(extract("emailCount", "10"), 10) || 10,
     };

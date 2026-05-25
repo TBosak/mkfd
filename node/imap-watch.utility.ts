@@ -9,6 +9,7 @@ import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, unlink
 import { createHash } from "node:crypto";
 import { simpleParser } from "mailparser";
 import { decrypt } from "../utilities/security.utility.ts";
+import { isProtectedValue, resolveProtectedValue } from "../utilities/protected-values.utility";
 import { fileURLToPath } from "node:url";
 import { dirname } from "node:path";
 import * as cheerio from "cheerio";
@@ -160,17 +161,22 @@ console.log("[IMAP Node Watcher] Loaded rawConfig:", JSON.stringify({
     configFolder: rawConfig.config?.folder
 }, null, 2));
 
+const rawPassword = rawConfig.config?.password ?? rawConfig.config?.encryptedPassword;
 const imapOriginalConfig = {
   host: rawConfig.config?.host,
   port: rawConfig.config?.port,
   user: rawConfig.config?.user,
-  password: rawConfig.config?.encryptedPassword ? decrypt(rawConfig.config.encryptedPassword, encryptionKey) : undefined,
+  password: (() => {
+    if (isProtectedValue(rawPassword)) return resolveProtectedValue(rawPassword, encryptionKey);
+    if (typeof rawPassword === "string") return decrypt(rawPassword, encryptionKey);
+    return undefined;
+  })(),
   folder: rawConfig.config?.folder || "INBOX",
   emailCount: rawConfig.config?.emailCount || 10,
 };
 
 if (!imapOriginalConfig.password) {
-    console.error(`[IMAP Node Watcher] Password for ${imapOriginalConfig.user} is missing or decryption failed. Ensure encryptedPassword is present in YAML and key is correct.`);
+    console.error(`[IMAP Node Watcher] Password for ${imapOriginalConfig.user} is missing or decryption failed. Ensure password or encryptedPassword is present in YAML and key is correct.`);
 }
 
 class ImapWatcher {
