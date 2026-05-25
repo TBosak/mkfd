@@ -30,6 +30,20 @@ const SECTIONS_EMAIL: SectionDef[] = [
   { id: "filter",     label: "Filter" },
 ];
 
+const TYPE_LABELS: Record<string, string> = {
+  webScraping: "Web Scraping",
+  api: "REST API",
+  email: "Email / IMAP",
+  graphql: "GraphQL",
+  sitemap: "Sitemap",
+  calendar: "Calendar",
+  filesystem: "Filesystem",
+  webhook: "Webhook",
+  feedTransformer: "Feed Transformer",
+  serviceConnector: "Service Connector",
+  sourceAssistant: "Source Assistant",
+};
+
 function getSections(type: string): SectionDef[] {
   if (type === "api") return SECTIONS_API;
   if (type === "email") return SECTIONS_EMAIL;
@@ -111,7 +125,7 @@ export const BuildFeedPage: React.FC<BuildFeedPageProps> = ({
               <span>Feeds</span>
               <ChevronRight size={13} />
               <span style={{ color: "hsl(var(--foreground))", fontWeight: 500 }}>
-                {mode === "edit" ? `Edit: ${feedId}` : `New ${activeType}`}
+                {mode === "edit" ? `Edit: ${feedId}` : `New ${TYPE_LABELS[activeType] ?? activeType}`}
               </span>
             </div>
           </div>

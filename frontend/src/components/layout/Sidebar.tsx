@@ -1,5 +1,5 @@
 import React, { useState } from "react";
-import { NavLink, useNavigate } from "react-router-dom";
+import { NavLink, useNavigate, useLocation } from "react-router-dom";
 import { Activity, Github, PanelLeftClose, PanelLeftOpen, Plus, Rss, Settings } from "lucide-react";
 import {
   Tooltip,
@@ -9,6 +9,7 @@ import {
 
 export const Sidebar: React.FC = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const [collapsed, setCollapsed] = useState(() => localStorage.getItem("mkfd:nav:collapsed") === "1");
 
   function toggleCollapse() {
@@ -24,6 +25,15 @@ export const Sidebar: React.FC = () => {
         : "border-transparent text-muted-foreground hover:bg-muted hover:text-foreground"
     }`;
 
+  function collapsedNavClass(path: string) {
+    const isActive = location.pathname === path || location.pathname.startsWith(path + "/");
+    return `flex items-center justify-center w-full py-2 transition-colors border-l-4 ${
+      isActive
+        ? "border-primary bg-primary/10 text-primary"
+        : "border-transparent text-muted-foreground hover:bg-muted hover:text-foreground"
+    }`;
+  }
+
   const width = collapsed ? 52 : 256;
 
   return (
@@ -33,7 +43,12 @@ export const Sidebar: React.FC = () => {
     >
       {/* Logo */}
       <div className="px-3 py-4 flex items-center gap-3" style={{ minHeight: 64 }}>
-        <img src="/public/logo.png" alt="Mkfd" className="h-8 w-8 rounded shrink-0" />
+        <img
+          src="/public/logo.png"
+          alt="Mkfd"
+          className="h-8 w-8 rounded shrink-0"
+          style={{ objectFit: "contain" }}
+        />
         {!collapsed && (
           <div>
             <div className="text-xl font-semibold leading-6">Mkfd</div>
@@ -50,7 +65,7 @@ export const Sidebar: React.FC = () => {
               <button
                 type="button"
                 onClick={() => navigate("/")}
-                className="flex h-9 w-full items-center justify-center rounded bg-primary text-primary-foreground transition-opacity hover:opacity-90"
+                className="flex h-9 w-full items-center justify-center rounded border border-primary text-primary bg-transparent transition-colors hover:bg-primary/10"
                 aria-label="Create Feed"
               >
                 <Plus className="h-4 w-4" />
@@ -71,36 +86,45 @@ export const Sidebar: React.FC = () => {
       </div>
 
       {/* Nav items */}
-      <nav className="flex flex-1 flex-col gap-1" style={{ paddingLeft: collapsed ? 0 : undefined, paddingRight: collapsed ? 0 : undefined }}>
+      <nav className="flex flex-1 flex-col gap-1">
         {collapsed ? (
           <>
             <Tooltip>
               <TooltipTrigger asChild>
-                <NavLink to="/feeds" className={({ isActive }) =>
-                  `flex items-center justify-center border-l-4 py-2 transition-colors ${isActive ? "border-primary bg-primary/10 text-primary" : "border-transparent text-muted-foreground hover:bg-muted hover:text-foreground"}`
-                }>
+                <button
+                  type="button"
+                  onClick={() => navigate("/feeds")}
+                  className={collapsedNavClass("/feeds")}
+                  aria-label="Feeds"
+                >
                   <Rss className="h-4 w-4" />
-                </NavLink>
+                </button>
               </TooltipTrigger>
               <TooltipContent side="right">Feeds</TooltipContent>
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
-                <NavLink to="/health" className={({ isActive }) =>
-                  `flex items-center justify-center border-l-4 py-2 transition-colors ${isActive ? "border-primary bg-primary/10 text-primary" : "border-transparent text-muted-foreground hover:bg-muted hover:text-foreground"}`
-                }>
+                <button
+                  type="button"
+                  onClick={() => navigate("/health")}
+                  className={collapsedNavClass("/health")}
+                  aria-label="Health"
+                >
                   <Activity className="h-4 w-4" />
-                </NavLink>
+                </button>
               </TooltipTrigger>
               <TooltipContent side="right">Health</TooltipContent>
             </Tooltip>
             <Tooltip>
               <TooltipTrigger asChild>
-                <NavLink to="/settings" className={({ isActive }) =>
-                  `flex items-center justify-center border-l-4 py-2 transition-colors ${isActive ? "border-primary bg-primary/10 text-primary" : "border-transparent text-muted-foreground hover:bg-muted hover:text-foreground"}`
-                }>
+                <button
+                  type="button"
+                  onClick={() => navigate("/settings")}
+                  className={collapsedNavClass("/settings")}
+                  aria-label="Settings"
+                >
                   <Settings className="h-4 w-4" />
-                </NavLink>
+                </button>
               </TooltipTrigger>
               <TooltipContent side="right">Settings</TooltipContent>
             </Tooltip>
@@ -153,19 +177,36 @@ export const Sidebar: React.FC = () => {
       </nav>
 
       {/* GitHub link */}
-      {!collapsed && (
-        <div className="border-t px-6 py-5" style={{ borderColor: "var(--wb-outline)" }}>
-          <a
-            href="https://github.com/TBosak/mkfd"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center gap-3 rounded p-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
-          >
-            <Github className="h-4 w-4" />
-            Repository
-          </a>
-        </div>
-      )}
+      <div className="border-t" style={{ borderColor: "var(--wb-outline)" }}>
+        {collapsed ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <a
+                href="https://github.com/TBosak/mkfd"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center justify-center py-4 text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+                aria-label="GitHub Repository"
+              >
+                <Github className="h-4 w-4" />
+              </a>
+            </TooltipTrigger>
+            <TooltipContent side="right">Repository</TooltipContent>
+          </Tooltip>
+        ) : (
+          <div className="px-6 py-5">
+            <a
+              href="https://github.com/TBosak/mkfd"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center gap-3 rounded p-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
+            >
+              <Github className="h-4 w-4" />
+              Repository
+            </a>
+          </div>
+        )}
+      </div>
     </aside>
   );
 };

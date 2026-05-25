@@ -136,6 +136,19 @@ const FEED_TYPES: FeedTypeOption[] = [
       </svg>
     ),
   },
+  {
+    id: "sourceAssistant",
+    label: "Source Assistant",
+    description: "AI-guided feed setup",
+    active: false,
+    bg: "#f0fdf4", color: "#14532d", border: "#bbf7d0",
+    icon: (
+      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20z" />
+        <path d="M12 16v-4" /><path d="M12 8h.01" />
+      </svg>
+    ),
+  },
 ];
 
 interface TypePickerGridProps {
@@ -144,10 +157,11 @@ interface TypePickerGridProps {
 
 export const TypePickerGrid: React.FC<TypePickerGridProps> = ({ onSelect }) => {
   return (
-    <div style={{ padding: "40px 24px", maxWidth: 900, margin: "0 auto" }}>
-      <div style={{ textAlign: "center", marginBottom: 32 }}>
-        <h1 style={{ fontSize: 24, fontWeight: 700, margin: "0 0 8px" }}>Build a New Feed</h1>
-        <p style={{ fontSize: 15, color: "hsl(var(--muted-foreground))", margin: 0 }}>
+    <div style={{ padding: "32px 24px", maxWidth: 980, margin: "0 auto" }}>
+      <div style={{ marginBottom: 24 }}>
+        <div className="workbench-label">Builder</div>
+        <h1 style={{ fontSize: 24, fontWeight: 700, margin: "4px 0 4px" }}>Build a New Feed</h1>
+        <p style={{ fontSize: 14, color: "hsl(var(--muted-foreground))", margin: 0 }}>
           Choose the source type for your feed
         </p>
       </div>
@@ -165,10 +179,11 @@ export const TypePickerGrid: React.FC<TypePickerGridProps> = ({ onSelect }) => {
               alignItems: "flex-start",
               gap: 10,
               padding: 16,
-              borderRadius: 12,
-              border: `1px solid ${type.active ? type.border : "hsl(var(--border))"}`,
-              background: type.active ? type.bg : "hsl(var(--muted) / 0.4)",
-              color: type.active ? type.color : "hsl(var(--muted-foreground))",
+              borderRadius: 8,
+              border: `1px solid ${type.active ? "var(--wb-outline)" : "hsl(var(--border))"}`,
+              borderTop: `4px solid ${type.active ? type.color : "hsl(var(--border))"}`,
+              background: type.active ? "var(--wb-card)" : "hsl(var(--muted) / 0.4)",
+              color: type.active ? "var(--wb-ink)" : "hsl(var(--muted-foreground))",
               cursor: type.active ? "pointer" : "not-allowed",
               textAlign: "left",
               transition: "transform 0.1s, box-shadow 0.1s",

@@ -99,7 +99,7 @@ export function OverviewTab({
           </h3>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={160}>
+          <ResponsiveContainer width="100%" height={110}>
             <BarChart data={chartData}>
               <XAxis dataKey="date" tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 11 }} />
@@ -125,7 +125,7 @@ export function OverviewTab({
           </h3>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={130}>
+          <ResponsiveContainer width="100%" height={90}>
             <LineChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="date" tick={{ fontSize: 11 }} />

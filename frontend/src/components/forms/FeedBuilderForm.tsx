@@ -69,7 +69,7 @@ export const FeedBuilderForm = forwardRef<FeedBuilderFormHandle, FeedBuilderForm
       control,
       getValues,
       reset,
-      formState: { errors },
+      formState: { errors, isDirty },
     } = useForm<FeedFormData>({
       defaultValues: mode === "edit" && initialData
         ? { ...defaultValues, ...initialData }
@@ -93,8 +93,10 @@ export const FeedBuilderForm = forwardRef<FeedBuilderFormHandle, FeedBuilderForm
     const { draft, saveDraft, clearDraft } = useFeedDraft(draftKey);
     const formValues = watch();
     useEffect(() => {
-      saveDraft(formValues, activeFeedType, mode ?? "create", feedId);
-    }, [formValues, activeFeedType, mode, feedId, saveDraft]);
+      if (isDirty) {
+        saveDraft(formValues, activeFeedType, mode ?? "create", feedId);
+      }
+    }, [formValues, activeFeedType, mode, feedId, saveDraft, isDirty]);
 
     // Notify parent of value changes for preview
     useEffect(() => {

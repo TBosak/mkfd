@@ -45,7 +45,7 @@ export const StorageSelect: React.FC<StorageSelectProps> = ({ value, onChange, s
       </button>
       {open && (
         <div style={{
-          position: "absolute", top: "calc(100% + 4px)", left: 0, zIndex: 200,
+          position: "absolute", bottom: "calc(100% + 4px)", left: 0, zIndex: 9999,
           background: "hsl(var(--background))", border: "1px solid hsl(var(--border))",
           borderRadius: 8, boxShadow: "var(--shadow-pop, 0 8px 24px rgba(0,0,0,0.12))",
           minWidth: 130, padding: "4px",

@@ -168,17 +168,19 @@ export const APIForm = ({ register, control, setValue, watch, activeSection }: A
           />
 
           {/* Request Body */}
-          <Controller
-            control={control}
-            name="apiBody"
-            render={({ field }) => (
-              <APIHeadersEditor
-                field={field}
-                label="Request Body"
-                addButtonLabel="Add Body Field"
-              />
-            )}
-          />
+          <div className="pt-2 border-t" style={{ borderColor: "var(--wb-outline)" }}>
+            <Controller
+              control={control}
+              name="apiBody"
+              render={({ field }) => (
+                <APIHeadersEditor
+                  field={field}
+                  label="Request Body"
+                  addButtonLabel="Add Body Field"
+                />
+              )}
+            />
+          </div>
         </Section>
       )}
 
