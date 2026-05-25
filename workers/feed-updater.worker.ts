@@ -184,10 +184,6 @@ async function fetchDataAndUpdateFeed(feedConfig: any) {
         validateStatus: (s) => s >= 200 && s < 400,
       };
 
-      const cookieString = (feedConfig.cookies || [])
-        .map((c) => `${c.name}=${c.value}`)
-        .join("; ");
-
       if (
         cookieString &&
         !axiosConfig.headers.Cookie &&
