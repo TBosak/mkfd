@@ -80,6 +80,21 @@ describe("castFeedFormDataToFeedConfig — email", () => {
     expect(isProtectedValue(result.config.password)).toBe(true);
     expect(result.config.encryptedPassword).toBeUndefined();
   });
+
+  it("produces undefined password when emailPassword is empty string", () => {
+    const data = {
+      ...baseFormData,
+      feedType: "email",
+      emailHost: "imap.gmail.com",
+      emailPort: 993,
+      emailUsername: "user@gmail.com",
+      emailPassword: "",
+      emailFolder: "INBOX",
+      emailCount: 10,
+    };
+    const result = castFeedFormDataToFeedConfig(data, { encryptionKey: KEY }) as EmailFeedConfig;
+    expect(result.config.password).toBeUndefined();
+  });
 });
 
 describe("castFeedFormDataToFeedConfig — protected headers", () => {

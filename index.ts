@@ -315,20 +315,6 @@ app.post("/", async (ctx) => {
     return ctx.text("Invalid request body.", 400);
   }
 
-  const extract = makeExtract(body);
-  const extractBool = makeExtractBool(body);
-  const extractJson = makeExtractJson(body);
-  const extractKeyValuePairs = makeExtractKeyValuePairs(body);
-
-  const cookieNames = extract("cookieNames", []) as string[];
-  const cookieValues = extract("cookieValues", []) as string[];
-  const cookies = cookieNames
-    .map((name, i) => ({
-      name: name.trim(),
-      value: (cookieValues[i] ?? "").trim(),
-    }))
-    .filter((c) => c.name);
-
   let finalFeedConfig: any;
   try {
     finalFeedConfig = castFeedFormDataToFeedConfig(body as any, {
@@ -760,7 +746,8 @@ app.put("/api/feeds/:id", async (ctx) => {
   }
 
   const existingYaml = await readFile(configPath, "utf8");
-  const existingConfig = yaml.load(existingYaml) as any;
+  const existingConfigRaw = yaml.load(existingYaml) as Record<string, unknown>;
+  const existingConfig = normalizeLoadedFeedConfig(existingConfigRaw);
 
   const contentType = ctx.req.header("Content-Type") || "";
   let body: Record<string, any>;
@@ -811,6 +798,25 @@ app.put("/api/feeds/:id", async (ctx) => {
 
   // 2. Preserve — restores "********" sentinels to original ciphertext
   const finalFeedConfig = preserveMaskedProtectedValues(castConfig, existingConfig);
+
+  // 2a. Restore email password if the caster produced undefined (edit mode with no password change)
+  if (
+    finalFeedConfig.feedType === "email" &&
+    !(finalFeedConfig as any).config?.password &&
+    !(finalFeedConfig as any).config?.encryptedPassword
+  ) {
+    const existingPassword = (existingConfig as any).config?.password ?? (
+      (existingConfig as any).config?.encryptedPassword?.trim?.()?.length > 0
+        ? { type: "protected" as const, value: (existingConfig as any).config.encryptedPassword }
+        : undefined
+    );
+    if (existingPassword) {
+      (finalFeedConfig as any).config = {
+        ...(finalFeedConfig as any).config,
+        password: existingPassword,
+      };
+    }
+  }
 
   // 3. Validate
   const validation = validateFeedConfig(finalFeedConfig as any);
