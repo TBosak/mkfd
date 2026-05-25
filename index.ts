@@ -1421,7 +1421,7 @@ async function generatePreview(feedConfig: any) {
         rssXml = (await buildRSS(html, feedConfig)).xml;
         console.log("[Preview] RSS build complete");
       }
-    } else if (feedConfig.feedType === "api") {
+    } else if (feedConfig.feedType === "api" || feedConfig.feedType === "rest") {
       const method = String(feedConfig.config.method || "GET").toUpperCase();
       const url = (feedConfig.config.baseUrl || "").trim() + (feedConfig.config.route || "").trim();
 

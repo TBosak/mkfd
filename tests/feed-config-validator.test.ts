@@ -27,6 +27,13 @@ describe("validateFeedConfig — global checks", () => {
     expect(result.errors.some((e) => e.path === "feedId")).toBe(true);
   });
 
+  it("errors when feedId contains invalid characters", () => {
+    const config = makeWS({ feedId: "my feed!" });
+    const result = validateFeedConfig(config);
+    expect(result.valid).toBe(false);
+    expect(result.errors.some((e) => e.path === "feedId")).toBe(true);
+  });
+
   it("errors when feedName is missing", () => {
     const result = validateFeedConfig(makeWS({ feedName: "" }));
     expect(result.valid).toBe(false);
