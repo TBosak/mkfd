@@ -2,6 +2,7 @@ import { useState } from "react";
 import { useForm } from "react-hook-form";
 import { useNavigate } from "react-router-dom";
 import { FeedFormData } from "@/types/feed";
+import { buildFeedConfigFromFormData } from "@/lib/feed-config-builder";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -71,7 +72,7 @@ export const FeedBuilderForm = ({ mode = "create", feedId, initialData }: FeedBu
       const response = await fetch(url, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify(buildFeedConfigFromFormData(data)),
       });
 
       if (response.ok) {
@@ -83,7 +84,11 @@ export const FeedBuilderForm = ({ mode = "create", feedId, initialData }: FeedBu
           window.location.reload();
         }
       } else {
-        alert(mode === "edit" ? "Error updating feed" : "Error creating feed");
+        const errorBody = await response.json().catch(() => null);
+        const msg = errorBody?.errors?.map((e: { message: string }) => e.message).join("\n")
+          ?? (mode === "edit" ? "Error updating feed" : "Error creating feed");
+        alert(msg);
+        return;
       }
     } catch (error) {
       console.error("Error:", error);
