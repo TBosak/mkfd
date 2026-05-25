@@ -12,7 +12,8 @@ import { DOMParser } from "xmldom";
 import CSSTarget from "./models/csstarget.model";
 import axios from "axios";
 import { createInterface } from "readline";
-import { buildRSS, buildRSSFromApiData } from "./utilities/rss-builder.utility";
+import { buildRSS, buildRSSFromApiData, buildFeedObject, buildFeedObjectFromApiData } from "./utilities/rss-builder.utility";
+import { serializeAllFeedFormats } from "./utilities/feed-output.utility";
 import type { Config } from "node-imap";
 import { listImapFolders } from "./utilities/imap.utility";
 import { encrypt } from "./utilities/security.utility";
@@ -435,7 +436,11 @@ app.post("/", async (ctx) => {
   if (contentType.includes("application/json")) {
     return ctx.json({
       message: "RSS feed is being generated.",
-      feedUrl: `public/feeds/${feedId}.xml`,
+      feedUrls: {
+        rss2: `public/feeds/${feedId}.xml`,
+        atom: `public/feeds/${feedId}.atom`,
+        json: `public/feeds/${feedId}.json`,
+      },
       feedId: feedId,
       config: maskProtectedValues(finalFeedConfig),
     });
@@ -470,10 +475,20 @@ app.post("/preview", async (ctx) => {
     // Carry _debug_advanced_raw for logging in generatePreview
     previewConfig._debug_advanced_raw = jsonData.advanced;
 
-    const response = await generatePreview(previewConfig);
+    type PreviewFormat = "rss2" | "atom" | "json";
+    const format = (ctx.req.query("format") ?? "rss2") as PreviewFormat;
 
-    return ctx.text(response, 200, {
-      "Content-Type": "application/rss+xml",
+    const feed = await generatePreview(previewConfig);
+    const outputs = serializeAllFeedFormats(feed);
+    const body = outputs[format] ?? outputs.rss2;
+    const contentTypeMap: Record<PreviewFormat, string> = {
+      rss2: "application/rss+xml; charset=utf-8",
+      atom: "application/atom+xml; charset=utf-8",
+      json: "application/feed+json; charset=utf-8",
+    };
+
+    return ctx.text(body, 200, {
+      "Content-Type": contentTypeMap[format] ?? contentTypeMap.rss2,
       "Cache-Control": "no-cache, no-store, must-revalidate",
     });
   } catch (error) {
@@ -853,6 +868,11 @@ app.get("/api/feeds", async (ctx) => {
       feedType: config.feedType,
       lastBuildDate,
       webhookEnabled: !!(config.webhook?.enabled && config.webhook?.url),
+      outputUrls: {
+        rss2: `/public/feeds/${config.feedId}.xml`,
+        atom: `/public/feeds/${config.feedId}.atom`,
+        json: `/public/feeds/${config.feedId}.json`,
+      },
     });
   }
 
@@ -990,7 +1010,11 @@ app.put("/api/feeds/:id", async (ctx) => {
 
   return ctx.json({
     message: "Feed updated successfully.",
-    feedUrl: `public/feeds/${feedId}.xml`,
+    feedUrls: {
+      rss2: `public/feeds/${feedId}.xml`,
+      atom: `public/feeds/${feedId}.atom`,
+      json: `public/feeds/${feedId}.json`,
+    },
     feedId,
     config: maskProtectedValues(finalFeedConfig),
   });
@@ -1441,9 +1465,9 @@ async function processFeedsAtStart() {
   }
 }
 
-async function generatePreview(feedConfig: any) {
+async function generatePreview(feedConfig: any): Promise<import("feed").Feed> {
   try {
-    let rssXml;
+    let previewFeed: import("feed").Feed | undefined;
     // The feedConfig passed here should now be the fully expanded one
     // including all item and feed level options as defined in POST / and /preview routes.
 
@@ -1508,7 +1532,7 @@ async function generatePreview(feedConfig: any) {
           flaresolverrResponse.data?.solution?.status === 200
         ) {
           const html = flaresolverrResponse.data.solution.response;
-          rssXml = (await buildRSS(html, feedConfig)).xml;
+          previewFeed = (await buildFeedObject(html, feedConfig)).feed;
         } else {
           throw new Error(
             `FlareSolverr failed: ${
@@ -1570,9 +1594,9 @@ async function generatePreview(feedConfig: any) {
         console.log("[Preview] Extracting content...");
         const html = await page.content();
         await browser.close();
-        console.log("[Preview] Browser closed, building RSS...");
-        // buildRSS expects the full feedConfig which now includes all detailed options
-        rssXml = (await buildRSS(html, feedConfig)).xml;
+        console.log("[Preview] Browser closed, building feed...");
+        // buildFeedObject expects the full feedConfig which now includes all detailed options
+        previewFeed = (await buildFeedObject(html, feedConfig)).feed;
       } else {
         // Standard axios call for non-advanced web scraping (redirect-aware to prevent SSRF)
         console.log("[Preview] Using standard (non-advanced) scraping");
@@ -1588,10 +1612,10 @@ async function generatePreview(feedConfig: any) {
           maxBodyLength: 2 * 1024 * 1024,
           timeout: 30000, // 30 second timeout
         }, previewPolicyOptions);
-        console.log("[Preview] Page fetched, building RSS...");
+        console.log("[Preview] Page fetched, building feed...");
         const html = response.data;
-        rssXml = (await buildRSS(html, feedConfig)).xml;
-        console.log("[Preview] RSS build complete");
+        previewFeed = (await buildFeedObject(html, feedConfig)).feed;
+        console.log("[Preview] Feed build complete");
       }
     } else if (feedConfig.feedType === "api" || feedConfig.feedType === "rest") {
       const method = String(feedConfig.config.method || "GET").toUpperCase();
@@ -1656,9 +1680,12 @@ async function generatePreview(feedConfig: any) {
         if (hop === 5) throw new Error(`Too many redirects (>5) following "${url}".`);
       }
       const apiData = previewApiResponse!.data;
-      rssXml = buildRSSFromApiData(apiData, feedConfig).xml;
+      previewFeed = buildFeedObjectFromApiData(apiData, feedConfig).feed;
     }
-    return rssXml;
+    if (!previewFeed) {
+      throw new Error("Feed could not be generated for preview.");
+    }
+    return previewFeed;
   } catch (error) {
     console.error(
       `Error fetching/processing data for preview feedId ${feedConfig.feedId}:`,
