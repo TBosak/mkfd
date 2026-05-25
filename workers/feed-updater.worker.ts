@@ -4,6 +4,7 @@ import {
   buildRSS,
   buildRSSFromApiData,
 } from "../utilities/rss-builder.utility";
+import { normalizeLoadedFeedConfig } from "../utilities/feed-config-normalizer.utility";
 import { join } from "node:path";
 // parseCookiesForPlaywright might be simplified or removed if cookies are directly structured correctly
 // import { parseCookiesForPlaywright } from "../utilities/data-handler.utility"
@@ -16,7 +17,8 @@ import { resolveProtectedValues } from "../utilities/protected-values.utility";
 declare var self: Worker;
 const rssDir = "./public/feeds";
 
-async function fetchDataAndUpdateFeed(feedConfig: any) {
+async function fetchDataAndUpdateFeed(rawConfig: Record<string, unknown>) {
+  const feedConfig = normalizeLoadedFeedConfig(rawConfig);
   const encKey = process.env.ENCRYPTION_KEY ?? "";
   const startedAt = Date.now();
   let httpStatus: number | null = null;
@@ -164,7 +166,7 @@ async function fetchDataAndUpdateFeed(feedConfig: any) {
         lastBuildResult = await buildRSS(html, feedConfig, dateIndex);
         rssXml = lastBuildResult.xml;
       }
-    } else if (feedConfig.feedType === "api") {
+    } else if (feedConfig.feedType === "api" || feedConfig.feedType === "rest") {
       const method = String(feedConfig.config.method || "GET").toUpperCase();
       const url = (feedConfig.config.baseUrl || "").trim() + (feedConfig.config.route || "").trim();
 

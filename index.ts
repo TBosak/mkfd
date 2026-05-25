@@ -17,6 +17,9 @@ import type { Config } from "node-imap";
 import { listImapFolders } from "./utilities/imap.utility";
 import { encrypt } from "./utilities/security.utility";
 import { maskProtectedValues, preserveMaskedProtectedValues, protectValue } from "./utilities/protected-values.utility";
+import { normalizeLoadedFeedConfig } from "./utilities/feed-config-normalizer.utility";
+import { castFeedFormDataToFeedConfig } from "./utilities/feed-config-caster.utility";
+import { validateFeedConfig } from "./utilities/feed-config-validator.utility";
 import { CookieStore, sessionMiddleware } from "hono-sessions";
 import { suggestSelectors } from "./utilities/suggestion-engine.utility";
 import { chromium } from "patchright";
@@ -1192,7 +1195,8 @@ app.get("/api/feeds/:id/config", async (ctx) => {
   }
 
   const yamlContent = await readFile(configPath, "utf8");
-  const config = yaml.load(yamlContent);
+  const raw = yaml.load(yamlContent) as Record<string, unknown>;
+  const config = normalizeLoadedFeedConfig(raw);
   return ctx.json(maskProtectedValues(config));
 });
 
