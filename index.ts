@@ -1040,148 +1040,25 @@ app.put("/api/feeds/:id", async (ctx) => {
     return ctx.text("Invalid request body.", 400);
   }
 
-  const configWithPreservedSecrets = preserveMaskedProtectedValues(body, existingConfig) as Record<string, any>;
-  body = configWithPreservedSecrets;
-
-  const extract = makeExtract(body);
-  const extractBool = makeExtractBool(body);
-  const extractJson = makeExtractJson(body);
-  const extractKeyValuePairs = makeExtractKeyValuePairs(body);
-
-  const cookieNames = extract("cookieNames", []) as string[];
-  const cookieValues = extract("cookieValues", []) as string[];
-  const cookies = cookieNames.map((name, i) => ({ name: name.trim(), value: (cookieValues[i] ?? "").trim() })).filter((c) => c.name);
-
-  const feedType = extract("feedType", "webScraping");
-  const feedName = extract("feedName", "RSS Feed");
-
-  let configData: any = {};
-  let articleData: any = {};
-  let apiMappingData: any = {};
-  let emailConfigData: any = {};
-
-  const feedOptions = {
-    feedLanguage: "", feedCopyright: "", feedDescription: "", feedManagingEditor: "",
-    feedWebMaster: "", feedPubDate: "", feedLastBuildDate: "", feedCategories: [] as string[],
-    feedDocs: "https://www.rssboard.org/rss-specification", feedGenerator: "Mkfd Feed Generator",
-    feedTtl: undefined as number | undefined, feedSkipHours: [] as number[], feedSkipDays: [] as string[],
-    feedImage: undefined as string | undefined,
-  };
-
-  if (feedType === "webScraping") {
-    configData = { baseUrl: extract("feedUrl") };
-    articleData = {
-      iterator: await buildCSSTarget("item", body, sampleHtml),
-      title: await buildCSSTarget("title", body, sampleHtml),
-      link: await buildCSSTarget("link", body, sampleHtml),
-      description: await buildCSSTarget("description", body, sampleHtml),
-      author: await buildCSSTarget("author", body, sampleHtml),
-      categories: await buildCSSTarget("categories", body, sampleHtml),
-      comments: await buildCSSTarget("commentsUrl", body, sampleHtml),
-      enclosure: await buildCSSTarget("enclosure", body, sampleHtml),
-      guid: await buildCSSTarget("guid", body, sampleHtml),
-      pubDate: await buildCSSTarget("date", body, sampleHtml),
-      source: {
-        title: await buildCSSTarget("sourceTitle", body, sampleHtml),
-        url: await buildCSSTarget("sourceUrl", body, sampleHtml),
-      },
-      contentEncoded: await buildCSSTarget("contentEncoded", body, sampleHtml),
-      summary: await buildCSSTarget("summary", body, sampleHtml),
-      contributors: await buildCSSTarget("contributors", body, sampleHtml),
-      lat: await buildCSSTarget("lat", body, sampleHtml),
-      long: await buildCSSTarget("long", body, sampleHtml),
-    };
-
-    feedOptions.feedLanguage = extract("feedLanguageSelector") ? `${extract("feedLanguageSelector")}${extract("feedLanguageAttribute", "") ? `|attr:${extract("feedLanguageAttribute")}` : ""}` : "";
-    feedOptions.feedCopyright = extract("feedCopyrightSelector") ? `${extract("feedCopyrightSelector")}${extract("feedCopyrightAttribute", "") ? `|attr:${extract("feedCopyrightAttribute")}` : ""}` : "";
-    feedOptions.feedManagingEditor = extract("feedManagingEditorSelector") ? `${extract("feedManagingEditorSelector")}${extract("feedManagingEditorAttribute", "") ? `|attr:${extract("feedManagingEditorAttribute")}` : ""}` : "";
-    feedOptions.feedWebMaster = extract("feedWebMasterSelector") ? `${extract("feedWebMasterSelector")}${extract("feedWebMasterAttribute", "") ? `|attr:${extract("feedWebMasterAttribute")}` : ""}` : "";
-
-    const feedCategoriesScraped = extract("feedCategoriesScrapingSelector") ? `${extract("feedCategoriesScrapingSelector")}${extract("feedCategoriesScrapingAttribute", "") ? `|attr:${extract("feedCategoriesScrapingAttribute")}` : ""}` : "";
-    if (feedCategoriesScraped) feedOptions.feedCategories = [feedCategoriesScraped];
-    const feedTtlScraped = extract("feedTtlSelector") ? `${extract("feedTtlSelector")}${extract("feedTtlAttribute", "") ? `|attr:${extract("feedTtlAttribute")}` : ""}` : "";
-    if (feedTtlScraped) feedOptions.feedTtl = Number(feedTtlScraped);
-    const skipDaysScraped = extract("feedSkipDaysSelector") ? `${extract("feedSkipDaysSelector")}${extract("feedSkipDaysAttribute", "") ? `|attr:${extract("feedSkipDaysAttribute")}` : ""}` : "";
-    if (skipDaysScraped) feedOptions.feedSkipDays = [skipDaysScraped];
-    const skipHoursScraped = extract("feedSkipHoursSelector") ? `${extract("feedSkipHoursSelector")}${extract("feedSkipHoursAttribute", "") ? `|attr:${extract("feedSkipHoursAttribute")}` : ""}` : "";
-    if (skipHoursScraped) feedOptions.feedSkipHours = [Number(skipHoursScraped)];
-    const imgUrlSel = extract("feedImageUrlSelector");
-    if (imgUrlSel) feedOptions.feedImage = `${imgUrlSel}${extract("feedImageUrlAttribute", "") ? `|attr:${extract("feedImageUrlAttribute")}` : ""}`;
-
-  } else if (feedType === "api") {
-    configData = {
-      baseUrl: extract("feedUrl"), method: extract("apiMethod", "GET"),
-      route: extract("apiRoute"), params: extractKeyValuePairs("apiParams"),
-      apiSpecificHeaders: extractKeyValuePairs("apiHeaders"), apiSpecificBody: extractKeyValuePairs("apiBody"),
-    };
-    apiMappingData = {
-      items: extract("apiItemsPath"), title: extract("apiTitleField"), link: extract("apiLinkField"),
-      description: extract("apiDescriptionField"), author: extract("apiAuthor"), categories: extract("apiCategories"),
-      comments: extract("apiCommentsUrl"), enclosureUrl: extract("apiEnclosureUrl"), enclosureLength: extract("apiEnclosureSize"),
-      enclosureType: extract("apiEnclosureType"), guid: extract("apiGuid"), guidIsPermaLink: extract("apiGuidIsPermaLink"),
-      date: extract("apiDateField"), sourceTitle: extract("apiSourceTitle"), sourceUrl: extract("apiSourceUrl"),
-      contentEncoded: extract("apiContentEncoded"), summary: extract("apiSummary"), contributors: extract("apiContributors"),
-      lat: extract("apiLat"), long: extract("apiLong"), feedTitlePath: extract("apiFeedTitle"),
-      feedLinkPath: extract("feedUrl"), feedDescriptionPath: extract("apiFeedDescription"),
-      feedLanguagePath: extract("apiFeedLanguage"), feedCopyrightPath: extract("apiFeedCopyright"),
-      feedManagingEditorPath: extract("apiFeedManagingEditor"), feedWebMasterPath: extract("apiFeedWebMaster"),
-      feedPubDatePath: extract("apiFeedPubDate"), feedCategoriesPath: extract("apiFeedCategories"),
-      feedTtlPath: extract("apiFeedTtl"), feedSkipHoursPath: extract("apiFeedSkipHours"),
-      feedSkipDaysPath: extract("apiFeedSkipDays"), feedImageUrl: extract("apiFeedImageUrl"),
-    };
-  } else if (feedType === "email") {
-    const newPassword = extract("emailPassword");
-    emailConfigData = {
-      host: extract("emailHost"), port: parseInt(extract("emailPort", "993"), 10) || 993,
-      user: extract("emailUsername"),
-      password: newPassword
-        ? protectValue(newPassword, encryptionKey)
-        : existingConfig.config?.password ?? (
-            (existingConfig.config?.encryptedPassword && existingConfig.config.encryptedPassword.trim().length > 0)
-              ? { type: "protected" as const, value: existingConfig.config.encryptedPassword }
-              : undefined
-          ),
-      encryptedPassword: undefined,
-      folder: extract("emailFolder"),
-      emailCount: parseInt(extract("emailCount", "10"), 10) || 10,
-    };
-    feedOptions.feedLanguage = "en";
-    feedOptions.feedDescription = `Emails from folder: ${emailConfigData.folder}`;
+  // 1. Cast — encrypts new protected values, leaves "********" alone
+  let castConfig: any;
+  try {
+    castConfig = castFeedFormDataToFeedConfig(body as any, {
+      feedId,
+      encryptionKey,
+    });
+  } catch (castErr: any) {
+    return ctx.json({ errors: [{ path: "feedType", message: castErr.message }] }, 400);
   }
 
-  const webhookConfig = {
-    enabled: extractBool("webhookEnabled"),
-    url: extract("webhookUrl", ""),
-    format: extract("webhookFormat", "xml") as "xml" | "json",
-    newItemsOnly: extractBool("webhookNewItemsOnly", true),
-    headers: extractJson("webhookHeaders"),
-    customPayload: extract("webhookCustomPayload", "").trim() || undefined,
-  };
+  // 2. Preserve — restores "********" sentinels to original ciphertext
+  const finalFeedConfig = preserveMaskedProtectedValues(castConfig, existingConfig);
 
-  const flaresolverrData = extract("flaresolverr", {});
-  const flaresolverrConfig = {
-    enabled: typeof flaresolverrData.enabled === "boolean" ? flaresolverrData.enabled : false,
-    serverUrl: normalizeUrl(flaresolverrData.serverUrl || ""),
-    timeout: parseInt(flaresolverrData.timeout || "60000", 10) || 60000,
-  };
-
-  const finalFeedConfig = {
-    feedId,
-    feedName,
-    feedType,
-    refreshTime: parseInt(extract("refreshTime", "5"), 10) || 5,
-    reverse: extractBool("reverse"),
-    strict: extractBool("strict"),
-    advanced: extractBool("advanced"),
-    headers: extractKeyValuePairs("headers"),
-    cookies: cookies.length > 0 ? cookies : undefined,
-    webhook: webhookConfig.enabled && webhookConfig.url ? webhookConfig : undefined,
-    flaresolverr: flaresolverrConfig.enabled && flaresolverrConfig.serverUrl ? flaresolverrConfig : undefined,
-    config: feedType === "email" ? emailConfigData : configData,
-    ...(feedType === "webScraping" && { article: articleData }),
-    ...(feedType === "api" && { apiMapping: apiMappingData }),
-    ...feedOptions,
-  };
+  // 3. Validate
+  const validation = validateFeedConfig(finalFeedConfig as any);
+  if (!validation.valid) {
+    return ctx.json({ errors: validation.errors, warnings: validation.warnings }, 400);
+  }
 
   const yamlStr = yaml.dump(finalFeedConfig);
   await writeFile(configPath, yamlStr, "utf8");
