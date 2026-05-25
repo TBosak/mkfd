@@ -29,6 +29,7 @@ export const FeedBuilderForm = ({ mode = "create", feedId, initialData }: FeedBu
   );
   const [showPreview, setShowPreview] = useState(false);
   const [previewXml, setPreviewXml] = useState<string | undefined>();
+  const [previewFeedConfig, setPreviewFeedConfig] = useState<Record<string, unknown> | undefined>();
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
 
@@ -76,11 +77,19 @@ export const FeedBuilderForm = ({ mode = "create", feedId, initialData }: FeedBu
       });
 
       if (response.ok) {
+        const responseBody = await response.json().catch(() => null);
+        const feedUrls = responseBody?.feedUrls;
         if (mode === "edit") {
-          alert("Feed updated successfully!");
+          const msg = feedUrls
+            ? `Feed updated successfully!\n\nFeed URLs:\nRSS 2.0: ${feedUrls.rss2}\nAtom: ${feedUrls.atom}\nJSON Feed: ${feedUrls.json}`
+            : "Feed updated successfully!";
+          alert(msg);
           navigate("/feeds");
         } else {
-          alert("Feed created successfully!");
+          const msg = feedUrls
+            ? `Feed created successfully!\n\nFeed URLs:\nRSS 2.0: ${feedUrls.rss2}\nAtom: ${feedUrls.atom}\nJSON Feed: ${feedUrls.json}`
+            : "Feed created successfully!";
+          alert(msg);
           window.location.reload();
         }
       } else {
@@ -139,6 +148,7 @@ export const FeedBuilderForm = ({ mode = "create", feedId, initialData }: FeedBu
       if (response.ok) {
         const rssFeedXml = await response.text();
         setPreviewXml(rssFeedXml);
+        setPreviewFeedConfig(data as Record<string, unknown>);
         setShowPreview(true);
       } else {
         const errorText = await response.text();
@@ -316,6 +326,7 @@ export const FeedBuilderForm = ({ mode = "create", feedId, initialData }: FeedBu
           open={showPreview}
           onOpenChange={setShowPreview}
           previewXml={previewXml}
+          feedConfig={previewFeedConfig}
         />
       </form>
 

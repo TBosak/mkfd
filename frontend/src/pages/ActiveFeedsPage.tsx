@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { Edit, Trash2, ExternalLink, Webhook, Plus, Rss } from "lucide-react";
+import { Edit, Trash2, ExternalLink, Webhook, Plus, Rss, Copy } from "lucide-react";
 
 interface FeedSummary {
   feedId: string;
@@ -11,6 +11,11 @@ interface FeedSummary {
   feedType: "webScraping" | "api" | "email";
   lastBuildDate: string;
   webhookEnabled: boolean;
+  outputUrls?: {
+    rss2: string;
+    atom: string;
+    json: string;
+  };
 }
 
 const TYPE_BADGE: Record<FeedSummary["feedType"], string> = {
@@ -163,21 +168,86 @@ export const ActiveFeedsPage = () => {
                 </p>
               </div>
               <div className="flex flex-wrap gap-2 pt-1">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  asChild
-                  className="border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400"
-                >
-                  <a
-                    href={`/public/feeds/${feed.feedId}.xml`}
-                    target="_blank"
-                    rel="noopener noreferrer"
+                {feed.outputUrls ? (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      asChild
+                      className="border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400"
+                    >
+                      <a href={feed.outputUrls.rss2} target="_blank" rel="noopener noreferrer">
+                        <ExternalLink className="mr-1 h-3 w-3" />
+                        Open RSS
+                      </a>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      asChild
+                      className="border-indigo-200 text-indigo-600 hover:bg-indigo-50 dark:border-indigo-800 dark:text-indigo-400"
+                    >
+                      <a href={feed.outputUrls.atom} target="_blank" rel="noopener noreferrer">
+                        <ExternalLink className="mr-1 h-3 w-3" />
+                        Open Atom
+                      </a>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      asChild
+                      className="border-green-200 text-green-600 hover:bg-green-50 dark:border-green-800 dark:text-green-400"
+                    >
+                      <a href={feed.outputUrls.json} target="_blank" rel="noopener noreferrer">
+                        <ExternalLink className="mr-1 h-3 w-3" />
+                        Open JSON
+                      </a>
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigator.clipboard?.writeText(window.location.origin + feed.outputUrls!.rss2)}
+                      className="border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400"
+                    >
+                      <Copy className="mr-1 h-3 w-3" />
+                      Copy RSS
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigator.clipboard?.writeText(window.location.origin + feed.outputUrls!.atom)}
+                      className="border-indigo-200 text-indigo-600 hover:bg-indigo-50 dark:border-indigo-800 dark:text-indigo-400"
+                    >
+                      <Copy className="mr-1 h-3 w-3" />
+                      Copy Atom
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => navigator.clipboard?.writeText(window.location.origin + feed.outputUrls!.json)}
+                      className="border-green-200 text-green-600 hover:bg-green-50 dark:border-green-800 dark:text-green-400"
+                    >
+                      <Copy className="mr-1 h-3 w-3" />
+                      Copy JSON
+                    </Button>
+                  </>
+                ) : (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    asChild
+                    className="border-blue-200 text-blue-600 hover:bg-blue-50 dark:border-blue-800 dark:text-blue-400"
                   >
-                    <ExternalLink className="mr-1 h-3 w-3" />
-                    View Feed
-                  </a>
-                </Button>
+                    <a
+                      href={`/public/feeds/${feed.feedId}.xml`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                    >
+                      <ExternalLink className="mr-1 h-3 w-3" />
+                      View Feed
+                    </a>
+                  </Button>
+                )}
                 <Button
                   variant="outline"
                   size="sm"

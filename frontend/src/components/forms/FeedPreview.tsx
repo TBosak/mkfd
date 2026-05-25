@@ -7,22 +7,63 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
+type PreviewFormat = "rss2" | "atom" | "json";
+
 interface FeedPreviewProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   previewXml?: string;
+  feedConfig?: Record<string, unknown>;
 }
 
 export const FeedPreview = ({
   open,
   onOpenChange,
   previewXml,
+  feedConfig,
 }: FeedPreviewProps) => {
   const [blobUrl, setBlobUrl] = useState<string>();
+  const [format, setFormat] = useState<PreviewFormat>("rss2");
+  const [currentContent, setCurrentContent] = useState<string | undefined>(previewXml);
+  const [isLoading, setIsLoading] = useState(false);
 
+  // When previewXml changes (new preview generated), reset to rss2
   useEffect(() => {
     if (previewXml) {
-      // Wrap XML in HTML to display as text with syntax highlighting
+      setCurrentContent(previewXml);
+      setFormat("rss2");
+    }
+  }, [previewXml]);
+
+  // Fetch alternate format when format changes (and feedConfig is available)
+  useEffect(() => {
+    if (!open) return;
+    if (format === "rss2" && previewXml) {
+      setCurrentContent(previewXml);
+      return;
+    }
+    if (!feedConfig) return;
+
+    setIsLoading(true);
+    fetch(`/preview?format=${format}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(feedConfig),
+    })
+      .then((res) => (res.ok ? res.text() : Promise.reject(res.statusText)))
+      .then((text) => setCurrentContent(text))
+      .catch((err) => {
+        console.error("Error fetching alternate format:", err);
+        setCurrentContent(previewXml);
+      })
+      .finally(() => setIsLoading(false));
+  }, [format, open]);
+
+  useEffect(() => {
+    if (currentContent) {
+      const isJson = format === "json";
+      let displayContent = currentContent;
+
       const htmlContent = `
 <!DOCTYPE html>
 <html>
@@ -46,7 +87,7 @@ export const FeedPreview = ({
   </style>
 </head>
 <body>
-  <pre>${previewXml.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre>
+  <pre>${isJson ? displayContent.replace(/</g, "&lt;").replace(/>/g, "&gt;") : displayContent.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</pre>
 </body>
 </html>
       `;
@@ -55,16 +96,21 @@ export const FeedPreview = ({
       const url = URL.createObjectURL(blob);
       setBlobUrl(url);
 
-      // Cleanup
       return () => {
         URL.revokeObjectURL(url);
       };
     }
-  }, [previewXml]);
+  }, [currentContent, format]);
 
   const handleHide = () => {
     onOpenChange(false);
   };
+
+  const formatButtons: { label: string; value: PreviewFormat }[] = [
+    { label: "RSS 2.0", value: "rss2" },
+    { label: "Atom", value: "atom" },
+    { label: "JSON Feed", value: "json" },
+  ];
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -72,6 +118,22 @@ export const FeedPreview = ({
         <DialogHeader className="p-6 pb-0">
           <DialogTitle>Feed Preview</DialogTitle>
         </DialogHeader>
+        <div className="px-6 pt-2 flex gap-2">
+          {formatButtons.map((btn) => (
+            <Button
+              key={btn.value}
+              variant={format === btn.value ? "default" : "outline"}
+              size="sm"
+              onClick={() => setFormat(btn.value)}
+              disabled={isLoading}
+            >
+              {btn.label}
+            </Button>
+          ))}
+          {isLoading && (
+            <span className="text-sm text-muted-foreground self-center">Loading...</span>
+          )}
+        </div>
         <div className="flex-1 overflow-hidden p-6 pt-4">
           {blobUrl ? (
             <iframe
