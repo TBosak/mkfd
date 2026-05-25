@@ -209,7 +209,7 @@ function RecommendationCard({
   );
 }
 
-export const SourceAssistantPanel: React.FC<SourceAssistantPanelProps> = ({ onApply, onPickType }) => {
+export const SourceAssistantPanel: React.FC<SourceAssistantPanelProps> = ({ onApply, onPickType: _onPickType }) => {
   const [url, setUrl] = useState("");
   const [needsHeaders, setNeedsHeaders] = useState(false);
   const [advancedFetch, setAdvancedFetch] = useState(false);
