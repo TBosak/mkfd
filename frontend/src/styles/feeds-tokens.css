@@ -1,0 +1,28 @@
+:root {
+  --bg:          hsl(var(--background));
+  --bg-sunken:   hsl(var(--muted));
+  --bg-elevated: hsl(var(--card));
+  --ink:         hsl(var(--foreground));
+  --ink-2:       hsl(var(--foreground));
+  --ink-3:       hsl(var(--muted-foreground));
+  --ink-4:       hsl(var(--muted-foreground));
+  --line:        hsl(var(--border));
+  --line-strong: hsl(var(--border));
+  --brand:       hsl(var(--primary));
+  --brand-ink:   hsl(var(--primary));
+  --brand-soft:  hsl(var(--primary) / 0.12);
+
+  --ok:       #15803d; --ok-ink:   #14532d; --ok-soft:  #dcf3e3;
+  --warn:     #b45309; --warn-ink: #78350f; --warn-soft:#fdecc8;
+  --err:      #b91c1c; --err-ink:  #7f1d1d; --err-soft: #fadcd9;
+  --info:     #1d4ed8; --info-ink: #1e40af; --info-soft:#dde6fb;
+  --purple:   #6d28d9; --purple-soft: #ede4fc;
+
+  --feeds-radius:    10px;
+  --feeds-radius-sm:  6px;
+  --feeds-radius-lg: 14px;
+  --feeds-font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  --shadow-1:   0 1px 0 rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.04);
+  --shadow-2:   0 1px 0 rgba(0,0,0,0.04), 0 8px 24px -12px rgba(0,0,0,0.12);
+  --shadow-pop: 0 1px 0 rgba(0,0,0,0.04), 0 18px 48px -16px rgba(0,0,0,0.16);
+}
