@@ -32,10 +32,13 @@ import { initDb, getDb, insertRunLog, pruneRunLogs, getSettings, saveSettings, c
 import { assertOutboundFetchAllowed, mergeFeedPolicyOptions, parseAllowlist, type OutboundFetchPolicyOptions } from "./utilities/outbound-fetch-policy.utility";
 import { setFeedHistoryStore } from "./utilities/feed-history.utility";
 import type { RunLog } from "./lib/analytics/schema";
-import { sql, and, eq, gte, lte, desc } from "drizzle-orm";
+import { sql, and, eq, gte, lte, desc, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import * as analyticsSchema from "./lib/analytics/schema";
 import { streamSSE } from "hono/streaming";
+import { listFeedConfigs, readFeedConfig, deleteFeedConfig, duplicateFeedConfig, exportFeedConfig } from "./utilities/config-manager.utility";
+import { patchMetadata, patchEnabled } from "./utilities/config-metadata.utility";
+import { buildFeedSummary } from "./utilities/feed-summary.utility";
 
 const app = new Hono();
 const runLogEmitter = new EventEmitter();
@@ -839,44 +842,60 @@ app.post("/utils/root-url", async (c) => {
 });
 
 app.get("/api/feeds", async (ctx) => {
-  const files = await readdir(configsDir);
-  const yamlFiles = files.filter((f) => f.endsWith(".yaml"));
-  const feeds = [];
-
-  for (const file of yamlFiles) {
-    const filePath = join(configsDir, file);
-    const yamlContent = await readFile(filePath, "utf8");
-    const config = yaml.load(yamlContent) as any;
-
-    let lastBuildDate = "Not yet built";
-    try {
-      const xmlFilePath = join(feedPath, `${config.feedId}.xml`);
-      const xmlContent = await readFile(xmlFilePath, "utf8");
-      const parser = new DOMParser();
-      const xmlDoc = parser.parseFromString(xmlContent, "application/xml");
-      const node = xmlDoc.getElementsByTagName("lastBuildDate")[0];
-      if (node?.textContent) {
-        lastBuildDate = new Date(node.textContent).toLocaleString();
-      }
-    } catch {
-      // XML not yet generated — leave as "Not yet built"
-    }
-
-    feeds.push({
-      feedId: config.feedId,
-      feedName: config.feedName,
-      feedType: config.feedType,
-      lastBuildDate,
-      webhookEnabled: !!(config.webhook?.enabled && config.webhook?.url),
-      outputUrls: {
-        rss2: `/public/feeds/${config.feedId}.xml`,
-        atom: `/public/feeds/${config.feedId}.atom`,
-        json: `/public/feeds/${config.feedId}.json`,
-      },
-    });
+  const sqlite = getDb();
+  const db = drizzle(sqlite, { schema: analyticsSchema });
+  const files = await listFeedConfigs();
+  const feedIds = files.map((f) => f.id);
+  const allRuns = feedIds.length
+    ? await db.select().from(analyticsSchema.runLogs).where(inArray(analyticsSchema.runLogs.feedId, feedIds)).orderBy(desc(analyticsSchema.runLogs.startedAt))
+    : [];
+  const lastRunMap = new Map<string, typeof allRuns[0]>();
+  for (const run of allRuns) {
+    if (!lastRunMap.has(run.feedId)) lastRunMap.set(run.feedId, run);
   }
+  const summaries = await Promise.all(
+    files.map(async (file) => {
+      const config = await readFeedConfig(file.id);
+      return buildFeedSummary(file, config, lastRunMap.get(file.id));
+    })
+  );
+  return ctx.json({ feeds: summaries });
+});
 
-  return ctx.json(feeds);
+app.patch("/api/feeds/:id/metadata", async (ctx) => {
+  const id = ctx.req.param("id");
+  const body = await ctx.req.json();
+  const allowed = ["title", "description", "tags", "category", "favorite"];
+  const patch = Object.fromEntries(Object.entries(body).filter(([k]) => allowed.includes(k)));
+  const updated = await patchMetadata(id, patch);
+  return ctx.json(updated);
+});
+
+app.patch("/api/feeds/:id/enabled", async (ctx) => {
+  const id = ctx.req.param("id");
+  const { enabled } = await ctx.req.json<{ enabled: boolean }>();
+  const updated = await patchEnabled(id, !!enabled);
+  return ctx.json(updated);
+});
+
+app.post("/api/feeds/:id/duplicate", async (ctx) => {
+  const id = ctx.req.param("id");
+  const result = await duplicateFeedConfig(id);
+  return ctx.json(result, 201);
+});
+
+app.get("/api/feeds/:id/export", async (ctx) => {
+  const id = ctx.req.param("id");
+  const yamlStr = await exportFeedConfig(id);
+  ctx.header("Content-Type", "application/x-yaml");
+  ctx.header("Content-Disposition", `attachment; filename="${id}.yaml"`);
+  return ctx.body(yamlStr);
+});
+
+app.delete("/api/feeds/:id", async (ctx) => {
+  const id = ctx.req.param("id");
+  await deleteFeedConfig(id);
+  return ctx.body(null, 204);
 });
 
 app.get("/api/feeds/:id/config", async (ctx) => {
