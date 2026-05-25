@@ -1,17 +1,20 @@
-import { writeFile } from "node:fs/promises";
 import axios, { type AxiosRequestConfig } from "axios";
 import {
-  buildRSS,
-  buildRSSFromApiData,
+  buildFeedObject,
+  buildFeedObjectFromApiData,
 } from "../utilities/rss-builder.utility";
+import {
+  writeAllFeedFormats,
+  serializeAllFeedFormats,
+  extractFeedItemSnapshots,
+} from "../utilities/feed-output.utility";
 import { normalizeLoadedFeedConfig } from "../utilities/feed-config-normalizer.utility";
-import { join } from "node:path";
 // parseCookiesForPlaywright might be simplified or removed if cookies are directly structured correctly
 // import { parseCookiesForPlaywright } from "../utilities/data-handler.utility"
 import { chromium } from "patchright";
 import { getChromiumLaunchOptions } from "../utilities/chrome-extensions.utility";
 import { getRandomUserAgent } from "../utilities/user-agents.utility";
-import { loadDateIndex, saveDateIndex, getPreviousFeedHistory, storeFeedHistory } from "../utilities/feed-history.utility";
+import { loadDateIndex, saveDateIndex, storeFeedHistory } from "../utilities/feed-history.utility";
 import { resolveProtectedValues } from "../utilities/protected-values.utility";
 import { assertOutboundFetchAllowed, mergeFeedPolicyOptions, parseAllowlist, type OutboundFetchPolicyOptions } from "../utilities/outbound-fetch-policy.utility";
 
@@ -75,7 +78,9 @@ async function fetchDataAndUpdateFeed(rawConfig: Record<string, unknown>) {
 
   try {
     let rssXml: string | undefined;
+    let lastFeedObject: import("feed").Feed | null = null;
     const dateIndex = await loadDateIndex(feedConfig.feedId);
+    const knownHashes = new Map(dateIndex);
 
     // SSRF protection: validate the feed URL before any fetch.
     // Migration note: replace env reads with settings lookups when Settings Page lands.
@@ -152,7 +157,9 @@ async function fetchDataAndUpdateFeed(rawConfig: Record<string, unknown>) {
           flaresolverrResponse.data?.solution?.status === 200
         ) {
           const html = flaresolverrResponse.data.solution.response;
-          lastBuildResult = await buildRSS(html, feedConfig, dateIndex);
+          const flareResult = await buildFeedObject(html, feedConfig, dateIndex);
+          lastFeedObject = flareResult.feed;
+          lastBuildResult = { xml: flareResult.feed.rss2(), metrics: flareResult.metrics };
           rssXml = lastBuildResult.xml;
         } else {
           throw new Error(
@@ -211,7 +218,9 @@ async function fetchDataAndUpdateFeed(rawConfig: Record<string, unknown>) {
         }
         const html = await page.content();
         await browser.close();
-        lastBuildResult = await buildRSS(html, feedConfig, dateIndex);
+        const playwrightResult = await buildFeedObject(html, feedConfig, dateIndex);
+        lastFeedObject = playwrightResult.feed;
+        lastBuildResult = { xml: playwrightResult.feed.rss2(), metrics: playwrightResult.metrics };
         rssXml = lastBuildResult.xml;
       } else {
         // Standard web scraping with Axios
@@ -237,7 +246,9 @@ async function fetchDataAndUpdateFeed(rawConfig: Record<string, unknown>) {
         );
         httpStatus = response.status;
         const html = response.data;
-        lastBuildResult = await buildRSS(html, feedConfig, dateIndex);
+        const standardResult = await buildFeedObject(html, feedConfig, dateIndex);
+        lastFeedObject = standardResult.feed;
+        lastBuildResult = { xml: standardResult.feed.rss2(), metrics: standardResult.metrics };
         rssXml = lastBuildResult.xml;
       }
     } else if (feedConfig.feedType === "api" || feedConfig.feedType === "rest") {
@@ -304,82 +315,76 @@ async function fetchDataAndUpdateFeed(rawConfig: Record<string, unknown>) {
       }
       httpStatus = response!.status;
       const apiData = response!.data;
-      lastBuildResult = buildRSSFromApiData(apiData, feedConfig, dateIndex);
+      const apiResult = buildFeedObjectFromApiData(apiData, feedConfig, dateIndex);
+      lastFeedObject = apiResult.feed;
+      lastBuildResult = { xml: apiResult.feed.rss2(), metrics: apiResult.metrics };
       rssXml = lastBuildResult.xml;
     }
 
-    if (rssXml) {
-      const rssFilePath = join(rssDir, `${feedConfig.feedId}.xml`);
-      await writeFile(rssFilePath, rssXml, "utf8");
+    if (lastFeedObject) {
+      // 1. Write all three formats
+      const outputUrls = await writeAllFeedFormats(feedConfig.feedId, lastFeedObject);
+
+      // 2. Store format-agnostic snapshot
+      const snapshots = extractFeedItemSnapshots(lastFeedObject);
+      await storeFeedHistory(
+        feedConfig.feedId,
+        JSON.stringify(snapshots),
+        "items_json",
+      );
+
+      // 3. Update item hash index
       try {
         await saveDateIndex(feedConfig.feedId, dateIndex);
       } catch (indexErr) {
         console.error("[Feed %s] Failed to persist date index:", feedConfig.feedId, indexErr);
       }
 
-      // Handle webhook if configured
+      // 4. Webhook delivery — only if configured
       if (feedConfig.webhook?.enabled && feedConfig.webhook?.url) {
         try {
           const {
             sendWebhook,
             createWebhookPayload,
             createJsonWebhookPayload,
-            getNewItemsFromRSS,
           } = await import("../utilities/webhook.utility");
-          let shouldSendWebhook = true;
-          let webhookRssXml = rssXml;
 
-          // Check if only new items should be sent
-          if (feedConfig.webhook.newItemsOnly) {
-            const previousRss = await getPreviousFeedHistory(feedConfig.feedId);
-            const newItemsRss = getNewItemsFromRSS(rssXml, previousRss);
+          const newItemHashes = new Set(
+            [...dateIndex.keys()].filter((k) => !knownHashes.has(k)),
+          );
 
-            if (!newItemsRss) {
-              shouldSendWebhook = false; // No new items
-            } else {
-              webhookRssXml = newItemsRss;
-            }
-          }
+          const shouldDeliver = !feedConfig.webhook.newItemsOnly || newItemHashes.size > 0;
 
-          if (shouldSendWebhook) {
-            // Create webhook payload
+          if (shouldDeliver) {
+            const outputs = serializeAllFeedFormats(lastFeedObject);
             const payload =
               feedConfig.webhook.format === "json"
-                ? createJsonWebhookPayload(
-                    feedConfig,
-                    webhookRssXml,
-                    "automatic"
-                  )
-                : createWebhookPayload(feedConfig, webhookRssXml, "automatic");
+                ? createJsonWebhookPayload(feedConfig, outputs.rss2, "automatic")
+                : createWebhookPayload(feedConfig, outputs.rss2, "automatic");
 
-            // Send webhook
             const success = await sendWebhook(feedConfig.webhook, payload);
-
             if (success) {
               lastWebhookStatus = "success";
-              console.log(`Webhook sent successfully for feed ${feedConfig.feedId}`);
+              console.log(`Webhook sent for feed ${feedConfig.feedId} (${newItemHashes.size} new items)`);
             } else {
               lastWebhookStatus = "failed";
               lastWebhookError = "Webhook send returned false";
               console.warn(`Webhook failed for feed ${feedConfig.feedId}`);
             }
+          } else {
+            lastWebhookStatus = "skipped";
           }
-
-          // Store current RSS for future comparison
-          await storeFeedHistory(feedConfig.feedId, rssXml);
         } catch (webhookError) {
           lastWebhookStatus = "failed";
           lastWebhookError = webhookError.message;
-          console.error(
-            "Webhook error for feed %s:",
-            feedConfig.feedId,
-            webhookError.message
-          );
-          // Don't fail the entire feed update if webhook fails
+          console.error("[Feed %s] Webhook error:", feedConfig.feedId, webhookError);
         }
       } else {
         lastWebhookStatus = "skipped";
       }
+
+      // Keep rssXml for backward compat with metrics reporting
+      rssXml = lastBuildResult?.xml ?? "";
 
       self.postMessage({
         status: "done",
