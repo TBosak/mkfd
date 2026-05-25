@@ -73,7 +73,7 @@ export const WebScrapingForm = ({
               CSS Selectors for RSS Feed Items
               <span className="ml-auto">
                 <SelectorPlayground
-                  feedUrl={feedUrl}
+                  feedUrl={watch("feedUrl") as string | undefined}
                   setValue={setValue}
                   flaresolverr={watch("flaresolverr")}
                 />
