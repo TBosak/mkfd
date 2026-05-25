@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { Card, CardContent, CardHeader } from "@/components/ui/card";
+import { Card } from "@/components/ui/card";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import {
   BarChart,
@@ -7,7 +7,6 @@ import {
   XAxis,
   YAxis,
   Tooltip,
-  Legend,
   ResponsiveContainer,
   LineChart,
   Line,
@@ -93,55 +92,32 @@ export function OverviewTab({
       </div>
 
       <Card className="workbench-panel shadow-none">
-        <CardHeader className="workbench-panel-header pb-2">
-          <h3 className="font-semibold text-sm">
-            Runs per Day — Success vs Error
-          </h3>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={110}>
-            <BarChart data={chartData}>
-              <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} />
-              <Tooltip />
-              <Legend />
-              <Bar dataKey="success" stackId="a" fill="#7a8a5f" name="Success" />
-              <Bar
-                dataKey="error"
-                stackId="a"
-                fill="#b25555"
-                name="Error"
-                radius={[3, 3, 0, 0]}
-              />
-            </BarChart>
-          </ResponsiveContainer>
-        </CardContent>
-      </Card>
-
-      <Card className="workbench-panel shadow-none">
-        <CardHeader className="workbench-panel-header pb-2">
-          <h3 className="font-semibold text-sm">
-            Avg Duration (seconds) per Day
-          </h3>
-        </CardHeader>
-        <CardContent>
-          <ResponsiveContainer width="100%" height={90}>
-            <LineChart data={chartData}>
-              <CartesianGrid strokeDasharray="3 3" />
-              <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-              <YAxis tick={{ fontSize: 11 }} />
-              <Tooltip />
-              <Line
-                type="monotone"
-                dataKey="avgDuration"
-                stroke="#a06a51"
-                strokeWidth={2}
-                dot={false}
-                name="Avg Duration (s)"
-              />
-            </LineChart>
-          </ResponsiveContainer>
-        </CardContent>
+        <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: 0 }}>
+          <div style={{ padding: "10px 12px", borderRight: "1px solid hsl(var(--border))" }}>
+            <p className="workbench-label" style={{ marginBottom: 6 }}>Runs per Day — Success vs Error</p>
+            <ResponsiveContainer width="100%" height={90}>
+              <BarChart data={chartData} margin={{ top: 2, right: 4, left: -20, bottom: 0 }}>
+                <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+                <YAxis tick={{ fontSize: 10 }} />
+                <Tooltip />
+                <Bar dataKey="success" stackId="a" fill="#7a8a5f" name="Success" />
+                <Bar dataKey="error" stackId="a" fill="#b25555" name="Error" radius={[2, 2, 0, 0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          </div>
+          <div style={{ padding: "10px 12px" }}>
+            <p className="workbench-label" style={{ marginBottom: 6 }}>Avg Duration (s) per Day</p>
+            <ResponsiveContainer width="100%" height={90}>
+              <LineChart data={chartData} margin={{ top: 2, right: 4, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" />
+                <XAxis dataKey="date" tick={{ fontSize: 10 }} />
+                <YAxis tick={{ fontSize: 10 }} />
+                <Tooltip />
+                <Line type="monotone" dataKey="avgDuration" stroke="#a06a51" strokeWidth={2} dot={false} name="Avg Duration (s)" />
+              </LineChart>
+            </ResponsiveContainer>
+          </div>
+        </div>
       </Card>
     </div>
   );
