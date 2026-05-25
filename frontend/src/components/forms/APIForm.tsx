@@ -28,143 +28,161 @@ interface APIFormProps {
   control: Control<FeedFormData>;
   setValue: UseFormSetValue<FeedFormData>;
   watch: UseFormWatch<FeedFormData>;
+  activeSection?: string;
 }
 
-export const APIForm = ({ register, control, setValue, watch }: APIFormProps) => {
+export const APIForm = ({ register, control, setValue, watch, activeSection }: APIFormProps) => {
   const apiMethod = watch("apiMethod");
+  const show = (id: string) => !activeSection || activeSection === id;
 
   return (
     <div className="space-y-6 mt-4">
-      {/* Base URL */}
-      <div className="space-y-2">
-        <Label htmlFor="feedUrl" className="flex items-center gap-2">
-          <Globe className="h-4 w-4" />
-          Base URL
-        </Label>
-        <Input
-          id="feedUrl"
-          {...register("feedUrl")}
-          placeholder="https://api.example.com"
-        />
-      </div>
+      {/* Endpoint section */}
+      {show("endpoint") && (
+        <>
+          {/* Base URL */}
+          <div className="space-y-2">
+            <Label htmlFor="feedUrl" className="flex items-center gap-2">
+              <Globe className="h-4 w-4" />
+              Base URL
+            </Label>
+            <Input
+              id="feedUrl"
+              {...register("feedUrl")}
+              placeholder="https://api.example.com"
+            />
+          </div>
 
-      <h3 className="text-lg font-semibold flex items-center gap-2">
-        <Server className="h-5 w-5" />
-        API Configuration
-      </h3>
+          <h3 className="text-lg font-semibold flex items-center gap-2">
+            <Server className="h-5 w-5" />
+            API Configuration
+          </h3>
 
-      {/* API Route */}
-      <div className="space-y-2">
-        <Label htmlFor="apiRoute">API Route (e.g. "/dog/breeds")</Label>
-        <Input
-          id="apiRoute"
-          {...register("apiRoute")}
-          placeholder="/api/endpoint"
-        />
-      </div>
+          {/* API Route */}
+          <div className="space-y-2">
+            <Label htmlFor="apiRoute">API Route (e.g. "/dog/breeds")</Label>
+            <Input
+              id="apiRoute"
+              {...register("apiRoute")}
+              placeholder="/api/endpoint"
+            />
+          </div>
 
-      {/* HTTP Method */}
-      <div className="space-y-2">
-        <Label htmlFor="apiMethod">HTTP Method</Label>
-        <Select
-          value={apiMethod || "GET"}
-          onValueChange={(value) => setValue("apiMethod", value as any)}
-        >
-          <SelectTrigger>
-            <SelectValue placeholder="GET" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="GET">GET</SelectItem>
-            <SelectItem value="POST">POST</SelectItem>
-            <SelectItem value="PUT">PUT</SelectItem>
-            <SelectItem value="DELETE">DELETE</SelectItem>
-          </SelectContent>
-        </Select>
-      </div>
+          {/* HTTP Method */}
+          <div className="space-y-2">
+            <Label htmlFor="apiMethod">HTTP Method</Label>
+            <Select
+              value={apiMethod || "GET"}
+              onValueChange={(value) => setValue("apiMethod", value as any)}
+            >
+              <SelectTrigger>
+                <SelectValue placeholder="GET" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="GET">GET</SelectItem>
+                <SelectItem value="POST">POST</SelectItem>
+                <SelectItem value="PUT">PUT</SelectItem>
+                <SelectItem value="DELETE">DELETE</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
-      {/* Query Parameters */}
-      <KeyValueManager
-        control={control}
-        name="apiParams"
-        label="Query Parameters"
-        addButtonLabel="Add Parameter"
-        keyPlaceholder="param_name"
-        valuePlaceholder="value"
-      />
+          {/* Query Parameters */}
+          <KeyValueManager
+            control={control}
+            name="apiParams"
+            label="Query Parameters"
+            addButtonLabel="Add Parameter"
+            keyPlaceholder="param_name"
+            valuePlaceholder="value"
+          />
+        </>
+      )}
 
-      {/* Headers */}
-      <KeyValueManager
-        control={control}
-        name="apiHeaders"
-        label="HTTP Headers"
-        addButtonLabel="Add Header"
-        keyPlaceholder="Header-Name"
-        valuePlaceholder="value"
-      />
+      {/* Headers section */}
+      {show("headers") && (
+        <>
+          {/* Headers */}
+          <KeyValueManager
+            control={control}
+            name="apiHeaders"
+            label="HTTP Headers"
+            addButtonLabel="Add Header"
+            keyPlaceholder="Header-Name"
+            valuePlaceholder="value"
+          />
 
-      {/* Request Body */}
-      <KeyValueManager
-        control={control}
-        name="apiBody"
-        label="Request Body"
-        addButtonLabel="Add Body Field"
-        keyPlaceholder="field_name"
-        valuePlaceholder="value"
-      />
+          {/* Request Body */}
+          <KeyValueManager
+            control={control}
+            name="apiBody"
+            label="Request Body"
+            addButtonLabel="Add Body Field"
+            keyPlaceholder="field_name"
+            valuePlaceholder="value"
+          />
+        </>
+      )}
 
-      <h3 className="text-lg font-semibold mt-6 flex items-center gap-2">
-        <Link className="h-5 w-5" />
-        API Response Mapping
-      </h3>
+      {/* Mapping section */}
+      {show("mapping") && (
+        <>
+          <h3 className="text-lg font-semibold mt-6 flex items-center gap-2">
+            <Link className="h-5 w-5" />
+            API Response Mapping
+          </h3>
 
-      {/* Items Path */}
-      <div className="space-y-2">
-        <Label htmlFor="apiItemsPath">Items Path (e.g., 'data.items')</Label>
-        <Input
-          id="apiItemsPath"
-          {...register("apiItemsPath")}
-          placeholder="data.items"
-        />
-      </div>
+          {/* Items Path */}
+          <div className="space-y-2">
+            <Label htmlFor="apiItemsPath">Items Path (e.g., 'data.items')</Label>
+            <Input
+              id="apiItemsPath"
+              {...register("apiItemsPath")}
+              placeholder="data.items"
+            />
+          </div>
 
-      {/* Basic Fields */}
-      <div className="space-y-2">
-        <Label htmlFor="apiTitleField">Title Field</Label>
-        <Input
-          id="apiTitleField"
-          {...register("apiTitleField")}
-          placeholder="title"
-        />
-      </div>
+          {/* Basic Fields */}
+          <div className="space-y-2">
+            <Label htmlFor="apiTitleField">Title Field</Label>
+            <Input
+              id="apiTitleField"
+              {...register("apiTitleField")}
+              placeholder="title"
+            />
+          </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="apiDescriptionField">Description Field</Label>
-        <Input
-          id="apiDescriptionField"
-          {...register("apiDescriptionField")}
-          placeholder="description"
-        />
-      </div>
+          <div className="space-y-2">
+            <Label htmlFor="apiDescriptionField">Description Field</Label>
+            <Input
+              id="apiDescriptionField"
+              {...register("apiDescriptionField")}
+              placeholder="description"
+            />
+          </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="apiLinkField">Link Field</Label>
-        <Input
-          id="apiLinkField"
-          {...register("apiLinkField")}
-          placeholder="url"
-        />
-      </div>
+          <div className="space-y-2">
+            <Label htmlFor="apiLinkField">Link Field</Label>
+            <Input
+              id="apiLinkField"
+              {...register("apiLinkField")}
+              placeholder="url"
+            />
+          </div>
 
-      <div className="space-y-2">
-        <Label htmlFor="apiDateField">Date Field</Label>
-        <Input
-          id="apiDateField"
-          {...register("apiDateField")}
-          placeholder="pubDate"
-        />
-      </div>
+          <div className="space-y-2">
+            <Label htmlFor="apiDateField">Date Field</Label>
+            <Input
+              id="apiDateField"
+              {...register("apiDateField")}
+              placeholder="pubDate"
+            />
+          </div>
+        </>
+      )}
 
-      {/* Additional Fields in Accordion */}
+      {/* Additional Fields in Accordion — shown in mapping section */}
+      {show("mapping") && (
       <Accordion type="multiple" className="w-full">
         <AccordionItem value="additional">
           <AccordionTrigger>Additional Item Fields</AccordionTrigger>
@@ -353,7 +371,7 @@ export const APIForm = ({ register, control, setValue, watch }: APIFormProps) =>
             </div>
           </AccordionContent>
         </AccordionItem>
-      </Accordion>
+      </Accordion>)}
     </div>
   );
 };
