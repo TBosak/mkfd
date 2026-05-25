@@ -39,6 +39,7 @@ interface WebScrapingFormProps {
   setValue: UseFormSetValue<FeedFormData>;
   watch: UseFormWatch<FeedFormData>;
   feedUrl?: string;
+  activeSection?: string;
 }
 
 export const WebScrapingForm = ({
@@ -47,9 +48,11 @@ export const WebScrapingForm = ({
   setValue,
   watch,
   feedUrl,
+  activeSection,
 }: WebScrapingFormProps) => {
   const dateFormat = watch("dateFormat");
   const [isLoadingSelectors, setIsLoadingSelectors] = useState(false);
+  const show = (id: string) => !activeSection || activeSection === id;
 
   const handleAutoFillSelectors = async () => {
     if (!feedUrl) {
@@ -106,67 +109,77 @@ export const WebScrapingForm = ({
           message="Analyzing page structure and suggesting selectors..."
         />
       )}
-      <SelectorPlayground
-        feedUrl={feedUrl}
-        setValue={setValue}
-        flaresolverr={watch("flaresolverr")}
-      />
+      {show("source") && (
+        <SelectorPlayground
+          feedUrl={feedUrl}
+          setValue={setValue}
+          flaresolverr={watch("flaresolverr")}
+        />
+      )}
       <div className="space-y-6 mt-4">
-        {/* Target URL */}
-        <div className="space-y-2">
-          <Label htmlFor="feedUrl" className="flex items-center gap-2">
-            <Link className="h-4 w-4" />
-            Target URL
-          </Label>
-          <Input
-            id="feedUrl"
-            {...register("feedUrl")}
-            placeholder="https://example.com"
-          />
-          <Button
-            type="button"
-            variant="outline"
-            onClick={handleAutoFillSelectors}
-            className="w-full"
-            disabled={isLoadingSelectors}
-          >
-            <Sparkles className="mr-2 h-4 w-4" />
-            {isLoadingSelectors ? "Analyzing..." : "Suggest Selectors"}
-          </Button>
-        </div>
+        {/* Target URL — shown in source section or when no section filter */}
+        {show("source") && (
+          <div className="space-y-2">
+            <Label htmlFor="feedUrl" className="flex items-center gap-2">
+              <Link className="h-4 w-4" />
+              Target URL
+            </Label>
+            <Input
+              id="feedUrl"
+              {...register("feedUrl")}
+              placeholder="https://example.com"
+            />
+            <Button
+              type="button"
+              variant="outline"
+              onClick={handleAutoFillSelectors}
+              className="w-full"
+              disabled={isLoadingSelectors}
+            >
+              <Sparkles className="mr-2 h-4 w-4" />
+              {isLoadingSelectors ? "Analyzing..." : "Suggest Selectors"}
+            </Button>
+          </div>
+        )}
 
-        <h3 className="text-lg font-semibold mt-6 pb-2 border-b-2 border-gradient bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent flex items-center gap-2">
-          <Wand2 className="h-5 w-5 text-blue-600" />
-          CSS Selectors for RSS Feed Items
-        </h3>
+        {show("extract") && (
+          <>
+            <h3 className="text-lg font-semibold mt-6 pb-2 border-b-2 border-gradient bg-gradient-to-r from-blue-600 to-cyan-600 bg-clip-text text-transparent flex items-center gap-2">
+              <Wand2 className="h-5 w-5 text-blue-600" />
+              CSS Selectors for RSS Feed Items
+            </h3>
 
-        {/* Item Iterator */}
-        <div className="space-y-2">
-          <Label htmlFor="itemSelector">Item Selector (Iterator)</Label>
-          <Input
-            id="itemSelector"
-            {...register("itemSelector")}
-            placeholder=".article"
-          />
-        </div>
+            {/* Item Iterator */}
+            <div className="space-y-2">
+              <Label htmlFor="itemSelector">Item Selector (Iterator)</Label>
+              <Input
+                id="itemSelector"
+                {...register("itemSelector")}
+                placeholder=".article"
+              />
+            </div>
+          </>
+        )}
 
         {/* Title Field */}
-        <SelectorField
-          fieldName="title"
-          label="Title"
-          register={register}
-          control={control}
-          setValue={setValue}
-          watch={watch}
-          showStripHtml
-          showTitleCase
-          showDrillChain
-          stripHtmlDefault={true}
-          feedUrl={feedUrl}
-        />
+        {show("extract") && (
+          <SelectorField
+            fieldName="title"
+            label="Title"
+            register={register}
+            control={control}
+            setValue={setValue}
+            watch={watch}
+            showStripHtml
+            showTitleCase
+            showDrillChain
+            stripHtmlDefault={true}
+            feedUrl={feedUrl}
+          />
+        )}
 
         {/* Description in Accordion */}
-        <Accordion type="multiple" className="w-full">
+        {show("extract") && <Accordion type="multiple" className="w-full">
           <AccordionItem value="description">
             <AccordionTrigger>Description</AccordionTrigger>
             <AccordionContent>
@@ -366,7 +379,7 @@ export const WebScrapingForm = ({
           </AccordionItem>
 
           {/* Add more accordion items for other fields... */}
-        </Accordion>
+        </Accordion>}
       </div>
     </>
   );
