@@ -166,17 +166,20 @@ async function fetchDataAndUpdateFeed(feedConfig: any) {
       const method = String(feedConfig.config.method || "GET").toUpperCase();
       const url = (feedConfig.config.baseUrl || "").trim() + (feedConfig.config.route || "").trim();
 
-      const headers = {
-        Accept: "application/json",
-        ...(feedConfig.headers || {}),
-        ...(feedConfig.config.apiSpecificHeaders || {}),
-      };
+      const headers = resolveProtectedValues(
+        {
+          Accept: "application/json",
+          ...(feedConfig.headers || {}),
+          ...(feedConfig.config.apiSpecificHeaders || {}),
+        },
+        { encryptionKey: encKey },
+      );
 
       const axiosConfig: AxiosRequestConfig = {
         method,
         url,
         headers,
-        params: feedConfig.config.params || {},
+        params: resolveProtectedValues(feedConfig.config.params || {}, { encryptionKey: encKey }),
         responseType: "json",
         validateStatus: (s) => s >= 200 && s < 400,
       };
