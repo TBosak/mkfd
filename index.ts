@@ -1419,6 +1419,60 @@ function initializeWorker(feedConfig: any) {
         console.error("[Analytics] Failed to log run:", e);
       }
     }
+
+    if (message.data.status === "run_complete") {
+      try {
+        const sqlite = getDb();
+        const row = await insertRunLog(sqlite, {
+          feedId:          feedConfig.feedId,
+          feedName:        feedConfig.feedName,
+          feedType:        feedConfig.feedType,
+          startedAt:       message.data.metrics.startedAt,
+          durationMs:      message.data.metrics.durationMs,
+          status:          "success",
+          errorMessage:    null,
+          httpStatus:      null,
+          timedOut:        false,
+          itemCount:       message.data.metrics.itemCount ?? null,
+          selectorMatches: null,
+          dateFallbacks:   0,
+          duplicateGuids:  0,
+          webhookStatus:   message.data.metrics.webhookStatus ?? null,
+          webhookError:    message.data.metrics.webhookError ?? null,
+        });
+        runLogEmitter.emit("run", row);
+        await pruneRunLogs(getDb(), feedConfig.feedId, await getSettings(getDb()));
+      } catch (logErr) {
+        console.error("[IMAP] Failed to insert run log:", logErr);
+      }
+    }
+
+    if (message.data.status === "run_error") {
+      try {
+        const sqlite = getDb();
+        const row = await insertRunLog(sqlite, {
+          feedId:          feedConfig.feedId,
+          feedName:        feedConfig.feedName,
+          feedType:        feedConfig.feedType,
+          startedAt:       message.data.metrics.startedAt,
+          durationMs:      message.data.metrics.durationMs,
+          status:          "error",
+          errorMessage:    message.data.metrics.errorMessage ?? "Unknown error",
+          httpStatus:      null,
+          timedOut:        false,
+          itemCount:       null,
+          selectorMatches: null,
+          dateFallbacks:   0,
+          duplicateGuids:  0,
+          webhookStatus:   null,
+          webhookError:    null,
+        });
+        runLogEmitter.emit("run", row);
+        await pruneRunLogs(getDb(), feedConfig.feedId, await getSettings(getDb()));
+      } catch (logErr) {
+        console.error("[IMAP] Failed to insert run log:", logErr);
+      }
+    }
   };
 
   feedUpdaters.get(feedConfig.feedId).onerror = async (error) => {
