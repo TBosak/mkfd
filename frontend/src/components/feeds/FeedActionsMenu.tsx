@@ -1,4 +1,5 @@
 import React, { useState, useRef, useEffect } from "react";
+import { createPortal } from "react-dom";
 import type { FeedSummary } from "@/types/feed-summary";
 
 type ActionType = "open" | "copy" | "preview" | "edit" | "duplicate" | "export" | "enable" | "disable" | "delete";
@@ -10,16 +11,26 @@ interface FeedActionsMenuProps {
 
 export const FeedActionsMenu: React.FC<FeedActionsMenuProps> = ({ feed, onAction }) => {
   const [open, setOpen] = useState(false);
-  const ref = useRef<HTMLDivElement>(null);
+  const [pos, setPos] = useState({ top: 0, right: 0 });
+  const triggerRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     if (!open) return;
     const handler = (e: MouseEvent) => {
-      if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false);
+      const target = e.target as Node;
+      if (triggerRef.current && !triggerRef.current.contains(target)) setOpen(false);
     };
     document.addEventListener("mousedown", handler);
     return () => document.removeEventListener("mousedown", handler);
   }, [open]);
+
+  function handleOpen() {
+    if (triggerRef.current) {
+      const rect = triggerRef.current.getBoundingClientRect();
+      setPos({ top: rect.bottom + 4, right: window.innerWidth - rect.right });
+    }
+    setOpen((v) => !v);
+  }
 
   const item = (label: string, action: ActionType, danger = false) => (
     <button
@@ -41,9 +52,10 @@ export const FeedActionsMenu: React.FC<FeedActionsMenuProps> = ({ feed, onAction
   const separator = <hr style={{ margin: "4px 0", border: 0, borderTop: "1px solid hsl(var(--border))" }} />;
 
   return (
-    <div ref={ref} style={{ position: "relative", display: "inline-block" }}>
+    <>
       <button
-        onClick={() => setOpen((v) => !v)}
+        ref={triggerRef}
+        onClick={handleOpen}
         aria-label="Feed actions"
         style={{
           background: "transparent", border: "1px solid hsl(var(--border))", borderRadius: 6,
@@ -53,10 +65,10 @@ export const FeedActionsMenu: React.FC<FeedActionsMenuProps> = ({ feed, onAction
       >
         ⋯
       </button>
-      {open && (
+      {open && createPortal(
         <div
           style={{
-            position: "absolute", right: 0, top: "calc(100% + 4px)", zIndex: 9999,
+            position: "fixed", top: pos.top, right: pos.right, zIndex: 9999,
             background: "hsl(var(--background))", border: "1px solid hsl(var(--border))",
             borderRadius: 10, boxShadow: "var(--shadow-pop, 0 8px 32px rgba(0,0,0,0.12))",
             minWidth: 180, padding: "6px 4px",
@@ -73,8 +85,9 @@ export const FeedActionsMenu: React.FC<FeedActionsMenuProps> = ({ feed, onAction
           {feed.enabled ? item("Disable feed", "disable") : item("Enable feed", "enable")}
           {separator}
           {item("Delete", "delete", true)}
-        </div>
+        </div>,
+        document.body
       )}
-    </div>
+    </>
   );
 };
