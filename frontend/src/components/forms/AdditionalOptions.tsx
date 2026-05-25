@@ -3,6 +3,7 @@ import {
   Control,
   UseFormSetValue,
   UseFormWatch,
+  Controller,
 } from "react-hook-form";
 import { FeedFormData } from "@/types/feed";
 import { Input } from "@/components/ui/input";
@@ -20,9 +21,44 @@ import {
   TooltipTrigger,
 } from "@/components/ui/tooltip";
 import { Info, Settings2 } from "lucide-react";
-import { CookiesManager } from "./CookiesManager";
-import { KeyValueManager } from "./KeyValueManager";
 import { WebhookConfiguration } from "./WebhookConfiguration";
+import { ProtectedKeyValueEditor } from "@/components/protected-value/ProtectedKeyValueEditor";
+import { ProtectedCookieEditor } from "@/components/protected-value/ProtectedCookieEditor";
+import type { CookieConfig } from "@/components/protected-value/ProtectedCookieEditor";
+import { isSensitiveKey } from "@/lib/sensitive-config";
+
+type RawConfigValue =
+  | string
+  | { type: "protected"; value: string }
+  | { type: "env"; value: string; prefix?: string };
+
+// Convert KeyValuePair[] to Record<string, RawConfigValue>
+function kvArrayToRecord(arr: { key: string; value: string }[] | undefined): Record<string, RawConfigValue> {
+  if (!arr) return {};
+  return Object.fromEntries(arr.map((item) => [item.key, item.value]));
+}
+
+// Convert Record<string, RawConfigValue> back to KeyValuePair[]
+function recordToKvArray(record: Record<string, RawConfigValue>): { key: string; value: string }[] {
+  return Object.entries(record).map(([key, val]) => ({
+    key,
+    value: typeof val === "string" ? val : val.value,
+  }));
+}
+
+// Convert Cookie[] to CookieConfig[]
+function cookiesToCookieConfigs(arr: { name: string; value: string }[] | undefined): CookieConfig[] {
+  if (!arr) return [];
+  return arr.map((c) => ({ name: c.name, value: c.value }));
+}
+
+// Convert CookieConfig[] back to Cookie[]
+function cookieConfigsToCookies(configs: CookieConfig[]): { name: string; value: string }[] {
+  return configs.map((c) => ({
+    name: c.name,
+    value: typeof c.value === "string" ? c.value : c.value.value,
+  }));
+}
 
 interface AdditionalOptionsProps {
   register: UseFormRegister<FeedFormData>;
@@ -40,6 +76,13 @@ export const AdditionalOptions = ({
   feedType,
 }: AdditionalOptionsProps) => {
   const isEmailFeed = feedType === "email";
+  const headersValue = watch("headers");
+
+  // Compute sensitive-key warnings for current headers
+  const sensitiveWarnings: { key: string }[] = (headersValue ?? []).filter(
+    (h) => h.key && isSensitiveKey(h.key) && typeof h.value === "string" && h.value !== "",
+  );
+
   return (
     <Accordion type="single" collapsible className="w-full">
       <AccordionItem value="additional">
@@ -52,18 +95,44 @@ export const AdditionalOptions = ({
         <AccordionContent>
           <div className="space-y-6">
             {/* Cookies - Hide for email feeds */}
-            {!isEmailFeed && <CookiesManager control={control} />}
+            {!isEmailFeed && (
+              <Controller
+                control={control}
+                name="cookies"
+                render={({ field }) => (
+                  <ProtectedCookieEditor
+                    value={cookiesToCookieConfigs(field.value)}
+                    onChange={(configs) => field.onChange(cookieConfigsToCookies(configs))}
+                  />
+                )}
+              />
+            )}
 
             {/* Headers - Hide for email and API feeds (API has its own headers section) */}
             {!isEmailFeed && feedType !== "api" && (
-              <KeyValueManager
-                control={control}
-                name="headers"
-                label="HTTP Headers"
-                addButtonLabel="Add Header"
-                keyPlaceholder="Header-Name"
-                valuePlaceholder="value"
-              />
+              <div className="space-y-1">
+                <Controller
+                  control={control}
+                  name="headers"
+                  render={({ field }) => (
+                    <ProtectedKeyValueEditor
+                      label="Headers"
+                      value={kvArrayToRecord(field.value)}
+                      onChange={(record) => field.onChange(recordToKvArray(record))}
+                      addButtonLabel="Add header"
+                    />
+                  )}
+                />
+                {sensitiveWarnings.length > 0 && (
+                  <div className="mt-1">
+                    {sensitiveWarnings.map((w) => (
+                      <p key={w.key} className="text-xs text-amber-600 mt-1">
+                        {w.key}: This value looks sensitive. Consider encrypting it.
+                      </p>
+                    ))}
+                  </div>
+                )}
+              </div>
             )}
 
             {/* Refresh Time */}
