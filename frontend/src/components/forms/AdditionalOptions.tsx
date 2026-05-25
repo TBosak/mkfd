@@ -1,3 +1,4 @@
+import { useState } from "react";
 import {
   UseFormRegister,
   Control,
@@ -38,12 +39,53 @@ function kvArrayToRecord(arr: { key: string; value: string }[] | undefined): Rec
   return Object.fromEntries(arr.map((item) => [item.key, item.value]));
 }
 
-// Convert Record<string, RawConfigValue> back to KeyValuePair[]
+// Convert Record<string, RawConfigValue> back to KeyValuePair[] (for backend serialization)
 function recordToKvArray(record: Record<string, RawConfigValue>): { key: string; value: string }[] {
   return Object.entries(record).map(([key, val]) => ({
     key,
     value: typeof val === "string" ? val : val.value,
   }));
+}
+
+// HeadersEditor: wraps ProtectedKeyValueEditor with local rich state so storage modes survive re-renders
+function HeadersEditor({
+  field,
+}: {
+  field: { value: { key: string; value: string }[] | undefined; onChange: (v: { key: string; value: string }[]) => void };
+}) {
+  const [richHeaders, setRichHeaders] = useState<Record<string, RawConfigValue>>(() =>
+    kvArrayToRecord(field.value),
+  );
+
+  // Compute sensitive-key warnings: only warn when the value is a plain string (not protected/env)
+  const sensitiveWarnings = Object.entries(richHeaders).filter(
+    ([key, val]) => key && isSensitiveKey(key) && typeof val === "string" && val !== "",
+  );
+
+  function handleChange(record: Record<string, RawConfigValue>) {
+    setRichHeaders(record);
+    field.onChange(recordToKvArray(record));
+  }
+
+  return (
+    <div className="space-y-1">
+      <ProtectedKeyValueEditor
+        label="Headers"
+        value={richHeaders}
+        onChange={handleChange}
+        addButtonLabel="Add header"
+      />
+      {sensitiveWarnings.length > 0 && (
+        <div className="mt-1">
+          {sensitiveWarnings.map(([key]) => (
+            <p key={key} className="text-xs text-amber-600 mt-1">
+              {key}: This value looks sensitive. Consider encrypting it.
+            </p>
+          ))}
+        </div>
+      )}
+    </div>
+  );
 }
 
 // Convert Cookie[] to CookieConfig[]
@@ -76,12 +118,6 @@ export const AdditionalOptions = ({
   feedType,
 }: AdditionalOptionsProps) => {
   const isEmailFeed = feedType === "email";
-  const headersValue = watch("headers");
-
-  // Compute sensitive-key warnings for current headers
-  const sensitiveWarnings: { key: string }[] = (headersValue ?? []).filter(
-    (h) => h.key && isSensitiveKey(h.key) && typeof h.value === "string" && h.value !== "",
-  );
 
   return (
     <Accordion type="single" collapsible className="w-full">
@@ -110,29 +146,11 @@ export const AdditionalOptions = ({
 
             {/* Headers - Hide for email and API feeds (API has its own headers section) */}
             {!isEmailFeed && feedType !== "api" && (
-              <div className="space-y-1">
-                <Controller
-                  control={control}
-                  name="headers"
-                  render={({ field }) => (
-                    <ProtectedKeyValueEditor
-                      label="Headers"
-                      value={kvArrayToRecord(field.value)}
-                      onChange={(record) => field.onChange(recordToKvArray(record))}
-                      addButtonLabel="Add header"
-                    />
-                  )}
-                />
-                {sensitiveWarnings.length > 0 && (
-                  <div className="mt-1">
-                    {sensitiveWarnings.map((w) => (
-                      <p key={w.key} className="text-xs text-amber-600 mt-1">
-                        {w.key}: This value looks sensitive. Consider encrypting it.
-                      </p>
-                    ))}
-                  </div>
-                )}
-              </div>
+              <Controller
+                control={control}
+                name="headers"
+                render={({ field }) => <HeadersEditor field={field} />}
+              />
             )}
 
             {/* Refresh Time */}

@@ -22,6 +22,7 @@ export type ProtectedCookieRow = {
   storage: StorageMode;
   prefix?: string;
   isDirty: boolean;
+  originalValue?: string; // ciphertext for undirty protected values
   domain?: string;
   path?: string;
   secure: boolean;
@@ -50,8 +51,9 @@ function cookiesToRows(cookies: CookieConfig[]): ProtectedCookieRow[] {
     let prefix: string | undefined;
     const isDirty = false;
 
+    let originalValue: string | undefined;
     if (typeof val === "object" && val.type === "protected") {
-      rawValue = "********"; storage = "protected";
+      rawValue = "********"; storage = "protected"; originalValue = val.value;
     } else if (typeof val === "object" && val.type === "env") {
       rawValue = val.value; storage = "env"; prefix = val.prefix;
     } else {
@@ -65,6 +67,7 @@ function cookiesToRows(cookies: CookieConfig[]): ProtectedCookieRow[] {
       storage,
       prefix,
       isDirty,
+      originalValue,
       domain: c.domain,
       path: c.path,
       secure: c.secure ?? false,
@@ -77,7 +80,8 @@ function rowsToCookies(rows: ProtectedCookieRow[]): CookieConfig[] {
   return rows.filter((r) => r.name.trim()).map((r) => {
     let value: RawCookieValue;
     if (r.storage === "protected") {
-      value = { type: "protected", value: r.isDirty ? r.rawValue : "********" };
+      // If dirty, use the new raw value (backend will encrypt it). If not dirty, restore original ciphertext.
+      value = { type: "protected", value: r.isDirty ? r.rawValue : (r.originalValue ?? "********") };
     } else if (r.storage === "env") {
       value = { type: "env", value: r.rawValue, prefix: r.prefix || undefined };
     } else {
@@ -100,7 +104,15 @@ export function ProtectedCookieEditor({ value, onChange }: ProtectedCookieEditor
   }
 
   function updateRow(id: string, patch: Partial<ProtectedCookieRow>) {
-    update(rows.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+    update(rows.map((r) => {
+      if (r.id !== id) return r;
+      const updated = { ...r, ...patch };
+      // When switching storage mode to protected with isDirty=false, clear any stale originalValue
+      if (patch.storage !== undefined && patch.storage !== r.storage && patch.storage === "protected" && patch.isDirty === false) {
+        updated.originalValue = undefined;
+      }
+      return updated;
+    }));
   }
 
   return (
@@ -128,6 +140,14 @@ export function ProtectedCookieEditor({ value, onChange }: ProtectedCookieEditor
               <SelectItem value="env">Env var</SelectItem>
             </SelectContent>
           </Select>
+          {row.storage === "env" && (
+            <Input
+              className="w-24"
+              placeholder="Prefix"
+              value={row.prefix ?? ""}
+              onChange={(e) => updateRow(row.id, { prefix: e.target.value })}
+            />
+          )}
           <div className="flex items-center gap-1">
             <Checkbox
               id={`secure-${row.id}`}

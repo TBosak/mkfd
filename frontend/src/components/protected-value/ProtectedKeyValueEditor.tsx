@@ -19,6 +19,7 @@ export type ProtectedKVRow = {
   storage: StorageMode;
   prefix?: string;
   isDirty: boolean;
+  originalValue?: string; // ciphertext for undirty protected values
 };
 
 type RawConfigValue = string | { type: "protected"; value: string } | { type: "env"; value: string; prefix?: string };
@@ -33,7 +34,7 @@ export type ProtectedKeyValueEditorProps = {
 function recordToRows(record: Record<string, RawConfigValue>): ProtectedKVRow[] {
   return Object.entries(record).map(([key, val], i) => {
     if (typeof val === "object" && val.type === "protected") {
-      return { id: String(i), key, rawValue: "********", storage: "protected" as const, isDirty: false };
+      return { id: String(i), key, rawValue: "********", storage: "protected" as const, originalValue: val.value, isDirty: false };
     }
     if (typeof val === "object" && val.type === "env") {
       return { id: String(i), key, rawValue: val.value, storage: "env" as const, prefix: val.prefix, isDirty: false };
@@ -48,7 +49,9 @@ function rowsToRecord(rows: ProtectedKVRow[]): Record<string, RawConfigValue> {
       .filter((r) => r.key.trim())
       .map((r) => {
         if (r.storage === "protected") {
-          return [r.key, { type: "protected" as const, value: r.isDirty ? r.rawValue : "********" }];
+          // If dirty, use the new raw value (backend will encrypt it). If not dirty, restore original ciphertext.
+          const value = r.isDirty ? r.rawValue : (r.originalValue ?? "********");
+          return [r.key, { type: "protected" as const, value }];
         }
         if (r.storage === "env") {
           return [r.key, { type: "env" as const, value: r.rawValue, prefix: r.prefix || undefined }];
@@ -75,7 +78,15 @@ export function ProtectedKeyValueEditor({ label, value, onChange, addButtonLabel
   }
 
   function updateRow(id: string, patch: Partial<ProtectedKVRow>) {
-    update(rows.map((r) => (r.id === id ? { ...r, ...patch } : r)));
+    update(rows.map((r) => {
+      if (r.id !== id) return r;
+      const updated = { ...r, ...patch };
+      // When switching storage mode to protected with isDirty=false, clear any stale originalValue
+      if (patch.storage !== undefined && patch.storage !== r.storage && patch.storage === "protected" && patch.isDirty === false) {
+        updated.originalValue = undefined;
+      }
+      return updated;
+    }));
   }
 
   return (
