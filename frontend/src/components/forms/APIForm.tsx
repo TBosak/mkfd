@@ -1,14 +1,18 @@
+import { useState } from "react";
 import {
   UseFormRegister,
   Control,
   UseFormSetValue,
   UseFormWatch,
+  Controller,
 } from "react-hook-form";
 import { FeedFormData } from "@/types/feed";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Link, Server, Globe } from "lucide-react";
+import { Section } from "@/components/builder/Section";
 import { KeyValueManager } from "./KeyValueManager";
+import { ProtectedKeyValueEditor } from "@/components/protected-value/ProtectedKeyValueEditor";
 import {
   Select,
   SelectContent,
@@ -22,6 +26,51 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+
+type RawConfigValue =
+  | string
+  | { type: "protected"; value: string }
+  | { type: "env"; value: string; prefix?: string };
+
+function kvArrayToRecord(arr: { key: string; value: string }[] | undefined): Record<string, RawConfigValue> {
+  if (!arr) return {};
+  return Object.fromEntries(arr.map((item) => [item.key, item.value]));
+}
+
+function recordToKvArray(record: Record<string, RawConfigValue>): { key: string; value: string }[] {
+  return Object.entries(record).map(([key, val]) => ({
+    key,
+    value: typeof val === "string" ? val : val.value,
+  }));
+}
+
+function APIHeadersEditor({
+  field,
+  label,
+  addButtonLabel,
+}: {
+  field: { value: { key: string; value: string }[] | undefined; onChange: (v: { key: string; value: string }[]) => void };
+  label: string;
+  addButtonLabel: string;
+}) {
+  const [richState, setRichState] = useState<Record<string, RawConfigValue>>(() =>
+    kvArrayToRecord(field.value),
+  );
+
+  function handleChange(record: Record<string, RawConfigValue>) {
+    setRichState(record);
+    field.onChange(recordToKvArray(record));
+  }
+
+  return (
+    <ProtectedKeyValueEditor
+      label={label}
+      value={richState}
+      onChange={handleChange}
+      addButtonLabel={addButtonLabel}
+    />
+  );
+}
 
 interface APIFormProps {
   register: UseFormRegister<FeedFormData>;
@@ -39,7 +88,11 @@ export const APIForm = ({ register, control, setValue, watch, activeSection }: A
     <div className="space-y-6 mt-4">
       {/* Endpoint section */}
       {show("endpoint") && (
-        <>
+        <Section
+          icon={<Server className="h-4 w-4" />}
+          title="Endpoint"
+          sub="Request URL, method, and query parameters"
+        >
           {/* Base URL */}
           <div className="space-y-2">
             <Label htmlFor="feedUrl" className="flex items-center gap-2">
@@ -52,11 +105,6 @@ export const APIForm = ({ register, control, setValue, watch, activeSection }: A
               placeholder="https://api.example.com"
             />
           </div>
-
-          <h3 className="text-lg font-semibold flex items-center gap-2">
-            <Server className="h-5 w-5" />
-            API Configuration
-          </h3>
 
           {/* API Route */}
           <div className="space-y-2">
@@ -96,42 +144,51 @@ export const APIForm = ({ register, control, setValue, watch, activeSection }: A
             keyPlaceholder="param_name"
             valuePlaceholder="value"
           />
-        </>
+        </Section>
       )}
 
       {/* Headers section */}
       {show("headers") && (
-        <>
+        <Section
+          icon={<Server className="h-4 w-4" />}
+          title="Headers & Body"
+          sub="Request headers and optional request body fields"
+        >
           {/* Headers */}
-          <KeyValueManager
+          <Controller
             control={control}
             name="apiHeaders"
-            label="HTTP Headers"
-            addButtonLabel="Add Header"
-            keyPlaceholder="Header-Name"
-            valuePlaceholder="value"
+            render={({ field }) => (
+              <APIHeadersEditor
+                field={field}
+                label="HTTP Headers"
+                addButtonLabel="Add Header"
+              />
+            )}
           />
 
           {/* Request Body */}
-          <KeyValueManager
+          <Controller
             control={control}
             name="apiBody"
-            label="Request Body"
-            addButtonLabel="Add Body Field"
-            keyPlaceholder="field_name"
-            valuePlaceholder="value"
+            render={({ field }) => (
+              <APIHeadersEditor
+                field={field}
+                label="Request Body"
+                addButtonLabel="Add Body Field"
+              />
+            )}
           />
-        </>
+        </Section>
       )}
 
       {/* Mapping section */}
       {show("mapping") && (
-        <>
-          <h3 className="text-lg font-semibold mt-6 flex items-center gap-2">
-            <Link className="h-5 w-5" />
-            API Response Mapping
-          </h3>
-
+        <Section
+          icon={<Link className="h-4 w-4" />}
+          title="Response Mapping"
+          sub="Map JSON paths to feed item fields"
+        >
           {/* Items Path */}
           <div className="space-y-2">
             <Label htmlFor="apiItemsPath">Items Path (e.g., 'data.items')</Label>
@@ -178,11 +235,8 @@ export const APIForm = ({ register, control, setValue, watch, activeSection }: A
               placeholder="pubDate"
             />
           </div>
-        </>
-      )}
 
       {/* Additional Fields in Accordion — shown in mapping section */}
-      {show("mapping") && (
       <Accordion type="multiple" className="w-full">
         <AccordionItem value="additional">
           <AccordionTrigger>Additional Item Fields</AccordionTrigger>
@@ -371,7 +425,9 @@ export const APIForm = ({ register, control, setValue, watch, activeSection }: A
             </div>
           </AccordionContent>
         </AccordionItem>
-      </Accordion>)}
+      </Accordion>
+        </Section>
+      )}
     </div>
   );
 };

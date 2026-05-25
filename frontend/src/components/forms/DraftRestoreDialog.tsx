@@ -26,7 +26,7 @@ function relativeTime(isoString: string): string {
 type Props = { draft: FeedDraft | null; onRestore: () => void; onDiscard: () => void };
 
 export function DraftRestoreDialog({ draft, onRestore, onDiscard }: Props) {
-  if (!draft) return null;
+  if (!draft || !draft.data.feedName) return null;
   const typeLabel = FEED_TYPE_LABELS[draft.feedType] ?? draft.feedType;
   const timeLabel = relativeTime(draft.savedAt);
   return (

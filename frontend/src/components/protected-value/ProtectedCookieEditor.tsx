@@ -116,8 +116,13 @@ export function ProtectedCookieEditor({ value, onChange }: ProtectedCookieEditor
   }
 
   return (
-    <div className="space-y-3">
-      <Label className="font-bold">Cookies</Label>
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <Label className="font-bold text-sm">Cookies</Label>
+        <Button type="button" variant="outline" size="sm" onClick={addRow}>
+          <Plus className="h-4 w-4 mr-1" />Add cookie
+        </Button>
+      </div>
       {rows.map((row) => (
         <div key={row.id} className="grid grid-cols-[1fr_1fr_auto_auto_auto_auto_auto] gap-2 items-center">
           <Input placeholder="Name" value={row.name} onChange={(e) => updateRow(row.id, { name: e.target.value })} />
@@ -169,9 +174,6 @@ export function ProtectedCookieEditor({ value, onChange }: ProtectedCookieEditor
           </Button>
         </div>
       ))}
-      <Button type="button" variant="outline" size="sm" onClick={addRow}>
-        <Plus className="h-4 w-4 mr-1" />Add cookie
-      </Button>
     </div>
   );
 }

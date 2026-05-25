@@ -56,7 +56,7 @@ export const FeedActionsMenu: React.FC<FeedActionsMenuProps> = ({ feed, onAction
       {open && (
         <div
           style={{
-            position: "absolute", right: 0, top: "calc(100% + 4px)", zIndex: 200,
+            position: "absolute", right: 0, top: "calc(100% + 4px)", zIndex: 9999,
             background: "hsl(var(--background))", border: "1px solid hsl(var(--border))",
             borderRadius: 10, boxShadow: "var(--shadow-pop, 0 8px 32px rgba(0,0,0,0.12))",
             minWidth: 180, padding: "6px 4px",

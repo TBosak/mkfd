@@ -7,6 +7,7 @@ import { FeedTable } from "@/components/feeds/FeedTable";
 import { FeedDetailDrawer } from "@/components/feeds/FeedDetailDrawer";
 import { ScrollableFilterRow } from "@/components/feeds/ScrollableFilterRow";
 import { useToast } from "@/components/ui/toast-provider";
+import { Grid2X2, Plus, Search, Table2, X } from "lucide-react";
 
 type ViewMode = "cards" | "table";
 type ActionType = "open" | "copy" | "preview" | "edit" | "duplicate" | "export" | "enable" | "disable" | "delete";
@@ -15,9 +16,9 @@ type QuickFilter = "all" | "favorites" | "warnings" | "broken" | "disabled" | "s
 
 const QUICK_FILTERS: { id: QuickFilter; label: string }[] = [
   { id: "all", label: "All" },
-  { id: "favorites", label: "★ Favorites" },
-  { id: "warnings", label: "⚠ Warnings" },
-  { id: "broken", label: "✗ Broken" },
+  { id: "favorites", label: "Favorites" },
+  { id: "warnings", label: "Warnings" },
+  { id: "broken", label: "Broken" },
   { id: "disabled", label: "Disabled" },
   { id: "secrets", label: "Secrets" },
   { id: "community", label: "Community" },
@@ -39,7 +40,7 @@ export const MyFeedsPage: React.FC = () => {
   const [quickFilter, setQuickFilter] = useState<QuickFilter>("all");
   const [typeFilters, setTypeFilters] = useState<FeedType[]>([]);
   const [tagFilters, setTagFilters] = useState<string[]>([]);
-  const [view, setView] = useState<ViewMode>("cards");
+  const [view, setView] = useState<ViewMode>("table");
   const [detailId, setDetailId] = useState<string | null>(null);
 
   const loadFeeds = useCallback(async () => {
@@ -77,6 +78,9 @@ export const MyFeedsPage: React.FC = () => {
 
   const filtered = feeds.filter(applyFilters);
   const detailFeed = detailId ? feeds.find((f) => f.id === detailId) ?? null : null;
+  const runningCount = feeds.filter((f) => f.enabled && f.status !== "error" && f.status !== "disabled").length;
+  const warningCount = feeds.filter((f) => f.status === "warning").length;
+  const failedCount = feeds.filter((f) => f.status === "error").length;
 
   const handleUpdate = async (id: string, changes: Partial<FeedSummary>) => {
     // Optimistic update
@@ -209,43 +213,71 @@ export const MyFeedsPage: React.FC = () => {
   };
 
   return (
-    <div style={{ padding: "20px 20px 40px", maxWidth: 1200, margin: "0 auto" }}>
-      {/* Page Title */}
-      <div style={{ marginBottom: 20 }}>
-        <h1 style={{ fontSize: 22, fontWeight: 700, margin: 0 }}>My Feeds</h1>
-        <p style={{ fontSize: 13, color: "hsl(var(--muted-foreground))", margin: "4px 0 0" }}>
-          {feeds.length} feed{feeds.length !== 1 ? "s" : ""} configured
-        </p>
-      </div>
-
-      {/* Search + view toggle */}
-      <div style={{ display: "flex", gap: 10, marginBottom: 12, alignItems: "center" }}>
-        <input
-          type="search"
-          placeholder="Search feeds..."
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          style={{
-            flex: 1, padding: "6px 12px", borderRadius: 8, border: "1px solid hsl(var(--border))",
-            background: "hsl(var(--background))", color: "hsl(var(--foreground))", fontSize: 13,
-            outline: "none",
-          }}
-        />
-        <div style={{ display: "flex", gap: 2 }}>
+    <div className="flex h-full min-h-0 flex-col">
+      <header className="flex h-12 shrink-0 items-center justify-between border-b px-6" style={{ background: "var(--wb-card)", borderColor: "var(--wb-outline)" }}>
+        <div className="relative w-full max-w-md">
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <input
+            type="search"
+            placeholder="Search feeds..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="h-8 w-full rounded border bg-muted pl-9 pr-3 text-sm outline-none focus:border-primary"
+          />
+        </div>
+        <div className="flex items-center gap-3">
           <button
-            onClick={() => setView("cards")}
-            style={{ padding: "6px 10px", borderRadius: "6px 0 0 6px", border: "1px solid hsl(var(--border))", background: view === "cards" ? "hsl(var(--primary))" : "transparent", color: view === "cards" ? "hsl(var(--primary-foreground))" : "hsl(var(--muted-foreground))", cursor: "pointer", fontSize: 12 }}
+            type="button"
+            onClick={() => navigate("/")}
+            className="flex h-8 items-center gap-2 rounded bg-primary px-4 text-xs font-semibold text-primary-foreground"
           >
-            Cards
-          </button>
-          <button
-            onClick={() => setView("table")}
-            style={{ padding: "6px 10px", borderRadius: "0 6px 6px 0", border: "1px solid hsl(var(--border))", borderLeft: 0, background: view === "table" ? "hsl(var(--primary))" : "transparent", color: view === "table" ? "hsl(var(--primary-foreground))" : "hsl(var(--muted-foreground))", cursor: "pointer", fontSize: 12 }}
-          >
-            Table
+            <Plus className="h-4 w-4" />
+            Create Feed
           </button>
         </div>
-      </div>
+      </header>
+
+      <div className="flex-1 overflow-auto p-6">
+        <div className="mb-4 grid grid-cols-1 gap-4 md:grid-cols-4">
+          {[
+            ["Total Feeds", feeds.length, "var(--wb-primary)"],
+            ["Running", runningCount, "var(--wb-success)"],
+            ["Warnings", warningCount, "var(--wb-warning)"],
+            ["Failed", failedCount, "var(--wb-error)"],
+          ].map(([label, value, color]) => (
+            <div key={label} className="workbench-panel border-t-4 p-4" style={{ borderTopColor: color as string }}>
+              <div className="workbench-label">{label}</div>
+              <div className="workbench-value" style={{ color: color as string }}>{value}</div>
+            </div>
+          ))}
+        </div>
+
+        <div className="mb-3 flex items-center justify-between">
+          <div>
+            <h1 className="m-0 text-xl font-semibold">Feeds</h1>
+            <p className="m-0 text-xs text-muted-foreground">
+              Showing {filtered.length} of {feeds.length} configured feeds
+            </p>
+          </div>
+          <div style={{ display: "flex", gap: 2 }}>
+            <button
+              onClick={() => setView("cards")}
+              className="grid h-8 w-8 place-items-center rounded-l border text-muted-foreground"
+              style={{ background: view === "cards" ? "var(--wb-primary)" : "transparent", color: view === "cards" ? "#fff" : undefined, borderColor: "var(--wb-outline)" }}
+              aria-label="Card view"
+            >
+              <Grid2X2 className="h-4 w-4" />
+            </button>
+            <button
+              onClick={() => setView("table")}
+              className="grid h-8 w-8 place-items-center rounded-r border border-l-0 text-muted-foreground"
+              style={{ background: view === "table" ? "var(--wb-primary)" : "transparent", color: view === "table" ? "#fff" : undefined, borderColor: "var(--wb-outline)" }}
+              aria-label="Table view"
+            >
+              <Table2 className="h-4 w-4" />
+            </button>
+          </div>
+        </div>
 
       {/* Quick filters */}
       <div style={{ marginBottom: 10 }}>
@@ -265,6 +297,15 @@ export const MyFeedsPage: React.FC = () => {
               {label}
             </button>
           ))}
+          {(typeFilters.length > 0 || tagFilters.length > 0 || quickFilter !== "all" || search) && (
+            <button
+              onClick={() => { setTypeFilters([]); setTagFilters([]); setQuickFilter("all"); setSearch(""); }}
+              aria-label="Clear filters"
+              style={{ padding: "4px 8px", borderRadius: 20, border: "1px solid hsl(var(--border))", background: "transparent", cursor: "pointer", color: "hsl(var(--muted-foreground))", display: "flex", alignItems: "center" }}
+            >
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
         </ScrollableFilterRow>
       </div>
 
@@ -314,25 +355,23 @@ export const MyFeedsPage: React.FC = () => {
         </div>
       )}
 
-      {/* Results bar */}
-      <div style={{ fontSize: 12, color: "hsl(var(--muted-foreground))", marginBottom: 12 }}>
-        Showing {filtered.length} of {feeds.length} feeds
-        {(typeFilters.length > 0 || tagFilters.length > 0 || quickFilter !== "all" || search) && (
-          <button
-            onClick={() => { setTypeFilters([]); setTagFilters([]); setQuickFilter("all"); setSearch(""); }}
-            style={{ marginLeft: 8, fontSize: 11, padding: "1px 8px", borderRadius: 20, border: "1px solid hsl(var(--border))", background: "transparent", cursor: "pointer", color: "hsl(var(--muted-foreground))" }}
-          >
-            Clear filters
-          </button>
-        )}
-      </div>
 
       {/* Content */}
       {loading ? (
         <div style={{ textAlign: "center", padding: 60, color: "hsl(var(--muted-foreground))" }}>Loading feeds...</div>
       ) : filtered.length === 0 ? (
         <div style={{ textAlign: "center", padding: 60 }}>
-          <div style={{ fontSize: 48, marginBottom: 12 }}>📭</div>
+          <div
+            aria-hidden="true"
+            style={{
+              width: 48,
+              height: 48,
+              borderRadius: 8,
+              border: "1px solid hsl(var(--border))",
+              background: "hsl(var(--muted))",
+              margin: "0 auto 12px",
+            }}
+          />
           <div style={{ fontSize: 16, fontWeight: 600, marginBottom: 6 }}>No feeds found</div>
           <div style={{ fontSize: 13, color: "hsl(var(--muted-foreground))" }}>
             {feeds.length === 0 ? "Create your first feed to get started." : "Try adjusting your filters."}
@@ -365,6 +404,7 @@ export const MyFeedsPage: React.FC = () => {
         onAction={handleAction}
         onUpdate={handleUpdate}
       />
+      </div>
     </div>
   );
 };

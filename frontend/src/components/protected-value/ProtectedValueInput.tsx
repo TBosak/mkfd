@@ -8,6 +8,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { Eye, EyeOff } from "lucide-react";
 
 export type StorageMode = "plain" | "protected" | "env";
 
@@ -26,6 +27,7 @@ function detectMode(value: ProtectedValueInputProps["value"]): StorageMode {
 export function ProtectedValueInput({ label, value, onChange, placeholder }: ProtectedValueInputProps) {
   const [mode, setMode] = useState<StorageMode>(detectMode(value));
   const [isDirty, setIsDirty] = useState(false);
+  const [showValue, setShowValue] = useState(false);
 
   const displayValue =
     mode === "protected" && !isDirty
@@ -70,13 +72,25 @@ export function ProtectedValueInput({ label, value, onChange, placeholder }: Pro
     <div className="space-y-2">
       <Label>{label}</Label>
       <div className="flex gap-2">
-        <Input
-          className="flex-1"
-          placeholder={mode === "protected" ? "********" : placeholder}
-          value={displayValue}
-          type={mode === "protected" ? "password" : "text"}
-          onChange={(e) => handleValueChange(e.target.value)}
-        />
+        <div className="relative flex-1">
+          <Input
+            className="flex-1 pr-9"
+            placeholder={mode === "protected" ? "********" : placeholder}
+            value={displayValue}
+            type={mode === "protected" && !showValue ? "password" : "text"}
+            onChange={(e) => handleValueChange(e.target.value)}
+          />
+          {mode === "protected" && (
+            <button
+              type="button"
+              onClick={() => setShowValue((v) => !v)}
+              className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+              aria-label={showValue ? "Hide value" : "Show value"}
+            >
+              {showValue ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          )}
+        </div>
         <Select value={mode} onValueChange={(v) => handleModeChange(v as StorageMode)}>
           <SelectTrigger className="w-36">
             <SelectValue />

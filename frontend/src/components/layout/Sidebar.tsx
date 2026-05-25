@@ -1,115 +1,171 @@
 import React, { useState } from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { Rss, Activity, Plus, ChevronLeft, ChevronRight, Github } from "lucide-react";
-import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
-
-const STORAGE_KEY = "mkfd:nav:collapsed";
+import { Activity, Github, PanelLeftClose, PanelLeftOpen, Plus, Rss, Settings } from "lucide-react";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 export const Sidebar: React.FC = () => {
-  const [collapsed, setCollapsed] = useState(
-    () => localStorage.getItem(STORAGE_KEY) === "true"
-  );
   const navigate = useNavigate();
+  const [collapsed, setCollapsed] = useState(() => localStorage.getItem("mkfd:nav:collapsed") === "1");
 
-  const toggle = () => {
+  function toggleCollapse() {
     const next = !collapsed;
     setCollapsed(next);
-    localStorage.setItem(STORAGE_KEY, String(next));
-  };
+    localStorage.setItem("mkfd:nav:collapsed", next ? "1" : "0");
+  }
 
   const navLinkClass = ({ isActive }: { isActive: boolean }) =>
-    `flex items-center gap-3 px-3 py-2 rounded-md text-sm transition-colors ${
-      collapsed ? "justify-center" : ""
-    } ${
+    `flex items-center gap-3 border-l-4 px-4 py-2 text-sm transition-colors ${
       isActive
-        ? "bg-muted text-foreground font-medium"
-        : "text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+        ? "border-primary bg-primary/10 font-semibold text-primary"
+        : "border-transparent text-muted-foreground hover:bg-muted hover:text-foreground"
     }`;
 
-  const withTooltip = (label: string, el: React.ReactElement) =>
-    collapsed ? (
-      <Tooltip>
-        <TooltipTrigger asChild>{el}</TooltipTrigger>
-        <TooltipContent side="right">{label}</TooltipContent>
-      </Tooltip>
-    ) : (
-      el
-    );
+  const width = collapsed ? 52 : 256;
 
   return (
     <aside
-      className="hidden lg:flex flex-col h-full border-r bg-background overflow-hidden shrink-0"
-      style={{ width: collapsed ? "52px" : "200px", transition: "width 0.18s ease" }}
+      className="hidden h-full shrink-0 flex-col overflow-hidden border-r lg:flex"
+      style={{ width, background: "var(--wb-surface-low)", borderColor: "var(--wb-outline)", transition: "width 0.2s ease" }}
     >
-      <div
-        className={`flex items-center px-3 py-4 ${
-          collapsed ? "flex-col gap-2" : "justify-between"
-        }`}
-      >
-        <div className="flex items-center gap-2 overflow-hidden">
-          <img src="/public/logo.png" alt="mkfd" className="h-7 w-7 shrink-0" />
-          {!collapsed && (
-            <span className="font-semibold text-sm truncate">mkfd</span>
-          )}
-        </div>
-        <button
-          onClick={toggle}
-          className="flex items-center justify-center h-6 w-6 rounded text-muted-foreground hover:text-foreground hover:bg-muted shrink-0"
-          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-        >
-          {collapsed ? (
-            <ChevronRight className="h-4 w-4" />
-          ) : (
-            <ChevronLeft className="h-4 w-4" />
-          )}
-        </button>
+      {/* Logo */}
+      <div className="px-3 py-4 flex items-center gap-3" style={{ minHeight: 64 }}>
+        <img src="/public/logo.png" alt="Mkfd" className="h-8 w-8 rounded shrink-0" />
+        {!collapsed && (
+          <div>
+            <div className="text-xl font-semibold leading-6">Mkfd</div>
+            <div className="workbench-label">Feed Engine</div>
+          </div>
+        )}
       </div>
-      <div className="px-2 pb-3">
-        {withTooltip(
-          "Build Feed",
+
+      {/* Create Feed button */}
+      <div className={collapsed ? "px-2 pb-3" : "px-4 pb-4"}>
+        {collapsed ? (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <button
+                type="button"
+                onClick={() => navigate("/")}
+                className="flex h-9 w-full items-center justify-center rounded bg-primary text-primary-foreground transition-opacity hover:opacity-90"
+                aria-label="Create Feed"
+              >
+                <Plus className="h-4 w-4" />
+              </button>
+            </TooltipTrigger>
+            <TooltipContent side="right">Create Feed</TooltipContent>
+          </Tooltip>
+        ) : (
           <button
+            type="button"
             onClick={() => navigate("/")}
-            className={`flex items-center gap-2 w-full rounded-md bg-primary text-primary-foreground px-3 py-2 text-sm font-medium transition-colors hover:bg-primary/90 ${
-              collapsed ? "justify-center" : ""
-            }`}
+            className="flex h-9 w-full items-center justify-center gap-2 rounded bg-primary px-3 text-sm font-semibold text-primary-foreground transition-opacity hover:opacity-90"
           >
-            <Plus className="h-4 w-4 shrink-0" />
-            {!collapsed && <span>Build Feed</span>}
+            <Plus className="h-4 w-4" />
+            Create Feed
           </button>
         )}
       </div>
-      <nav className="flex-1 flex flex-col gap-1 px-2">
-        {withTooltip(
-          "My Feeds",
-          <NavLink to="/feeds" className={navLinkClass}>
-            <Rss className="h-4 w-4 shrink-0" />
-            {!collapsed && <span>My Feeds</span>}
-          </NavLink>
+
+      {/* Nav items */}
+      <nav className="flex flex-1 flex-col gap-1" style={{ paddingLeft: collapsed ? 0 : undefined, paddingRight: collapsed ? 0 : undefined }}>
+        {collapsed ? (
+          <>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <NavLink to="/feeds" className={({ isActive }) =>
+                  `flex items-center justify-center border-l-4 py-2 transition-colors ${isActive ? "border-primary bg-primary/10 text-primary" : "border-transparent text-muted-foreground hover:bg-muted hover:text-foreground"}`
+                }>
+                  <Rss className="h-4 w-4" />
+                </NavLink>
+              </TooltipTrigger>
+              <TooltipContent side="right">Feeds</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <NavLink to="/health" className={({ isActive }) =>
+                  `flex items-center justify-center border-l-4 py-2 transition-colors ${isActive ? "border-primary bg-primary/10 text-primary" : "border-transparent text-muted-foreground hover:bg-muted hover:text-foreground"}`
+                }>
+                  <Activity className="h-4 w-4" />
+                </NavLink>
+              </TooltipTrigger>
+              <TooltipContent side="right">Health</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <NavLink to="/settings" className={({ isActive }) =>
+                  `flex items-center justify-center border-l-4 py-2 transition-colors ${isActive ? "border-primary bg-primary/10 text-primary" : "border-transparent text-muted-foreground hover:bg-muted hover:text-foreground"}`
+                }>
+                  <Settings className="h-4 w-4" />
+                </NavLink>
+              </TooltipTrigger>
+              <TooltipContent side="right">Settings</TooltipContent>
+            </Tooltip>
+          </>
+        ) : (
+          <div className="px-4 flex flex-col gap-1">
+            <NavLink to="/feeds" className={navLinkClass}>
+              <Rss className="h-4 w-4" />
+              Feeds
+            </NavLink>
+            <NavLink to="/health" className={navLinkClass}>
+              <Activity className="h-4 w-4" />
+              Health
+            </NavLink>
+            <NavLink to="/settings" className={navLinkClass}>
+              <Settings className="h-4 w-4" />
+              Settings
+            </NavLink>
+          </div>
         )}
-        {withTooltip(
-          "Health",
-          <NavLink to="/health" className={navLinkClass}>
-            <Activity className="h-4 w-4 shrink-0" />
-            {!collapsed && <span>Health</span>}
-          </NavLink>
-        )}
+
+        {/* Collapse toggle */}
+        <div className="mt-auto">
+          {collapsed ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
+                  onClick={toggleCollapse}
+                  className="flex w-full items-center justify-center py-3 text-muted-foreground hover:bg-muted hover:text-foreground"
+                  aria-label="Expand sidebar"
+                >
+                  <PanelLeftOpen className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right">Expand sidebar</TooltipContent>
+            </Tooltip>
+          ) : (
+            <button
+              type="button"
+              onClick={toggleCollapse}
+              className="flex w-full items-center gap-3 px-8 py-3 text-sm text-muted-foreground hover:bg-muted hover:text-foreground"
+              aria-label="Collapse sidebar"
+            >
+              <PanelLeftClose className="h-4 w-4" />
+              Collapse
+            </button>
+          )}
+        </div>
       </nav>
-      <div className="px-2 pb-4">
-        {withTooltip(
-          "GitHub",
+
+      {/* GitHub link */}
+      {!collapsed && (
+        <div className="border-t px-6 py-5" style={{ borderColor: "var(--wb-outline)" }}>
           <a
             href="https://github.com/TBosak/mkfd"
             target="_blank"
             rel="noopener noreferrer"
-            className={`flex items-center gap-3 px-3 py-2 rounded-md text-sm text-muted-foreground hover:bg-muted/50 hover:text-foreground transition-colors ${
-              collapsed ? "justify-center" : ""
-            }`}
+            className="flex items-center gap-3 rounded p-2 text-sm text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
           >
-            <Github className="h-4 w-4 shrink-0" />
-            {!collapsed && <span>GitHub ↗</span>}
+            <Github className="h-4 w-4" />
+            Repository
           </a>
-        )}
-      </div>
+        </div>
+      )}
     </aside>
   );
 };

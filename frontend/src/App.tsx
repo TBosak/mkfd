@@ -6,6 +6,7 @@ import { BuildFeedPage } from "./pages/BuildFeedPage";
 import { MyFeedsPage } from "./pages/MyFeedsPage";
 import { EditFeedPage } from "./pages/EditFeedPage";
 import { HealthDashboardPage } from "./pages/HealthDashboardPage";
+import { SettingsPage } from "./pages/SettingsPage";
 
 function App() {
   return (
@@ -17,6 +18,7 @@ function App() {
             <Route path="/feeds" element={<MyFeedsPage />} />
             <Route path="/feeds/:id/edit" element={<EditFeedPage />} />
             <Route path="/health" element={<HealthDashboardPage />} />
+            <Route path="/settings" element={<SettingsPage />} />
           </Routes>
         </AppShell>
       </TooltipProvider>

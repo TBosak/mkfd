@@ -7,8 +7,8 @@ import { FeedFormData } from "@/types/feed";
 import { buildFeedConfigFromFormData } from "@/lib/feed-config-builder";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
-import { Tabs, TabsList, TabsTrigger, TabsContent } from "@/components/ui/tabs";
+import { Section } from "@/components/builder/Section";
+import { Field } from "@/components/builder/Field";
 import { WebScrapingForm } from "./WebScrapingForm";
 import { APIForm } from "./APIForm";
 import { EmailForm } from "./EmailForm";
@@ -16,7 +16,7 @@ import { AdditionalOptions } from "./AdditionalOptions";
 import { FeedPreview } from "./FeedPreview";
 import { FlareSolverrIndicator } from "./FlareSolverrIndicator";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { Eye, Rocket, Globe, Code, Mail, Tag, Settings, Pencil, Lock, Save } from "lucide-react";
+import { Eye, Rocket, Globe, Code, Mail, Tag, Pencil, Lock, Save } from "lucide-react";
 
 export interface FeedBuilderFormHandle {
   submit: () => void;
@@ -26,15 +26,18 @@ export interface FeedBuilderFormProps {
   mode?: "create" | "edit";
   feedId?: string;
   initialData?: Partial<FeedFormData>;
+  selectedType?: FeedFormData["feedType"];
   activeSection?: string;
   onValuesChange?: (v: Partial<FeedFormData>) => void;
 }
 
 export const FeedBuilderForm = forwardRef<FeedBuilderFormHandle, FeedBuilderFormProps>(
-  function FeedBuilderForm({ mode = "create", feedId, initialData, activeSection, onValuesChange }, ref) {
+  function FeedBuilderForm({ mode = "create", feedId, initialData, selectedType, activeSection, onValuesChange }, ref) {
     const navigate = useNavigate();
     const [feedType, setFeedType] = useState<"webScraping" | "api" | "email">(
-      (initialData?.feedType as "webScraping" | "api" | "email") ?? "webScraping"
+      (selectedType as "webScraping" | "api" | "email" | undefined)
+        ?? (initialData?.feedType as "webScraping" | "api" | "email")
+        ?? "webScraping"
     );
     const [showPreview, setShowPreview] = useState(false);
     const [previewXml, setPreviewXml] = useState<string | undefined>();
@@ -43,7 +46,7 @@ export const FeedBuilderForm = forwardRef<FeedBuilderFormHandle, FeedBuilderForm
     const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
 
     const defaultValues: Partial<FeedFormData> = {
-      feedType: "webScraping",
+      feedType: (selectedType as "webScraping" | "api" | "email" | undefined) ?? "webScraping",
       refreshTime: 5,
       emailCount: 10,
       reverse: false,
@@ -76,6 +79,14 @@ export const FeedBuilderForm = forwardRef<FeedBuilderFormHandle, FeedBuilderForm
     const feedUrl = watch("feedUrl");
 
     const activeFeedType = watch("feedType") ?? "webScraping";
+    const show = (id: string) => !activeSection || activeSection === id;
+
+    useEffect(() => {
+      if (!selectedType || selectedType === feedType) return;
+      setFeedType(selectedType as "webScraping" | "api" | "email");
+      setValue("feedType", selectedType);
+    }, [feedType, selectedType, setValue]);
+
     const draftKey = mode === "edit" && feedId
       ? `mkfd:draft:${feedId}`
       : `mkfd:draft:new:${activeFeedType}`;
@@ -207,113 +218,80 @@ export const FeedBuilderForm = forwardRef<FeedBuilderFormHandle, FeedBuilderForm
           <LoadingSpinner message="Generating preview..." fullscreen />
         )}
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-6 animate-in">
+        <form onSubmit={handleSubmit(onSubmit)} className="space-y-4 animate-in">
           {/* Edit Mode Banner */}
           {mode === "edit" && (
-            <div className="flex items-center gap-3 p-4 rounded-lg bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-950/20 dark:to-orange-950/20 border-l-4 border-amber-500">
+            <div className="flex items-center gap-3 rounded-md border border-border bg-card p-3">
               <Pencil className="h-5 w-5 text-amber-600 shrink-0" />
               <div>
-                <p className="font-semibold text-amber-800 dark:text-amber-300">
+                <p className="font-semibold text-foreground">
                   Editing Existing Feed
                 </p>
-                <p className="text-xs text-amber-600 dark:text-amber-400 font-mono mt-0.5">
+                <p className="text-xs text-muted-foreground font-mono mt-0.5">
                   {feedId}
                 </p>
               </div>
             </div>
           )}
 
-          {/* Feed Name */}
-          <div className="space-y-2 p-4 rounded-lg bg-gradient-to-r from-orange-50 to-red-50 dark:from-orange-950/20 dark:to-red-950/20">
-            <Label htmlFor="feedName" className="flex items-center gap-2">
-              <Tag className="h-4 w-4" />
-              Feed Name
-            </Label>
-            <Input
-              id="feedName"
-              {...register("feedName", { required: true })}
-              placeholder="Enter feed name"
-            />
-            {errors.feedName && (
-              <p className="text-sm text-destructive">Feed name is required</p>
-            )}
-          </div>
-
-          {/* Feed Type Tabs */}
-          <div className="space-y-2 p-4 rounded-lg bg-slate-50 dark:bg-slate-900/50">
-            <Label className="flex items-center gap-2">
-              <Settings className="h-4 w-4" />
-              Feed Type
-            </Label>
-            <Tabs
-              value={feedType}
-              onValueChange={(value) => {
-                setFeedType(value as typeof feedType);
-                setValue("feedType", value as typeof feedType);
-              }}
+          {show("basic") && (
+            <Section
+              icon={<Tag className="h-4 w-4" />}
+              title="Basic"
+              sub="Name and source type"
+              right={
+                <span className="inline-flex items-center gap-1 rounded-md border border-border bg-muted px-2 py-1 text-xs font-medium text-muted-foreground">
+                  {feedType === "webScraping" && <Globe className="h-3.5 w-3.5" />}
+                  {feedType === "api" && <Code className="h-3.5 w-3.5" />}
+                  {feedType === "email" && <Mail className="h-3.5 w-3.5" />}
+                  {feedType === "webScraping" ? "Web Scraping" : feedType === "api" ? "REST API" : "Email"}
+                  {mode === "edit" && <Lock className="h-3 w-3 opacity-70" />}
+                </span>
+              }
             >
-              <TabsList className="grid w-full grid-cols-3">
-                <TabsTrigger
-                  value="webScraping"
-                  disabled={mode === "edit" && feedType !== "webScraping"}
-                  className={`data-[state=active]:bg-gradient-to-r data-[state=active]:from-blue-500 data-[state=active]:to-cyan-500 data-[state=active]:text-white ${mode === "edit" && feedType !== "webScraping" ? "opacity-40 cursor-not-allowed" : ""}`}
-                >
-                  <Globe className="mr-2 h-4 w-4" />
-                  Web Scraping
-                  {mode === "edit" && feedType === "webScraping" && <Lock className="ml-1 h-3 w-3 opacity-60" />}
-                </TabsTrigger>
-                <TabsTrigger
-                  value="api"
-                  disabled={mode === "edit" && feedType !== "api"}
-                  className={`data-[state=active]:bg-gradient-to-r data-[state=active]:from-green-500 data-[state=active]:to-emerald-500 data-[state=active]:text-white ${mode === "edit" && feedType !== "api" ? "opacity-40 cursor-not-allowed" : ""}`}
-                >
-                  <Code className="mr-2 h-4 w-4" />
-                  REST API
-                  {mode === "edit" && feedType === "api" && <Lock className="ml-1 h-3 w-3 opacity-60" />}
-                </TabsTrigger>
-                <TabsTrigger
-                  value="email"
-                  disabled={mode === "edit" && feedType !== "email"}
-                  className={`data-[state=active]:bg-gradient-to-r data-[state=active]:from-purple-500 data-[state=active]:to-violet-500 data-[state=active]:text-white ${mode === "edit" && feedType !== "email" ? "opacity-40 cursor-not-allowed" : ""}`}
-                >
-                  <Mail className="mr-2 h-4 w-4" />
-                  Email
-                  {mode === "edit" && feedType === "email" && <Lock className="ml-1 h-3 w-3 opacity-60" />}
-                </TabsTrigger>
-              </TabsList>
-
-              <TabsContent value="webScraping">
-                <WebScrapingForm
-                  register={register}
-                  control={control}
-                  setValue={setValue}
-                  watch={watch}
-                  feedUrl={feedUrl}
-                  activeSection={activeSection}
+              <Field label="Feed Name" htmlFor="feedName" required>
+                <Input
+                  id="feedName"
+                  {...register("feedName", { required: true })}
+                  placeholder="Enter feed name"
                 />
-              </TabsContent>
+                {errors.feedName && (
+                  <p className="mt-1 text-sm text-destructive">Feed name is required</p>
+                )}
+              </Field>
+            </Section>
+          )}
 
-              <TabsContent value="api">
-                <APIForm
-                  register={register}
-                  control={control}
-                  setValue={setValue}
-                  watch={watch}
-                  activeSection={activeSection}
-                />
-              </TabsContent>
+          {feedType === "webScraping" && (
+            <WebScrapingForm
+              register={register}
+              control={control}
+              setValue={setValue}
+              watch={watch}
+              feedUrl={feedUrl}
+              activeSection={activeSection}
+            />
+          )}
 
-              <TabsContent value="email">
-                <EmailForm
-                  register={register}
-                  control={control}
-                  setValue={setValue}
-                  watch={watch}
-                  activeSection={activeSection}
-                />
-              </TabsContent>
-            </Tabs>
-          </div>
+          {feedType === "api" && (
+            <APIForm
+              register={register}
+              control={control}
+              setValue={setValue}
+              watch={watch}
+              activeSection={activeSection}
+            />
+          )}
+
+          {feedType === "email" && (
+            <EmailForm
+              register={register}
+              control={control}
+              setValue={setValue}
+              watch={watch}
+              activeSection={activeSection}
+            />
+          )}
 
           {/* Additional Options */}
           <AdditionalOptions
@@ -322,15 +300,17 @@ export const FeedBuilderForm = forwardRef<FeedBuilderFormHandle, FeedBuilderForm
             setValue={setValue}
             watch={watch}
             feedType={feedType}
+            activeSection={activeSection}
           />
 
           {/* Submit Buttons */}
+          {show("output") && (
           <div className="flex gap-2">
             <Button
               type="button"
               variant="outline"
               onClick={handlePreview}
-              className="flex-1 border-2 border-blue-500 text-blue-600 hover:bg-blue-50 dark:hover:bg-blue-950"
+              className="flex-1"
               disabled={isGeneratingPreview || isSubmitting}
             >
               <Eye className="mr-2 h-4 w-4" />
@@ -338,7 +318,7 @@ export const FeedBuilderForm = forwardRef<FeedBuilderFormHandle, FeedBuilderForm
             </Button>
             <Button
               type="submit"
-              className="flex-1 bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700"
+              className="flex-1 bg-primary text-primary-foreground hover:bg-primary/90"
               disabled={isSubmitting || isGeneratingPreview}
             >
               {mode === "edit" ? (
@@ -354,6 +334,7 @@ export const FeedBuilderForm = forwardRef<FeedBuilderFormHandle, FeedBuilderForm
               )}
             </Button>
           </div>
+          )}
 
           {/* Feed Preview Dialog */}
           <FeedPreview

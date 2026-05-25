@@ -22,7 +22,7 @@ function Switch({
       onClick={() => onCheckedChange(!checked)}
       className={cn(
         "relative inline-flex h-5 w-9 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
-        checked ? "bg-orange-500" : "bg-input"
+        checked ? "bg-primary" : "bg-input"
       )}
     >
       <span
@@ -127,7 +127,7 @@ export function SettingsTab() {
       <Button
         onClick={save}
         disabled={saving}
-        className="bg-gradient-to-r from-orange-500 to-red-600 hover:from-orange-600 hover:to-red-700"
+        className="bg-primary text-primary-foreground hover:bg-primary/90"
       >
         {saving ? "Saving…" : saved ? "Saved!" : "Save Settings"}
       </Button>

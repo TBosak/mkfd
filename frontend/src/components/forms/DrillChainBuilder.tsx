@@ -64,15 +64,15 @@ const DrillChainItem = ({
   }, [isRelative, feedUrl, currentBaseUrl, fieldName, index, setValue]);
 
   return (
-    <Card className="relative border-l-4 border-l-blue-500 bg-blue-50/50 dark:bg-blue-950/20">
+    <Card className="relative border-l-4 border-l-primary bg-muted/50">
       <CardContent className="pt-10 pb-4 px-4 space-y-3">
         {/* Step Number Badge */}
-        <div className="absolute top-2 left-2 bg-gradient-to-r from-blue-500 to-blue-600 text-white rounded-full w-8 h-8 flex items-center justify-center font-bold text-sm shadow-md">
+        <div className="absolute top-2 left-2 bg-primary text-primary-foreground rounded-full w-8 h-8 flex items-center justify-center font-bold text-sm shadow-md">
           {index + 1}
         </div>
 
         {/* Step Label */}
-        <div className="absolute top-3 left-12 text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wide">
+        <div className="absolute top-3 left-12 text-xs font-semibold text-primary uppercase tracking-wide">
           Step {index + 1}
         </div>
 
@@ -218,7 +218,7 @@ export const DrillChainBuilder = ({
           {/* Connecting Arrow */}
           {index < fields.length - 1 && (
             <div className="flex items-center justify-center py-2">
-              <div className="text-blue-500 font-bold text-2xl">↓</div>
+              <div className="text-primary font-bold text-2xl">↓</div>
             </div>
           )}
         </div>
@@ -228,7 +228,7 @@ export const DrillChainBuilder = ({
         type="button"
         variant="outline"
         onClick={handleAddStep}
-        className="w-full border-2 border-dashed border-blue-400 text-blue-600 hover:bg-blue-50 hover:border-blue-600 dark:hover:bg-blue-950"
+        className="w-full border-2 border-dashed border-primary/40 text-primary hover:bg-primary/5 hover:border-primary"
       >
         <Plus className="mr-2 h-4 w-4" />
         Add Chain Step

@@ -4,6 +4,7 @@ import { FeedTypeBadge } from "./FeedTypeBadge";
 import { FeedStatusBadge } from "./FeedStatusBadge";
 import { FeedTagEditor } from "./FeedTagEditor";
 import { FeedActionsMenu } from "./FeedActionsMenu";
+import { Copy, ExternalLink } from "lucide-react";
 
 type ActionType = "open" | "copy" | "preview" | "edit" | "duplicate" | "export" | "enable" | "disable" | "delete";
 type FormatType = "rss" | "atom" | "json";
@@ -57,7 +58,7 @@ export const FeedCard: React.FC<FeedCardProps> = ({ feed, onAction, onUpdate }) 
         boxShadow: "var(--shadow-1)",
         display: "flex",
         flexDirection: "column",
-        overflow: "hidden",
+        position: "relative",
       }}
     >
       {/* Head */}
@@ -175,17 +176,19 @@ export const FeedCard: React.FC<FeedCardProps> = ({ feed, onAction, onUpdate }) 
         </div>
         <button
           onClick={copyUrl}
-          style={{ padding: "3px 8px", borderRadius: 6, border: "1px solid hsl(var(--border))", fontSize: 11, cursor: "pointer", background: "transparent", color: "hsl(var(--foreground))" }}
+          aria-label="Copy feed URL"
+          style={{ padding: "3px 8px", borderRadius: 6, border: "1px solid hsl(var(--border))", fontSize: 11, cursor: "pointer", background: "transparent", color: "hsl(var(--foreground))", display: "flex", alignItems: "center" }}
         >
-          Copy
+          <Copy className="h-3.5 w-3.5" />
         </button>
         <a
           href={feedUrl}
           target="_blank"
           rel="noopener noreferrer"
-          style={{ padding: "3px 8px", borderRadius: 6, border: "1px solid hsl(var(--border))", fontSize: 11, cursor: "pointer", background: "transparent", color: "hsl(var(--foreground))", textDecoration: "none" }}
+          aria-label="Open feed"
+          style={{ padding: "3px 8px", borderRadius: 6, border: "1px solid hsl(var(--border))", fontSize: 11, cursor: "pointer", background: "transparent", color: "hsl(var(--foreground))", textDecoration: "none", display: "flex", alignItems: "center" }}
         >
-          Open ↗
+          <ExternalLink className="h-3.5 w-3.5" />
         </a>
         <div style={{ flex: 1 }} />
         <FeedActionsMenu feed={feed} onAction={onAction} />

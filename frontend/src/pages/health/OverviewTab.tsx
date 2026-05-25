@@ -17,10 +17,10 @@ import type { HealthSummary } from "@/types/health";
 
 function StatCard({ label, value }: { label: string; value: string }) {
   return (
-    <Card className="border border-border/50">
-      <CardContent className="pt-4 pb-4">
-        <p className="text-xs text-muted-foreground">{label}</p>
-        <p className="text-2xl font-bold mt-1">{value}</p>
+    <Card className="workbench-panel border-t-4 shadow-none" style={{ borderTopColor: "var(--wb-primary)" }}>
+      <CardContent className="p-4">
+        <p className="workbench-label">{label}</p>
+        <p className="workbench-value mt-1">{value}</p>
       </CardContent>
     </Card>
   );
@@ -92,24 +92,24 @@ export function OverviewTab({
         <StatCard label="Feeds w/ Errors" value={String(errFeeds)} />
       </div>
 
-      <Card className="border border-border/50">
-        <CardHeader className="pb-2">
+      <Card className="workbench-panel shadow-none">
+        <CardHeader className="workbench-panel-header pb-2">
           <h3 className="font-semibold text-sm">
             Runs per Day — Success vs Error
           </h3>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={220}>
+          <ResponsiveContainer width="100%" height={160}>
             <BarChart data={chartData}>
               <XAxis dataKey="date" tick={{ fontSize: 11 }} />
               <YAxis tick={{ fontSize: 11 }} />
               <Tooltip />
               <Legend />
-              <Bar dataKey="success" stackId="a" fill="#22c55e" name="Success" />
+              <Bar dataKey="success" stackId="a" fill="#7a8a5f" name="Success" />
               <Bar
                 dataKey="error"
                 stackId="a"
-                fill="#ef4444"
+                fill="#b25555"
                 name="Error"
                 radius={[3, 3, 0, 0]}
               />
@@ -118,14 +118,14 @@ export function OverviewTab({
         </CardContent>
       </Card>
 
-      <Card className="border border-border/50">
-        <CardHeader className="pb-2">
+      <Card className="workbench-panel shadow-none">
+        <CardHeader className="workbench-panel-header pb-2">
           <h3 className="font-semibold text-sm">
             Avg Duration (seconds) per Day
           </h3>
         </CardHeader>
         <CardContent>
-          <ResponsiveContainer width="100%" height={180}>
+          <ResponsiveContainer width="100%" height={130}>
             <LineChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" />
               <XAxis dataKey="date" tick={{ fontSize: 11 }} />
@@ -134,7 +134,7 @@ export function OverviewTab({
               <Line
                 type="monotone"
                 dataKey="avgDuration"
-                stroke="#f97316"
+                stroke="#a06a51"
                 strokeWidth={2}
                 dot={false}
                 name="Avg Duration (s)"

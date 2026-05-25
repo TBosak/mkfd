@@ -14,29 +14,21 @@ interface FeedTableProps {
 }
 
 const TH: React.FC<{ children: React.ReactNode; style?: React.CSSProperties }> = ({ children, style }) => (
-  <th style={{
-    padding: "8px 10px", textAlign: "left", fontSize: 11, fontWeight: 700,
-    color: "hsl(var(--muted-foreground))", textTransform: "uppercase", letterSpacing: "0.04em",
-    borderBottom: "1px solid hsl(var(--border))", background: "hsl(var(--muted))", whiteSpace: "nowrap",
-    ...style,
-  }}>
+  <th className="workbench-table th" style={style}>
     {children}
   </th>
 );
 
 const TD: React.FC<{ children: React.ReactNode; style?: React.CSSProperties; onClick?: () => void }> = ({ children, style, onClick }) => (
-  <td style={{
-    padding: "8px 10px", fontSize: 13, borderBottom: "1px solid hsl(var(--border))",
-    verticalAlign: "middle", cursor: onClick ? "pointer" : undefined, ...style,
-  }} onClick={onClick}>
+  <td style={{ cursor: onClick ? "pointer" : undefined, ...style }} onClick={onClick}>
     {children}
   </td>
 );
 
 export const FeedTable: React.FC<FeedTableProps> = ({ feeds, onAction, onUpdate, onSelectFeed }) => {
   return (
-    <div style={{ overflowX: "auto" }}>
-      <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 13 }}>
+    <div className="workbench-panel" style={{ overflowX: "auto" }}>
+      <table className="workbench-table">
         <thead>
           <tr>
             <TH style={{ width: 32 }}>{""}</TH>
@@ -51,10 +43,7 @@ export const FeedTable: React.FC<FeedTableProps> = ({ feeds, onAction, onUpdate,
         </thead>
         <tbody>
           {feeds.map((feed) => (
-            <tr key={feed.id} style={{ transition: "background 0.1s" }}
-              onMouseEnter={(e) => { (e.currentTarget as HTMLElement).style.background = "hsl(var(--muted) / 0.5)"; }}
-              onMouseLeave={(e) => { (e.currentTarget as HTMLElement).style.background = "transparent"; }}
-            >
+            <tr key={feed.id}>
               {/* Favorite */}
               <TD style={{ textAlign: "center" }}>
                 <button
@@ -71,7 +60,7 @@ export const FeedTable: React.FC<FeedTableProps> = ({ feeds, onAction, onUpdate,
                 <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
                   <FeedTypeBadge type={feed.type} size={24} />
                   <div>
-                    <div style={{ fontWeight: 600, fontSize: 13 }}>{feed.title}</div>
+                    <div style={{ fontWeight: 650, fontSize: 13 }}>{feed.title}</div>
                     <div style={{ fontSize: 11, color: "hsl(var(--muted-foreground))", fontFamily: "var(--feeds-font-mono, monospace)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", maxWidth: 260 }}>
                       {feed.sourceUrl}
                     </div>

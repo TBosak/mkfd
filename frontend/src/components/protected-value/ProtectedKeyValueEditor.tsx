@@ -90,8 +90,13 @@ export function ProtectedKeyValueEditor({ label, value, onChange, addButtonLabel
   }
 
   return (
-    <div className="space-y-3">
-      <Label className="font-bold">{label}</Label>
+    <div className="space-y-2">
+      <div className="flex items-center justify-between">
+        <Label className="font-bold text-sm">{label}</Label>
+        <Button type="button" variant="outline" size="sm" onClick={addRow}>
+          <Plus className="h-4 w-4 mr-1" />{addButtonLabel}
+        </Button>
+      </div>
       {rows.map((row) => (
         <div key={row.id} className="flex gap-2 items-start">
           <Input
@@ -133,10 +138,6 @@ export function ProtectedKeyValueEditor({ label, value, onChange, addButtonLabel
           </Button>
         </div>
       ))}
-      <Button type="button" variant="outline" size="sm" onClick={addRow}>
-        <Plus className="h-4 w-4 mr-1" />
-        {addButtonLabel}
-      </Button>
     </div>
   );
 }

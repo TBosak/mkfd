@@ -42,21 +42,21 @@ ${SAMPLE_ITEMS.map((item) => `    <item>
 </rss>`;
 
   return (
-    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "hsl(var(--muted) / 0.3)" }}>
+    <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "var(--wb-card)", color: "hsl(var(--foreground))" }}>
       <div style={{ padding: "12px 14px", borderBottom: "1px solid hsl(var(--border))" }}>
-        <div style={{ fontWeight: 700, fontSize: 13, marginBottom: 8 }}>Preview</div>
+        <div className="workbench-label" style={{ color: "hsl(var(--muted-foreground))", marginBottom: 8 }}>Raw Data Output Console</div>
         <div style={{ display: "flex", gap: 2 }}>
           <button
             type="button"
             onClick={() => setTab("items")}
-            style={{ padding: "3px 10px", borderRadius: "6px 0 0 6px", border: "1px solid hsl(var(--border))", fontSize: 12, cursor: "pointer", background: tab === "items" ? "hsl(var(--foreground))" : "transparent", color: tab === "items" ? "hsl(var(--background))" : "hsl(var(--muted-foreground))" }}
+            style={{ padding: "3px 10px", borderRadius: "6px 0 0 6px", border: "1px solid hsl(var(--border))", fontSize: 12, cursor: "pointer", background: tab === "items" ? "hsl(var(--primary))" : "transparent", color: tab === "items" ? "hsl(var(--primary-foreground))" : "hsl(var(--muted-foreground))" }}
           >
             Items
           </button>
           <button
             type="button"
             onClick={() => setTab("rss")}
-            style={{ padding: "3px 10px", borderRadius: "0 6px 6px 0", border: "1px solid hsl(var(--border))", borderLeft: 0, fontSize: 12, cursor: "pointer", background: tab === "rss" ? "hsl(var(--foreground))" : "transparent", color: tab === "rss" ? "hsl(var(--background))" : "hsl(var(--muted-foreground))" }}
+            style={{ padding: "3px 10px", borderRadius: "0 6px 6px 0", border: "1px solid hsl(var(--border))", borderLeft: 0, fontSize: 12, cursor: "pointer", background: tab === "rss" ? "hsl(var(--primary))" : "transparent", color: tab === "rss" ? "hsl(var(--primary-foreground))" : "hsl(var(--muted-foreground))" }}
           >
             RSS
           </button>
@@ -65,14 +65,14 @@ ${SAMPLE_ITEMS.map((item) => `    <item>
       <div style={{ flex: 1, overflow: "auto", padding: 14 }}>
         {tab === "items" ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <div style={{ fontSize: 11, color: "hsl(var(--muted-foreground))", marginBottom: 4 }}>
-              Sample output — {SAMPLE_ITEMS.length} items
+            <div style={{ fontSize: 11, color: "hsl(var(--muted-foreground))", marginBottom: 4, fontFamily: "var(--feeds-font-mono, monospace)" }}>
+              {`live_output=true source="${sourceUrl || "unresolved"}" items=${SAMPLE_ITEMS.length}`}
             </div>
             {SAMPLE_ITEMS.map((item, i) => (
               <div
                 key={i}
                 style={{
-                  background: "hsl(var(--card))",
+                  background: "hsl(var(--muted))",
                   border: "1px solid hsl(var(--border))",
                   borderRadius: 8,
                   padding: "10px 12px",

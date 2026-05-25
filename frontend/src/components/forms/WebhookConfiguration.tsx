@@ -114,7 +114,6 @@ export const WebhookConfiguration = ({
   setValue,
   watch,
 }: WebhookConfigurationProps) => {
-  const webhookEnabled = watch("webhook.enabled");
   const webhookFormat = watch("webhook.format");
 
   const loadWebhookTemplate = (template: keyof typeof webhookTemplates) => {
@@ -128,27 +127,7 @@ export const WebhookConfiguration = ({
         Webhook Settings
       </h3>
 
-      <div className="flex items-center space-x-2">
-        <Checkbox
-          id="webhookEnabled"
-          checked={webhookEnabled}
-          onCheckedChange={(checked) =>
-            setValue("webhook.enabled", checked as boolean)
-          }
-        />
-        <Label htmlFor="webhookEnabled">Enable Webhook Notifications</Label>
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Info className="h-4 w-4 text-muted-foreground" />
-          </TooltipTrigger>
-          <TooltipContent>
-            Send POST notifications when feed items are added
-          </TooltipContent>
-        </Tooltip>
-      </div>
-
-      {webhookEnabled && (
-        <div className="space-y-4 pt-4">
+      <div className="space-y-4 pt-4">
           <div className="space-y-2">
             <Label htmlFor="webhookUrl">Webhook URL</Label>
             <Input
@@ -296,7 +275,6 @@ export const WebhookConfiguration = ({
             </AccordionItem>
           </Accordion>
         </div>
-      )}
     </div>
   );
 };
