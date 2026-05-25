@@ -65,9 +65,11 @@ ${SAMPLE_ITEMS.map((item) => `    <item>
       <div style={{ flex: 1, overflow: "auto", padding: 14 }}>
         {tab === "items" ? (
           <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
-            <div style={{ fontSize: 11, color: "hsl(var(--muted-foreground))", marginBottom: 4, fontFamily: "var(--feeds-font-mono, monospace)" }}>
-              {`live_output=true source="${sourceUrl || "unresolved"}" items=${SAMPLE_ITEMS.length}`}
-            </div>
+            {sourceUrl && (
+              <div style={{ fontSize: 11, color: "hsl(var(--muted-foreground))", marginBottom: 4, fontFamily: "var(--feeds-font-mono, monospace)" }}>
+                {`source="${sourceUrl}"  items=${SAMPLE_ITEMS.length}`}
+              </div>
+            )}
             {SAMPLE_ITEMS.map((item, i) => (
               <div
                 key={i}
