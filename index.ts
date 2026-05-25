@@ -437,9 +437,9 @@ app.post("/", async (ctx) => {
     return ctx.json({
       message: "RSS feed is being generated.",
       feedUrls: {
-        rss2: `public/feeds/${feedId}.xml`,
-        atom: `public/feeds/${feedId}.atom`,
-        json: `public/feeds/${feedId}.json`,
+        rss2: `/public/feeds/${feedId}.xml`,
+        atom: `/public/feeds/${feedId}.atom`,
+        json: `/public/feeds/${feedId}.json`,
       },
       feedId: feedId,
       config: maskProtectedValues(finalFeedConfig),
@@ -1011,9 +1011,9 @@ app.put("/api/feeds/:id", async (ctx) => {
   return ctx.json({
     message: "Feed updated successfully.",
     feedUrls: {
-      rss2: `public/feeds/${feedId}.xml`,
-      atom: `public/feeds/${feedId}.atom`,
-      json: `public/feeds/${feedId}.json`,
+      rss2: `/public/feeds/${feedId}.xml`,
+      atom: `/public/feeds/${feedId}.atom`,
+      json: `/public/feeds/${feedId}.json`,
     },
     feedId,
     config: maskProtectedValues(finalFeedConfig),

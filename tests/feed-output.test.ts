@@ -68,6 +68,9 @@ describe("writeAllFeedFormats", () => {
     const content = await readFile(`${TEST_DIR}/content-test.xml`, "utf8");
     expect(content).toContain("<rss");
   });
+  it("throws for unsafe feedId", async () => {
+    await expect(writeAllFeedFormats("../etc/passwd", makeFeed(), TEST_DIR)).rejects.toThrow("Unsafe feedId");
+  });
 });
 
 describe("extractFeedItemSnapshots", () => {

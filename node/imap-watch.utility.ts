@@ -100,10 +100,6 @@ interface RSSFeedOptions {
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
-const args = minimist(process.argv.slice(2));
-const encryptionKey: string = args.key || "";
-const configHash: string = args.hash || "";
-
 export interface Email {
   UID: number;
   messageId?: string;
@@ -439,6 +435,10 @@ export interface EmailFeedMessage {
 }
 
 if (import.meta.main) {
+
+const args = minimist(process.argv.slice(2));
+const encryptionKey: string = args.key || "";
+const configHash: string = args.hash || "";
 
 if (!encryptionKey || !configHash) {
   console.error(

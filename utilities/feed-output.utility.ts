@@ -32,6 +32,8 @@ export async function writeAllFeedFormats(
   await Bun.write(`${outputDir}/${feedId}.xml`,  outputs.rss2);
   await Bun.write(`${outputDir}/${feedId}.atom`, outputs.atom);
   await Bun.write(`${outputDir}/${feedId}.json`, outputs.json);
+  // URL paths are always /public/feeds/ regardless of outputDir (which controls
+  // the write location only — e.g. a temp dir in tests).
   return {
     rss2: `/public/feeds/${feedId}.xml`,
     atom: `/public/feeds/${feedId}.atom`,
