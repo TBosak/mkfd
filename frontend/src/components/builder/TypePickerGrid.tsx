@@ -136,19 +136,6 @@ const FEED_TYPES: FeedTypeOption[] = [
       </svg>
     ),
   },
-  {
-    id: "sourceAssistant",
-    label: "Source Assistant",
-    description: "AI-guided feed setup",
-    active: false,
-    bg: "#f0fdf4", color: "#14532d", border: "#bbf7d0",
-    icon: (
-      <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-        <path d="M12 2a10 10 0 1 1 0 20 10 10 0 0 1 0-20z" />
-        <path d="M12 16v-4" /><path d="M12 8h.01" />
-      </svg>
-    ),
-  },
 ];
 
 interface TypePickerGridProps {
@@ -157,13 +144,11 @@ interface TypePickerGridProps {
 
 export const TypePickerGrid: React.FC<TypePickerGridProps> = ({ onSelect }) => {
   return (
-    <div style={{ padding: "32px 24px", maxWidth: 980, margin: "0 auto" }}>
-      <div style={{ marginBottom: 24 }}>
-        <div className="workbench-label">Builder</div>
-        <h1 style={{ fontSize: 24, fontWeight: 700, margin: "4px 0 4px" }}>Build a New Feed</h1>
-        <p style={{ fontSize: 14, color: "hsl(var(--muted-foreground))", margin: 0 }}>
-          Choose the source type for your feed
-        </p>
+    <div style={{ padding: "0 24px 32px", maxWidth: 980, margin: "0 auto" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginBottom: 20 }}>
+        <div style={{ flex: 1, height: 1, background: "var(--wb-outline)" }} />
+        <span style={{ fontSize: 12, fontWeight: 600, color: "hsl(var(--muted-foreground))", whiteSpace: "nowrap" }}>Or pick a feed type</span>
+        <div style={{ flex: 1, height: 1, background: "var(--wb-outline)" }} />
       </div>
       <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(200px, 1fr))", gap: 14 }}>
         {FEED_TYPES.map((type) => (

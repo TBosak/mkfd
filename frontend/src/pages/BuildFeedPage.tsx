@@ -5,6 +5,7 @@ import { TypePickerGrid } from "@/components/builder/TypePickerGrid";
 import { BuilderLayout } from "@/components/builder/BuilderLayout";
 import { PreviewPanel } from "@/components/builder/PreviewPanel";
 import { FeedBuilderForm, type FeedBuilderFormHandle } from "@/components/forms/FeedBuilderForm";
+import { SourceAssistantPanel, type SourceRecommendation } from "@/components/source-assistant/SourceAssistantPanel";
 import type { SectionDef } from "@/components/builder/SectionNav";
 import type { FeedFormData } from "@/types/feed";
 
@@ -177,6 +178,23 @@ export const BuildFeedPage: React.FC<BuildFeedPageProps> = ({
       {/* Content */}
       {!activeType ? (
         <div style={{ flex: 1, overflowY: "auto" }}>
+          <SourceAssistantPanel
+            onApply={(rec: SourceRecommendation) => {
+              const typeMap: Record<string, string> = {
+                scrape: "webScraping",
+                webScraping: "webScraping",
+                rest: "api",
+                api: "api",
+                calendar: "email",
+                email: "email",
+              };
+              const mappedType = typeMap[rec.routeType] ?? rec.action?.replace("open-", "") ?? "webScraping";
+              if (["webScraping", "api", "email"].includes(mappedType)) {
+                handleTypeSelect(mappedType);
+              }
+            }}
+            onPickType={handleTypeSelect}
+          />
           <TypePickerGrid onSelect={handleTypeSelect} />
         </div>
       ) : (
