@@ -1,5 +1,6 @@
 import { describe, it, expect } from "bun:test";
-import { buildRSSFromApiData, buildRSS } from "../utilities/rss-builder.utility";
+import { buildRSSFromApiData, buildRSS, buildFeedObject, buildFeedObjectFromApiData } from "../utilities/rss-builder.utility";
+import { Feed } from "feed";
 
 const BASE_CONFIG = {
   feedId: "test-api-feed",
@@ -196,5 +197,48 @@ describe("buildRSSFromApiData — BuildRSSResult shape", () => {
       apiMapping: { ...BASE_CONFIG.apiMapping, guid: "guid" },
     }, new Map());
     expect(result.metrics.duplicateGuids).toBe(0);
+  });
+});
+
+describe("buildFeedObject", () => {
+  it("returns a Feed instance", async () => {
+    const html = `<html><body>
+      <article><h2 class="title">Story 1</h2><a class="link" href="/1">Link</a></article>
+    </body></html>`;
+    const config = {
+      feedId: "test-obj",
+      feedName: "test-obj",
+      feedType: "webScraping",
+      refreshTime: 5,
+      config: { baseUrl: "https://example.com" },
+      article: {
+        iterator: { selector: "article" },
+        title: { selector: ".title" },
+        link: { selector: ".link", attribute: "href", isRelative: true, baseUrl: "https://example.com" },
+      },
+    };
+    const result = await buildFeedObject(html, config);
+    expect(result.feed).toBeInstanceOf(Feed);
+    expect(typeof result.feed.rss2).toBe("function");
+    expect(typeof result.feed.atom1).toBe("function");
+    expect(typeof result.feed.json1).toBe("function");
+    expect(result.metrics).toBeDefined();
+  });
+});
+
+describe("buildFeedObjectFromApiData", () => {
+  it("returns a Feed instance", () => {
+    const config = {
+      feedId: "api-obj",
+      feedName: "api-obj",
+      feedType: "api",
+      refreshTime: 5,
+      config: { baseUrl: "https://api.example.com" },
+      apiMapping: { items: "items", title: "title", link: "link" },
+    };
+    const data = { items: [{ title: "Post 1", link: "https://example.com/1" }] };
+    const result = buildFeedObjectFromApiData(data, config);
+    expect(result.feed).toBeInstanceOf(Feed);
+    expect(result.metrics.itemCount).toBe(1);
   });
 });

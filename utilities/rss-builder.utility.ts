@@ -30,7 +30,12 @@ export type BuildRSSResult = {
   metrics: BuildMetrics;
 };
 
-export async function buildRSS(res: any, feedConfig: any, dateIndex?: Map<string, string>): Promise<BuildRSSResult> {
+export type BuildFeedObjectResult = {
+  feed: Feed;
+  metrics: BuildMetrics;
+};
+
+async function _buildFeedFromHtml(res: any, feedConfig: any, dateIndex?: Map<string, string>): Promise<BuildFeedObjectResult> {
   const apiConfig: ApiConfig = feedConfig.config;
   const article = feedConfig.article as CSSTargetFields;
   const reverse: boolean = feedConfig.reverse || false;
@@ -377,7 +382,7 @@ export async function buildRSS(res: any, feedConfig: any, dateIndex?: Map<string
     }
 
     return {
-      xml: injectDcNamespace(feed.rss2()),
+      feed,
       metrics: { itemCount: input.length, selectorMatches, dateFallbacks, duplicateGuids },
     };
   }
@@ -391,12 +396,21 @@ export async function buildRSS(res: any, feedConfig: any, dateIndex?: Map<string
     copyright: "",
   });
   return {
-    xml: fallbackFeed.rss2(),
+    feed: fallbackFeed,
     metrics: { itemCount: 0, selectorMatches: null, dateFallbacks: 0, duplicateGuids: 0 },
   };
 }
 
-export function buildRSSFromApiData(apiData: any, feedConfig: any, dateIndex?: Map<string, string>): BuildRSSResult {
+export async function buildFeedObject(res: any, feedConfig: any, dateIndex?: Map<string, string>): Promise<BuildFeedObjectResult> {
+  return _buildFeedFromHtml(res, feedConfig, dateIndex);
+}
+
+export async function buildRSS(res: any, feedConfig: any, dateIndex?: Map<string, string>): Promise<BuildRSSResult> {
+  const { feed, metrics } = await _buildFeedFromHtml(res, feedConfig, dateIndex);
+  return { xml: injectDcNamespace(feed.rss2()), metrics };
+}
+
+function _buildFeedFromApiData(apiData: any, feedConfig: any, dateIndex?: Map<string, string>): BuildFeedObjectResult {
   const mapping = feedConfig.apiMapping as ApiMapping;
   const config = feedConfig.config as ApiConfig;
 
@@ -629,9 +643,18 @@ export function buildRSSFromApiData(apiData: any, feedConfig: any, dateIndex?: M
   const duplicateGuids = [...guidCounts.values()].filter((c) => c > 1).length;
 
   return {
-    xml: injectDcNamespace(feed.rss2()),
+    feed,
     metrics: { itemCount: items.length, selectorMatches: null, dateFallbacks, duplicateGuids },
   };
+}
+
+export function buildFeedObjectFromApiData(apiData: any, feedConfig: any, dateIndex?: Map<string, string>): BuildFeedObjectResult {
+  return _buildFeedFromApiData(apiData, feedConfig, dateIndex);
+}
+
+export function buildRSSFromApiData(apiData: any, feedConfig: any, dateIndex?: Map<string, string>): BuildRSSResult {
+  const { feed, metrics } = _buildFeedFromApiData(apiData, feedConfig, dateIndex);
+  return { xml: injectDcNamespace(feed.rss2()), metrics };
 }
 
 async function processEnclosure(
