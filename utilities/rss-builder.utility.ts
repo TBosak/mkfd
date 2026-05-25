@@ -297,9 +297,9 @@ async function _buildFeedFromHtml(res: any, feedConfig: any, dateIndex?: Map<str
       ), // Default to 60 minutes
       updated: new Date(),
       feedLinks: {
-        rss: sanitizeURLForXML(
-          `${serverUrl}/public/feeds/${feedConfig.feedId}.xml`,
-        ),
+        rss2: sanitizeURLForXML(`${serverUrl}/public/feeds/${feedConfig.feedId}.xml`),
+        atom: sanitizeURLForXML(`${serverUrl}/public/feeds/${feedConfig.feedId}.atom`),
+        json: sanitizeURLForXML(`${serverUrl}/public/feeds/${feedConfig.feedId}.json`),
       },
     };
 
@@ -431,9 +431,9 @@ function _buildFeedFromApiData(apiData: any, feedConfig: any, dateIndex?: Map<st
     ttl: parseInt(get(apiData, mapping.feedTtl, "60") || "60", 10),
     updated: new Date(get(apiData, mapping.feedPubDate, "") || Date.now()),
     feedLinks: {
-      rss: sanitizeURLForXML(
-        `${serverUrl}/public/feeds/${feedConfig.feedId}.xml`,
-      ),
+      rss2: sanitizeURLForXML(`${serverUrl}/public/feeds/${feedConfig.feedId}.xml`),
+      atom: sanitizeURLForXML(`${serverUrl}/public/feeds/${feedConfig.feedId}.atom`),
+      json: sanitizeURLForXML(`${serverUrl}/public/feeds/${feedConfig.feedId}.json`),
     },
   };
 

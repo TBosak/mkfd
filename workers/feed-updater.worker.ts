@@ -77,7 +77,6 @@ async function fetchDataAndUpdateFeed(rawConfig: Record<string, unknown>) {
   let lastWebhookError: string | null = null;
 
   try {
-    let rssXml: string | undefined;
     let lastFeedObject: import("feed").Feed | null = null;
     const dateIndex = await loadDateIndex(feedConfig.feedId);
     const knownHashes = new Map(dateIndex);
@@ -160,7 +159,6 @@ async function fetchDataAndUpdateFeed(rawConfig: Record<string, unknown>) {
           const flareResult = await buildFeedObject(html, feedConfig, dateIndex);
           lastFeedObject = flareResult.feed;
           lastBuildResult = { xml: flareResult.feed.rss2(), metrics: flareResult.metrics };
-          rssXml = lastBuildResult.xml;
         } else {
           throw new Error(
             `FlareSolverr failed: ${
@@ -221,7 +219,6 @@ async function fetchDataAndUpdateFeed(rawConfig: Record<string, unknown>) {
         const playwrightResult = await buildFeedObject(html, feedConfig, dateIndex);
         lastFeedObject = playwrightResult.feed;
         lastBuildResult = { xml: playwrightResult.feed.rss2(), metrics: playwrightResult.metrics };
-        rssXml = lastBuildResult.xml;
       } else {
         // Standard web scraping with Axios
         const resolvedBaseUrl = resolveProtectedValues(
@@ -249,7 +246,6 @@ async function fetchDataAndUpdateFeed(rawConfig: Record<string, unknown>) {
         const standardResult = await buildFeedObject(html, feedConfig, dateIndex);
         lastFeedObject = standardResult.feed;
         lastBuildResult = { xml: standardResult.feed.rss2(), metrics: standardResult.metrics };
-        rssXml = lastBuildResult.xml;
       }
     } else if (feedConfig.feedType === "api" || feedConfig.feedType === "rest") {
       const method = String(feedConfig.config.method || "GET").toUpperCase();
@@ -318,7 +314,6 @@ async function fetchDataAndUpdateFeed(rawConfig: Record<string, unknown>) {
       const apiResult = buildFeedObjectFromApiData(apiData, feedConfig, dateIndex);
       lastFeedObject = apiResult.feed;
       lastBuildResult = { xml: apiResult.feed.rss2(), metrics: apiResult.metrics };
-      rssXml = lastBuildResult.xml;
     }
 
     if (lastFeedObject) {
@@ -382,9 +377,6 @@ async function fetchDataAndUpdateFeed(rawConfig: Record<string, unknown>) {
       } else {
         lastWebhookStatus = "skipped";
       }
-
-      // Keep rssXml for backward compat with metrics reporting
-      rssXml = lastBuildResult?.xml ?? "";
 
       self.postMessage({
         status: "done",

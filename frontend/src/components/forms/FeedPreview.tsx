@@ -57,7 +57,7 @@ export const FeedPreview = ({
         setCurrentContent(previewXml);
       })
       .finally(() => setIsLoading(false));
-  }, [format, open]);
+  }, [format, open, feedConfig, previewXml]);
 
   useEffect(() => {
     if (currentContent) {

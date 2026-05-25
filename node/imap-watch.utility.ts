@@ -399,6 +399,11 @@ export interface EmailItemSnapshot {
   date: string;
   title?: string;
   link?: string;
+  description?: string;
+  content?: string;
+  author?: Array<{ name?: string; email?: string; link?: string }>;
+  category?: Array<{ name?: string }>;
+  enclosure?: { url: string; type?: string; length?: number };
 }
 
 export function extractEmailItems(feed: Feed): EmailItemSnapshot[] {
@@ -407,6 +412,11 @@ export function extractEmailItems(feed: Feed): EmailItemSnapshot[] {
     date: (item.date instanceof Date ? item.date : new Date(item.date ?? Date.now())).toISOString(),
     title: item.title,
     link: item.link,
+    description: item.description,
+    content: item.content,
+    author: item.author,
+    category: item.category,
+    enclosure: item.enclosure,
   }));
 }
 
@@ -432,6 +442,33 @@ export interface EmailFeedMessage {
     format?: "xml" | "json";
     newItemsOnly?: boolean;
   };
+}
+
+export function sendFeedReady(feed: Feed, config: RSSFeedOptions): void {
+  const message: EmailFeedMessage = {
+    type: "feed_ready",
+    feedId: config.feedId!,
+    feedMeta: {
+      id:          config.id,
+      title:       config.title || config.feedName || "Email Feed",
+      link:        config.link || config.id,
+      description: config.description || "",
+      language:    config.language,
+      copyright:   config.copyright,
+      generator:   config.generator,
+      image:       config.image,
+      ttl:         config.ttl,
+      updated:     new Date().toISOString(),
+    },
+    items: extractEmailItems(feed),
+    webhookConfig: config.webhook ? {
+      enabled:      config.webhook.enabled,
+      url:          config.webhook.url,
+      format:       config.webhook.format,
+      newItemsOnly: config.webhook.newItemsOnly,
+    } : undefined,
+  };
+  process.stdout.write(JSON.stringify(message) + "\n");
 }
 
 if (import.meta.main) {
@@ -491,33 +528,6 @@ const imapOriginalConfig = {
 
 if (!imapOriginalConfig.password) {
     console.error(`[IMAP Node Watcher] Password for ${imapOriginalConfig.user} is missing or decryption failed. Ensure password or encryptedPassword is present in YAML and key is correct.`);
-}
-
-function sendFeedReady(feed: Feed, config: RSSFeedOptions): void {
-  const message: EmailFeedMessage = {
-    type: "feed_ready",
-    feedId: config.feedId!,
-    feedMeta: {
-      id:          config.id,
-      title:       config.title || config.feedName || "Email Feed",
-      link:        config.link || config.id,
-      description: config.description || "",
-      language:    config.language,
-      copyright:   config.copyright,
-      generator:   config.generator,
-      image:       config.image,
-      ttl:         config.ttl,
-      updated:     new Date().toISOString(),
-    },
-    items: extractEmailItems(feed),
-    webhookConfig: config.webhook ? {
-      enabled:      config.webhook.enabled,
-      url:          config.webhook.url,
-      format:       config.webhook.format,
-      newItemsOnly: config.webhook.newItemsOnly,
-    } : undefined,
-  };
-  process.stdout.write(JSON.stringify(message) + "\n");
 }
 
 class ImapWatcher {
