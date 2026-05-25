@@ -17,17 +17,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
-import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Info, Webhook } from "lucide-react";
+import { Info } from "lucide-react";
 
 interface WebhookConfigurationProps {
   register: UseFormRegister<FeedFormData>;
@@ -122,11 +116,6 @@ export const WebhookConfiguration = ({
 
   return (
     <div className="space-y-4">
-      <h3 className="text-lg font-semibold flex items-center gap-2">
-        <Webhook className="h-5 w-5" />
-        Webhook Settings
-      </h3>
-
       <div className="space-y-4 pt-4">
           <div className="space-y-2">
             <Label htmlFor="webhookUrl">Webhook URL</Label>
@@ -187,93 +176,43 @@ export const WebhookConfiguration = ({
             />
           </div>
 
-          <Accordion type="single" collapsible>
-            <AccordionItem value="customPayload">
-              <AccordionTrigger>
-                Advanced: Custom Payload Template
-              </AccordionTrigger>
-              <AccordionContent>
-                <div className="space-y-4">
-                  <div className="space-y-2">
-                    <Label htmlFor="templateSelector">Quick Templates</Label>
-                    <Select
-                      onValueChange={(value) =>
-                        loadWebhookTemplate(
-                          value as keyof typeof webhookTemplates,
-                        )
-                      }
-                    >
-                      <SelectTrigger>
-                        <SelectValue placeholder="-- Select Platform Template --" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="discord">Discord</SelectItem>
-                        <SelectItem value="slack">Slack</SelectItem>
-                        <SelectItem value="teams">Microsoft Teams</SelectItem>
-                        <SelectItem value="generic">
-                          Generic (Simple JSON)
-                        </SelectItem>
-                        <SelectItem value="custom">
-                          Custom (Clear field)
-                        </SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
-                  <div className="space-y-2">
-                    <Label htmlFor="webhookCustomPayload">
-                      Custom Payload Template (optional)
-                    </Label>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <Info className="h-4 w-4 text-muted-foreground inline-block ml-2" />
-                      </TooltipTrigger>
-                      <TooltipContent className="max-w-md">
-                        Use custom payload format. Leave empty for
-                        auto-detection. Variables: $&#123;feedId&#125;,
-                        $&#123;feedName&#125;, $&#123;itemCount&#125;,
-                        $&#123;timestamp&#125;, $&#123;firstItem.title&#125;,
-                        etc.
-                      </TooltipContent>
-                    </Tooltip>
-                    <Textarea
-                      id="webhookCustomPayload"
-                      {...register("webhook.customPayload")}
-                      placeholder="Choose a template above or write your own..."
-                      rows={10}
-                    />
-                  </div>
-
-                  <div className="text-sm text-muted-foreground space-y-1">
-                    <p>
-                      <strong>Basic Variables:</strong>
-                    </p>
-                    <ul className="list-disc list-inside space-y-1 ml-2">
-                      <li>
-                        <code>$&#123;feedId&#125;</code> - Unique feed
-                        identifier
-                      </li>
-                      <li>
-                        <code>$&#123;feedName&#125;</code> - Feed display name
-                      </li>
-                      <li>
-                        <code>$&#123;itemCount&#125;</code> - Number of items in
-                        feed
-                      </li>
-                      <li>
-                        <code>$&#123;timestamp&#125;</code> - ISO timestamp
-                      </li>
-                      <li>
-                        <code>$&#123;firstItem.title&#125;</code>,{" "}
-                        <code>$&#123;firstItem.description&#125;</code>,{" "}
-                        <code>$&#123;firstItem.link&#125;</code>
-                      </li>
-                    </ul>
-                  </div>
-                </div>
-              </AccordionContent>
-            </AccordionItem>
-          </Accordion>
+          <div className="pt-2 border-t space-y-4" style={{ borderColor: "var(--wb-outline)" }}>
+            <p className="workbench-label">Custom Payload Template</p>
+            <div className="space-y-2">
+              <Label htmlFor="templateSelector">Quick Templates</Label>
+              <Select onValueChange={(value) => loadWebhookTemplate(value as keyof typeof webhookTemplates)}>
+                <SelectTrigger>
+                  <SelectValue placeholder="-- Select Platform Template --" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="discord">Discord</SelectItem>
+                  <SelectItem value="slack">Slack</SelectItem>
+                  <SelectItem value="teams">Microsoft Teams</SelectItem>
+                  <SelectItem value="generic">Generic (Simple JSON)</SelectItem>
+                  <SelectItem value="custom">Custom (Clear field)</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <div className="flex items-center gap-2">
+                <Label htmlFor="webhookCustomPayload">Custom Payload Template</Label>
+                <Tooltip>
+                  <TooltipTrigger asChild>
+                    <Info className="h-4 w-4 text-muted-foreground" />
+                  </TooltipTrigger>
+                  <TooltipContent className="max-w-md">
+                    Leave empty for default format. Available variables: $&#123;feedId&#125;, $&#123;feedName&#125;, $&#123;itemCount&#125;, $&#123;timestamp&#125;, $&#123;firstItem.title&#125;, etc.
+                  </TooltipContent>
+                </Tooltip>
+              </div>
+              <Textarea
+                id="webhookCustomPayload"
+                {...register("webhook.customPayload")}
+                placeholder="Choose a template above or write your own..."
+                rows={8}
+              />
+            </div>
+          </div>
         </div>
     </div>
   );

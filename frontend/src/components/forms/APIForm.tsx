@@ -20,12 +20,6 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
 
 type RawConfigValue =
   | string
@@ -238,196 +232,87 @@ export const APIForm = ({ register, control, setValue, watch, activeSection }: A
             />
           </div>
 
-      {/* Additional Fields in Accordion — shown in mapping section */}
-      <Accordion type="multiple" className="w-full">
-        <AccordionItem value="additional">
-          <AccordionTrigger>Additional Item Fields</AccordionTrigger>
-          <AccordionContent>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="apiAuthor">Author Field</Label>
-                <Input
-                  id="apiAuthor"
-                  {...register("apiAuthor")}
-                  placeholder="author"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="apiEnclosureUrl">Enclosure URL JSON Path</Label>
-                <Input
-                  id="apiEnclosureUrl"
-                  {...register("apiEnclosureUrl")}
-                  placeholder="image.url"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="apiEnclosureSize">
-                  Enclosure Size JSON Path
-                </Label>
-                <Input
-                  id="apiEnclosureSize"
-                  {...register("apiEnclosureSize")}
-                  placeholder="image.size"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="apiEnclosureType">
-                  Enclosure Type JSON Path
-                </Label>
-                <Input
-                  id="apiEnclosureType"
-                  {...register("apiEnclosureType")}
-                  placeholder="image.type"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="apiContentEncoded">
-                  Content Encoded JSON Path
-                </Label>
-                <Input
-                  id="apiContentEncoded"
-                  {...register("apiContentEncoded")}
-                  placeholder="content"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="apiSummary">Summary JSON Path</Label>
-                <Input
-                  id="apiSummary"
-                  {...register("apiSummary")}
-                  placeholder="summary"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="apiGuid">GUID JSON Path</Label>
-                <Input id="apiGuid" {...register("apiGuid")} placeholder="id" />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="apiCategories">
-                  Item Categories JSON Path (comma-separated string)
-                </Label>
-                <Input
-                  id="apiCategories"
-                  {...register("apiCategories")}
-                  placeholder="categories"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="apiContributors">
-                  Contributors JSON Path (comma-separated string)
-                </Label>
-                <Input
-                  id="apiContributors"
-                  {...register("apiContributors")}
-                  placeholder="contributors"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="apiLat">Latitude JSON Path</Label>
-                <Input
-                  id="apiLat"
-                  {...register("apiLat")}
-                  placeholder="location.lat"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="apiLong">Longitude JSON Path</Label>
-                <Input
-                  id="apiLong"
-                  {...register("apiLong")}
-                  placeholder="location.long"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="apiSourceUrl">Source URL JSON Path</Label>
-                <Input
-                  id="apiSourceUrl"
-                  {...register("apiSourceUrl")}
-                  placeholder="source.url"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="apiSourceTitle">Source Title JSON Path</Label>
-                <Input
-                  id="apiSourceTitle"
-                  {...register("apiSourceTitle")}
-                  placeholder="source.title"
-                />
-              </div>
+          {/* Additional item fields */}
+          <div className="pt-2 border-t space-y-4" style={{ borderColor: "var(--wb-outline)" }}>
+            <p className="workbench-label">Additional Item Fields</p>
+            <div className="space-y-2">
+              <Label htmlFor="apiAuthor">Author Field</Label>
+              <Input id="apiAuthor" {...register("apiAuthor")} placeholder="author" />
             </div>
-          </AccordionContent>
-        </AccordionItem>
-
-        <AccordionItem value="feedLevel">
-          <AccordionTrigger>Feed Level Information (Optional)</AccordionTrigger>
-          <AccordionContent>
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label htmlFor="apiFeedTitle">Feed Title JSON Path</Label>
-                <Input
-                  id="apiFeedTitle"
-                  {...register("apiFeedTitle")}
-                  placeholder="feed.title"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="apiFeedDescription">
-                  Feed Description JSON Path
-                </Label>
-                <Input
-                  id="apiFeedDescription"
-                  {...register("apiFeedDescription")}
-                  placeholder="feed.description"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="apiFeedLanguage">Feed Language JSON Path</Label>
-                <Input
-                  id="apiFeedLanguage"
-                  {...register("apiFeedLanguage")}
-                  placeholder="feed.language"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="apiFeedCopyright">
-                  Feed Copyright JSON Path
-                </Label>
-                <Input
-                  id="apiFeedCopyright"
-                  {...register("apiFeedCopyright")}
-                  placeholder="feed.copyright"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="apiFeedImageUrl">
-                  Feed Image URL JSON Path
-                </Label>
-                <Input
-                  id="apiFeedImageUrl"
-                  {...register("apiFeedImageUrl")}
-                  placeholder="feed.image"
-                />
-              </div>
+            <div className="space-y-2">
+              <Label htmlFor="apiEnclosureUrl">Enclosure URL JSON Path</Label>
+              <Input id="apiEnclosureUrl" {...register("apiEnclosureUrl")} placeholder="image.url" />
             </div>
-          </AccordionContent>
-        </AccordionItem>
-      </Accordion>
+            <div className="space-y-2">
+              <Label htmlFor="apiEnclosureSize">Enclosure Size JSON Path</Label>
+              <Input id="apiEnclosureSize" {...register("apiEnclosureSize")} placeholder="image.size" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="apiEnclosureType">Enclosure Type JSON Path</Label>
+              <Input id="apiEnclosureType" {...register("apiEnclosureType")} placeholder="image.type" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="apiContentEncoded">Content Encoded JSON Path</Label>
+              <Input id="apiContentEncoded" {...register("apiContentEncoded")} placeholder="content" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="apiSummary">Summary JSON Path</Label>
+              <Input id="apiSummary" {...register("apiSummary")} placeholder="summary" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="apiGuid">GUID JSON Path</Label>
+              <Input id="apiGuid" {...register("apiGuid")} placeholder="id" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="apiCategories">Categories JSON Path</Label>
+              <Input id="apiCategories" {...register("apiCategories")} placeholder="categories" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="apiContributors">Contributors JSON Path</Label>
+              <Input id="apiContributors" {...register("apiContributors")} placeholder="contributors" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="apiLat">Latitude JSON Path</Label>
+              <Input id="apiLat" {...register("apiLat")} placeholder="location.lat" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="apiLong">Longitude JSON Path</Label>
+              <Input id="apiLong" {...register("apiLong")} placeholder="location.long" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="apiSourceUrl">Source URL JSON Path</Label>
+              <Input id="apiSourceUrl" {...register("apiSourceUrl")} placeholder="source.url" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="apiSourceTitle">Source Title JSON Path</Label>
+              <Input id="apiSourceTitle" {...register("apiSourceTitle")} placeholder="source.title" />
+            </div>
+          </div>
+
+          {/* Feed-level fields */}
+          <div className="pt-2 border-t space-y-4" style={{ borderColor: "var(--wb-outline)" }}>
+            <p className="workbench-label">Feed Level Information</p>
+            <div className="space-y-2">
+              <Label htmlFor="apiFeedTitle">Feed Title JSON Path</Label>
+              <Input id="apiFeedTitle" {...register("apiFeedTitle")} placeholder="feed.title" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="apiFeedDescription">Feed Description JSON Path</Label>
+              <Input id="apiFeedDescription" {...register("apiFeedDescription")} placeholder="feed.description" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="apiFeedLanguage">Feed Language JSON Path</Label>
+              <Input id="apiFeedLanguage" {...register("apiFeedLanguage")} placeholder="feed.language" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="apiFeedCopyright">Feed Copyright JSON Path</Label>
+              <Input id="apiFeedCopyright" {...register("apiFeedCopyright")} placeholder="feed.copyright" />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="apiFeedImageUrl">Feed Image URL JSON Path</Label>
+              <Input id="apiFeedImageUrl" {...register("apiFeedImageUrl")} placeholder="feed.image" />
+            </div>
+          </div>
         </Section>
       )}
     </div>

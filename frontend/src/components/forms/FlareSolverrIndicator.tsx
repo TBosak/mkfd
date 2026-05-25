@@ -53,38 +53,7 @@ export const FlareSolverrIndicator = ({
   }
 
   const handleClick = () => {
-    // Find the FlareSolverr section
-    const flaresolverrSection = document.getElementById("flaresolverr-section");
-
-    if (flaresolverrSection) {
-      // First, ensure the Additional Options accordion is open
-      const accordionTrigger = document.querySelector(
-        '[data-accordion-trigger="additional"]'
-      ) as HTMLButtonElement;
-
-      if (accordionTrigger) {
-        const accordionContent = accordionTrigger.getAttribute("data-state");
-
-        // If accordion is closed, open it
-        if (accordionContent === "closed") {
-          accordionTrigger.click();
-        }
-      }
-
-      // Wait a brief moment for accordion animation, then scroll
-      setTimeout(() => {
-        flaresolverrSection.scrollIntoView({
-          behavior: "smooth",
-          block: "center",
-        });
-
-        // Add a brief highlight effect
-        flaresolverrSection.classList.add("ring-2", "ring-blue-500", "ring-offset-2", "rounded-lg");
-        setTimeout(() => {
-          flaresolverrSection.classList.remove("ring-2", "ring-blue-500", "ring-offset-2", "rounded-lg");
-        }, 2000);
-      }, 300);
-    }
+    document.getElementById("flaresolverr-section")?.scrollIntoView({ behavior: "smooth", block: "center" });
   };
 
   const badge = (
