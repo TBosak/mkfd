@@ -336,7 +336,7 @@ describe("resolveAllEffectiveSettings", () => {
 describe("getEffectiveSettings / applySettingsUpdate (DB)", () => {
   it("returns defaults when DB is empty", async () => {
     const sqlite = makeTestDb();
-    withEnv({ RETENTION_DAYS: undefined, RETENTION_RUNS: undefined }, async () => {
+    await withEnv({ RETENTION_DAYS: undefined, RETENTION_RUNS: undefined }, async () => {
       const effective = await getEffectiveSettings(sqlite);
       expect(effective.retention_days.value).toBe(90);
       expect(effective.retention_days.source).toBe("default");

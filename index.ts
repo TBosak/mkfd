@@ -1488,12 +1488,12 @@ function initializeWorker(feedConfig: any) {
           webhookError:    message.data.metrics.webhookError ?? null,
         });
         runLogEmitter.emit("run", row);
-        const effectiveSettings2 = await getEffectiveSettings(getDb());
+        const effectiveSettings = await getEffectiveSettings(getDb());
         await pruneRunLogs(getDb(), feedConfig.feedId, {
-          retentionDays: effectiveSettings2.retention_days.value as number,
-          retentionDaysEnabled: effectiveSettings2.retention_days_enabled.value as boolean,
-          retentionRuns: effectiveSettings2.retention_runs.value as number,
-          retentionRunsEnabled: effectiveSettings2.retention_runs_enabled.value as boolean,
+          retentionDays: effectiveSettings.retention_days.value as number,
+          retentionDaysEnabled: effectiveSettings.retention_days_enabled.value as boolean,
+          retentionRuns: effectiveSettings.retention_runs.value as number,
+          retentionRunsEnabled: effectiveSettings.retention_runs_enabled.value as boolean,
         });
       } catch (logErr) {
         console.error("[IMAP] Failed to insert run log:", logErr);
@@ -1521,12 +1521,12 @@ function initializeWorker(feedConfig: any) {
           webhookError:    null,
         });
         runLogEmitter.emit("run", row);
-        const effectiveSettings3 = await getEffectiveSettings(getDb());
+        const effectiveSettings = await getEffectiveSettings(getDb());
         await pruneRunLogs(getDb(), feedConfig.feedId, {
-          retentionDays: effectiveSettings3.retention_days.value as number,
-          retentionDaysEnabled: effectiveSettings3.retention_days_enabled.value as boolean,
-          retentionRuns: effectiveSettings3.retention_runs.value as number,
-          retentionRunsEnabled: effectiveSettings3.retention_runs_enabled.value as boolean,
+          retentionDays: effectiveSettings.retention_days.value as number,
+          retentionDaysEnabled: effectiveSettings.retention_days_enabled.value as boolean,
+          retentionRuns: effectiveSettings.retention_runs.value as number,
+          retentionRunsEnabled: effectiveSettings.retention_runs_enabled.value as boolean,
         });
       } catch (logErr) {
         console.error("[IMAP] Failed to insert run log:", logErr);

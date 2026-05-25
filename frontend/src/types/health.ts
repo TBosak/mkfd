@@ -43,11 +43,3 @@ export type ChartRun = {
   itemCount: number | null;
   status: "success" | "error";
 };
-
-export type HealthSettings = {
-  retentionDays: number;
-  retentionDaysEnabled: boolean;
-  retentionRuns: number;
-  retentionRunsEnabled: boolean;
-  dbPath: string;
-};
