@@ -13,10 +13,40 @@ import { getChromiumLaunchOptions } from "../utilities/chrome-extensions.utility
 import { getRandomUserAgent } from "../utilities/user-agents.utility";
 import { loadDateIndex, saveDateIndex, getPreviousFeedHistory, storeFeedHistory } from "../utilities/feed-history.utility";
 import { resolveProtectedValues } from "../utilities/protected-values.utility";
-import { assertOutboundFetchAllowed, parseAllowlist } from "../utilities/outbound-fetch-policy.utility";
+import { assertOutboundFetchAllowed, parseAllowlist, type OutboundFetchPolicyOptions } from "../utilities/outbound-fetch-policy.utility";
 
 declare var self: Worker;
 const rssDir = "./public/feeds";
+
+const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
+
+/**
+ * Performs an axios GET that manually follows redirects, re-checking the
+ * outbound fetch policy before each hop. Prevents redirect-based SSRF.
+ */
+async function axiosGetWithPolicyRedirects(
+  url: string,
+  config: AxiosRequestConfig,
+  policyOptions: OutboundFetchPolicyOptions,
+  maxRedirects = 5,
+): Promise<import("axios").AxiosResponse> {
+  let currentUrl = url;
+  for (let hop = 0; hop <= maxRedirects; hop++) {
+    const response = await axios.get(currentUrl, { ...config, maxRedirects: 0 });
+    if (!REDIRECT_STATUSES.has(response.status)) {
+      return response;
+    }
+    const location = response.headers["location"];
+    if (!location) {
+      throw new Error(`Redirect from "${currentUrl}" had no Location header.`);
+    }
+    // Resolve relative redirects against the current URL
+    const nextUrl = new URL(location, currentUrl).toString();
+    await assertOutboundFetchAllowed(nextUrl, policyOptions);
+    currentUrl = nextUrl;
+  }
+  throw new Error(`Too many redirects (>${maxRedirects}) following "${url}".`);
+}
 
 async function fetchDataAndUpdateFeed(rawConfig: Record<string, unknown>) {
   const feedConfig = normalizeLoadedFeedConfig(rawConfig);
@@ -39,20 +69,28 @@ async function fetchDataAndUpdateFeed(rawConfig: Record<string, unknown>) {
         ? ((feedConfig.config?.baseUrl || "") + (feedConfig.config?.route || "")).trim()
         : null;
 
+    // Build the effective outbound-fetch policy for this feed (used for initial
+    // check and for re-checking redirect targets).
+    const globalAllowPrivate = process.env.ALLOW_PRIVATE_FETCHES === "true";
+    const globalAllowlist = parseAllowlist(process.env.OUTBOUND_FETCH_ALLOWLIST);
+    // Fix: feed value takes priority when explicitly set; fall back to global only if absent.
+    const hasFeedOverride = 'allowPrivateFetches' in feedConfig;
+    const effectivePolicyOptions: OutboundFetchPolicyOptions = {
+      allowPrivateFetches: hasFeedOverride
+        ? (feedConfig as any).allowPrivateFetches
+        : globalAllowPrivate,
+      allowlist: [...new Set([
+        ...globalAllowlist,
+        ...parseAllowlist(
+          Array.isArray((feedConfig as any).allowlist)
+            ? (feedConfig as any).allowlist.join(",")
+            : (feedConfig as any).allowlist
+        ),
+      ])],
+    };
+
     if (feedUrl) {
-      // Per-feed overrides (feed-level allowPrivateFetches / allowlist) merge over globals.
-      const globalAllowPrivate = process.env.ALLOW_PRIVATE_FETCHES === "true";
-      const globalAllowlist = parseAllowlist(process.env.OUTBOUND_FETCH_ALLOWLIST);
-      const feedAllowPrivate = (feedConfig as any).allowPrivateFetches ?? false;
-      const feedAllowlist: string[] = parseAllowlist(
-        Array.isArray((feedConfig as any).allowlist)
-          ? (feedConfig as any).allowlist.join(",")
-          : (feedConfig as any).allowlist
-      );
-      await assertOutboundFetchAllowed(feedUrl, {
-        allowPrivateFetches: feedAllowPrivate || globalAllowPrivate,
-        allowlist: [...new Set([...globalAllowlist, ...feedAllowlist])],
-      });
+      await assertOutboundFetchAllowed(feedUrl, effectivePolicyOptions);
     }
 
     // Common: Convert cookie array to string for Axios, or format for Playwright
@@ -177,14 +215,18 @@ async function fetchDataAndUpdateFeed(rawConfig: Record<string, unknown>) {
           feedConfig.headers ?? {},
           { encryptionKey: encKey },
         );
-        const response = await axios.get(resolvedBaseUrl, {
-          headers: {
-            ...resolvedHeaders,
-            ...(cookieString && { Cookie: cookieString }),
+        const response = await axiosGetWithPolicyRedirects(
+          resolvedBaseUrl,
+          {
+            headers: {
+              ...resolvedHeaders,
+              ...(cookieString && { Cookie: cookieString }),
+            },
+            maxContentLength: 2 * 1024 * 1024, // 2MB
+            maxBodyLength: 2 * 1024 * 1024, // 2MB
           },
-          maxContentLength: 2 * 1024 * 1024, // 2MB
-          maxBodyLength: 2 * 1024 * 1024, // 2MB
-        });
+          effectivePolicyOptions,
+        );
         httpStatus = response.status;
         const html = response.data;
         lastBuildResult = await buildRSS(html, feedConfig, dateIndex);
@@ -232,10 +274,28 @@ async function fetchDataAndUpdateFeed(rawConfig: Record<string, unknown>) {
       if (hasBody) axiosConfig.data = body;
 
       axiosConfig.timeout = 60000;
+      axiosConfig.maxRedirects = 0;
 
-      const response = await axios(axiosConfig);
-      httpStatus = response.status;
-      const apiData = response.data;
+      let response: import("axios").AxiosResponse;
+      // For non-GET/HEAD requests we don't auto-follow; only GET redirects are safe to re-issue.
+      // Wrap in redirect loop same as GET path for consistency.
+      let currentApiUrl = url;
+      for (let hop = 0; hop <= 5; hop++) {
+        axiosConfig.url = currentApiUrl;
+        const r = await axios(axiosConfig);
+        if (!REDIRECT_STATUSES.has(r.status)) {
+          response = r;
+          break;
+        }
+        const location = r.headers["location"];
+        if (!location) throw new Error(`Redirect from "${currentApiUrl}" had no Location header.`);
+        const nextUrl = new URL(location, currentApiUrl).toString();
+        await assertOutboundFetchAllowed(nextUrl, effectivePolicyOptions);
+        currentApiUrl = nextUrl;
+        if (hop === 5) throw new Error(`Too many redirects (>5) following "${url}".`);
+      }
+      httpStatus = response!.status;
+      const apiData = response!.data;
       lastBuildResult = buildRSSFromApiData(apiData, feedConfig, dateIndex);
       rssXml = lastBuildResult.xml;
     }

@@ -1,6 +1,35 @@
 import axios from "axios";
 import * as cheerio from "cheerio";
 import CSSTarget from "../models/csstarget.model";
+import { assertOutboundFetchAllowed, type OutboundFetchPolicyOptions } from "./outbound-fetch-policy.utility";
+
+const REDIRECT_STATUSES_SE = new Set([301, 302, 303, 307, 308]);
+
+/**
+ * Performs an axios GET that manually follows redirects, re-checking the
+ * outbound fetch policy on each hop. Prevents redirect-based SSRF.
+ */
+async function axiosGetWithPolicyRedirects(
+  url: string,
+  policyOptions: OutboundFetchPolicyOptions,
+  maxRedirects = 5,
+): Promise<import("axios").AxiosResponse> {
+  let currentUrl = url;
+  for (let hop = 0; hop <= maxRedirects; hop++) {
+    const response = await axios.get(currentUrl, { maxRedirects: 0 });
+    if (!REDIRECT_STATUSES_SE.has(response.status)) {
+      return response;
+    }
+    const location = response.headers["location"];
+    if (!location) {
+      throw new Error(`Redirect from "${currentUrl}" had no Location header.`);
+    }
+    const nextUrl = new URL(location, currentUrl).toString();
+    await assertOutboundFetchAllowed(nextUrl, policyOptions);
+    currentUrl = nextUrl;
+  }
+  throw new Error(`Too many redirects (>${maxRedirects}) following "${url}".`);
+}
 
 interface SuggestedSelectors {
   iterator: string;
@@ -325,9 +354,16 @@ function chooseBestIterator(
 export async function suggestSelectors(
   url: string,
   flaresolverr?: FlareSolverrConfig,
-  cookies?: Array<{ name: string; value: string }>
+  cookies?: Array<{ name: string; value: string }>,
+  policyOptions?: OutboundFetchPolicyOptions,
 ): Promise<SuggestedSelectors> {
   let html: string;
+
+  // Default policy options (no private fetches, no allowlist) used if not provided
+  const effectivePolicyOptions: OutboundFetchPolicyOptions = policyOptions ?? {
+    allowPrivateFetches: false,
+    allowlist: [],
+  };
 
   if (flaresolverr?.enabled && flaresolverr?.serverUrl) {
     // Use FlareSolverr to fetch the page
@@ -370,8 +406,8 @@ export async function suggestSelectors(
       );
     }
   } else {
-    // Standard axios fetch
-    const response = await axios.get(url);
+    // Redirect-aware fetch to prevent redirect-based SSRF
+    const response = await axiosGetWithPolicyRedirects(url, effectivePolicyOptions);
     html = response.data;
   }
 

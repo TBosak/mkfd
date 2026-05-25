@@ -144,9 +144,9 @@ describe("isBlockedAddress — IPv6 other", () => {
 describe("isBlockedAddress — public IPv6", () => {
   it("allows 2606:4700::1111 (Cloudflare DNS)", () =>
     expect(isBlockedAddress("2606:4700::1111")).toBe(false));
-  it("allows 2001:4860:4860::8888 (Google DNS) - NOT Teredo (different prefix)", () =>
-    // Note: 2001:4860:... is in the 2001::/32 (Teredo) range — this is actually blocked.
-    // We just verify our logic is consistent.
+  it("allows 2606:4700::1111 (second Cloudflare DNS check)", () =>
+    // Note: 2001:4860:4860::8888 (Google DNS) is in the 2001::/32 (Teredo) range and is blocked.
+    // This test verifies that 2606:4700::1111 (Cloudflare) is allowed.
     expect(isBlockedAddress("2606:4700::1111")).toBe(false));
 });
 
@@ -410,5 +410,16 @@ describe("assertOutboundFetchAllowed — DNS resolution blocking", () => {
       })
     ).resolves.toBeUndefined();
     expect(dnsCalled).toBe(false);
+  });
+
+  it("throws (fail-closed) when _dnsLookupFn rejects", async () => {
+    // DNS failures must block the request, not silently allow it
+    await expect(
+      assertOutboundFetchAllowed("http://unknown.example.com/feed", {
+        _dnsLookupFn: async (_hostname: string) => {
+          throw new Error("ENOTFOUND unknown.example.com");
+        },
+      })
+    ).rejects.toThrow();
   });
 });

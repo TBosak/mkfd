@@ -28,7 +28,7 @@ import { getRandomUserAgent } from "./utilities/user-agents.utility";
 import * as cheerio from "cheerio";
 import { EventEmitter } from "node:events";
 import { initDb, getDb, insertRunLog, pruneRunLogs, getSettings, saveSettings, createFeedHistoryStore, migrateLegacyFeedHistory } from "./lib/analytics/db";
-import { assertOutboundFetchAllowed, parseAllowlist } from "./utilities/outbound-fetch-policy.utility";
+import { assertOutboundFetchAllowed, parseAllowlist, type OutboundFetchPolicyOptions } from "./utilities/outbound-fetch-policy.utility";
 import { setFeedHistoryStore } from "./utilities/feed-history.utility";
 import type { RunLog } from "./lib/analytics/schema";
 import { sql, and, eq, gte, lte, desc } from "drizzle-orm";
@@ -47,14 +47,62 @@ const args = minimist(process.argv.slice(3));
  * Migration note: replace these env reads with settings lookups when the
  * Settings Page is implemented.
  */
-function getGlobalFetchPolicyOptions(): {
-  allowPrivateFetches: boolean;
-  allowlist: string[];
-} {
+function getGlobalFetchPolicyOptions(): OutboundFetchPolicyOptions {
   return {
     allowPrivateFetches: process.env.ALLOW_PRIVATE_FETCHES === "true",
     allowlist: parseAllowlist(process.env.OUTBOUND_FETCH_ALLOWLIST),
   };
+}
+
+/**
+ * Merges feed-level allowPrivateFetches / allowlist overrides on top of global
+ * policy options. Feed values take priority when explicitly present on the config.
+ */
+function mergeFeedPolicyOptions(
+  global: OutboundFetchPolicyOptions,
+  feedConfig: any,
+): OutboundFetchPolicyOptions {
+  const hasFeedOverride = feedConfig != null && 'allowPrivateFetches' in feedConfig;
+  const feedAllowlist: string[] = parseAllowlist(
+    Array.isArray(feedConfig?.allowlist)
+      ? feedConfig.allowlist.join(",")
+      : feedConfig?.allowlist
+  );
+  return {
+    allowPrivateFetches: hasFeedOverride
+      ? (feedConfig.allowPrivateFetches as boolean)
+      : (global.allowPrivateFetches ?? false),
+    allowlist: [...new Set([...(global.allowlist ?? []), ...feedAllowlist])],
+  };
+}
+
+const REDIRECT_STATUSES_IDX = new Set([301, 302, 303, 307, 308]);
+
+/**
+ * Performs an axios GET that manually follows redirects, re-checking the
+ * outbound fetch policy on each hop. Prevents redirect-based SSRF.
+ */
+async function axiosGetWithPolicyRedirects(
+  url: string,
+  config: import("axios").AxiosRequestConfig,
+  policyOptions: OutboundFetchPolicyOptions,
+  maxRedirects = 5,
+): Promise<import("axios").AxiosResponse> {
+  let currentUrl = url;
+  for (let hop = 0; hop <= maxRedirects; hop++) {
+    const response = await axios.get(currentUrl, { ...config, maxRedirects: 0 });
+    if (!REDIRECT_STATUSES_IDX.has(response.status)) {
+      return response;
+    }
+    const location = response.headers["location"];
+    if (!location) {
+      throw new Error(`Redirect from "${currentUrl}" had no Location header.`);
+    }
+    const nextUrl = new URL(location, currentUrl).toString();
+    await assertOutboundFetchAllowed(nextUrl, policyOptions);
+    currentUrl = nextUrl;
+  }
+  throw new Error(`Too many redirects (>${maxRedirects}) following "${url}".`);
 }
 
 async function prompt(question: string): Promise<string> {
@@ -278,8 +326,10 @@ app.post("/", async (ctx) => {
 
     if (body.feedType === "webScraping" && body.feedUrl) {
       try {
-        // SSRF protection: validate feed URL before fetching sample HTML
-        await assertOutboundFetchAllowed(body.feedUrl, getGlobalFetchPolicyOptions());
+        // SSRF protection: validate feed URL before fetching sample HTML.
+        // Merge feed-level allowPrivateFetches/allowlist overrides over global options.
+        const sampleHtmlPolicyOptions = mergeFeedPolicyOptions(getGlobalFetchPolicyOptions(), body);
+        await assertOutboundFetchAllowed(body.feedUrl, sampleHtmlPolicyOptions);
 
         // Check if FlareSolverr is enabled for this request
         const flaresolverrData = body.flaresolverr || {};
@@ -331,11 +381,11 @@ app.post("/", async (ctx) => {
             sampleHtml = "";
           }
         } else {
-          // Use standard axios fetch
-          const response = await axios.get(body.feedUrl, {
+          // Use redirect-aware fetch to prevent redirect-based SSRF
+          const response = await axiosGetWithPolicyRedirects(body.feedUrl, {
             maxContentLength: 2 * 1024 * 1024,
             maxBodyLength: 2 * 1024 * 1024,
-          });
+          }, sampleHtmlPolicyOptions);
           sampleHtml = response.data;
         }
       } catch (e) {
@@ -516,8 +566,9 @@ app.get("/proxy", async (ctx) => {
   );
 
   // SSRF protection: validate target URL before fetching
+  const proxyPolicyOptions = getGlobalFetchPolicyOptions();
   try {
-    await assertOutboundFetchAllowed(targetUrl, getGlobalFetchPolicyOptions());
+    await assertOutboundFetchAllowed(targetUrl, proxyPolicyOptions);
   } catch (policyErr: any) {
     return ctx.text(policyErr.message, 403);
   }
@@ -557,8 +608,8 @@ app.get("/proxy", async (ctx) => {
         );
       }
     } else {
-      // Standard axios fetch
-      const response = await axios.get(targetUrl);
+      // Redirect-aware fetch to prevent redirect-based SSRF
+      const response = await axiosGetWithPolicyRedirects(targetUrl, {}, proxyPolicyOptions);
       html = response.data;
     }
 
@@ -689,13 +740,15 @@ app.post("/imap/folders", async (c) => {
 app.post("/utils/suggest-selectors", async (c) => {
   const { url, flaresolverr, cookies } = await c.req.json();
   // SSRF protection: validate URL before fetching for selector suggestions
+  const suggestPolicyOptions = getGlobalFetchPolicyOptions();
   try {
-    await assertOutboundFetchAllowed(url, getGlobalFetchPolicyOptions());
+    await assertOutboundFetchAllowed(url, suggestPolicyOptions);
   } catch (policyErr: any) {
     return c.json({ error: policyErr.message }, 403);
   }
   try {
-    const selectors = await suggestSelectors(url, flaresolverr, cookies);
+    // Pass policy options so the utility can re-check on any redirect
+    const selectors = await suggestSelectors(url, flaresolverr, cookies, suggestPolicyOptions);
     return c.json(selectors);
   } catch (err) {
     return c.json({ error: err.message }, 500);
@@ -712,10 +765,18 @@ app.post("/api/flaresolverr/health", async (c) => {
   // Normalize URL to remove trailing slashes
   const normalizedUrl = normalizeUrl(serverUrl);
 
+  // SSRF protection: validate the server URL before fetching
+  try {
+    await assertOutboundFetchAllowed(`${normalizedUrl}/`, getGlobalFetchPolicyOptions());
+  } catch (policyErr: any) {
+    return c.json({ active: false, error: policyErr.message });
+  }
+
   try {
     // Try to reach the FlareSolverr server
     const response = await axios.get(`${normalizedUrl}/`, {
       timeout: 5000,
+      maxRedirects: 0,
       validateStatus: () => true, // Accept any status code
     });
 
@@ -811,8 +872,10 @@ app.put("/api/feeds/:id", async (ctx) => {
 
     if (body.feedType === "webScraping" && body.feedUrl) {
       try {
-        // SSRF protection: validate feed URL before fetching sample HTML
-        await assertOutboundFetchAllowed(body.feedUrl, getGlobalFetchPolicyOptions());
+        // SSRF protection: validate feed URL before fetching sample HTML.
+        // Merge feed-level allowPrivateFetches/allowlist overrides over global options.
+        const putSamplePolicyOptions = mergeFeedPolicyOptions(getGlobalFetchPolicyOptions(), body);
+        await assertOutboundFetchAllowed(body.feedUrl, putSamplePolicyOptions);
 
         const flaresolverrData = body.flaresolverr || {};
         const flaresolverrEnabled = typeof flaresolverrData.enabled === "boolean" ? flaresolverrData.enabled : false;
@@ -825,7 +888,8 @@ app.put("/api/feeds/:id", async (ctx) => {
           const resp = await axios.post(`${flaresolverrUrl}/v1`, payload, { headers: { "Content-Type": "application/json" }, timeout: flaresolverrTimeout + 5000 });
           if (resp.data?.solution?.response && resp.data?.solution?.status === 200) sampleHtml = resp.data.solution.response;
         } else {
-          const resp = await axios.get(body.feedUrl, { maxContentLength: 2 * 1024 * 1024, maxBodyLength: 2 * 1024 * 1024 });
+          // Use redirect-aware fetch to prevent redirect-based SSRF
+          const resp = await axiosGetWithPolicyRedirects(body.feedUrl, { maxContentLength: 2 * 1024 * 1024, maxBodyLength: 2 * 1024 * 1024 }, putSamplePolicyOptions);
           sampleHtml = resp.data;
         }
       } catch (e) {
@@ -1347,13 +1411,15 @@ async function generatePreview(feedConfig: any) {
     // The feedConfig passed here should now be the fully expanded one
     // including all item and feed level options as defined in POST / and /preview routes.
 
-    // SSRF protection: validate the target URL before any fetch in preview generation
+    // SSRF protection: validate the target URL before any fetch in preview generation.
+    // Merge feed-level allowPrivateFetches/allowlist overrides over global options.
+    const previewPolicyOptions = mergeFeedPolicyOptions(getGlobalFetchPolicyOptions(), feedConfig);
     const previewUrl =
       feedConfig.feedType === "webScraping" || feedConfig.feedType === "api" || feedConfig.feedType === "rest"
         ? ((feedConfig.config?.baseUrl || "") + (feedConfig.config?.route || "")).trim()
         : null;
     if (previewUrl) {
-      await assertOutboundFetchAllowed(previewUrl, getGlobalFetchPolicyOptions());
+      await assertOutboundFetchAllowed(previewUrl, previewPolicyOptions);
     }
 
     if (feedConfig.feedType === "webScraping") {
@@ -1469,12 +1535,12 @@ async function generatePreview(feedConfig: any) {
         // buildRSS expects the full feedConfig which now includes all detailed options
         rssXml = (await buildRSS(html, feedConfig)).xml;
       } else {
-        // Standard axios call for non-advanced web scraping
+        // Standard axios call for non-advanced web scraping (redirect-aware to prevent SSRF)
         console.log("[Preview] Using standard (non-advanced) scraping");
         const cookieString = (feedConfig.cookies || [])
           .map((c) => `${c.name}=${c.value}`)
           .join("; ");
-        const response = await axios.get(feedConfig.config.baseUrl, {
+        const response = await axiosGetWithPolicyRedirects(feedConfig.config.baseUrl, {
           headers: {
             ...(feedConfig.headers || {}),
             ...(cookieString && { Cookie: cookieString }),
@@ -1482,7 +1548,7 @@ async function generatePreview(feedConfig: any) {
           maxContentLength: 2 * 1024 * 1024,
           maxBodyLength: 2 * 1024 * 1024,
           timeout: 30000, // 30 second timeout
-        });
+        }, previewPolicyOptions);
         console.log("[Preview] Page fetched, building RSS...");
         const html = response.data;
         rssXml = (await buildRSS(html, feedConfig)).xml;
@@ -1530,11 +1596,27 @@ async function generatePreview(feedConfig: any) {
       if (hasBody) axiosConfig.data = body;
 
       axiosConfig.timeout = 60000;
+      axiosConfig.maxRedirects = 0;
 
       console.log("Preview Axios Config:", axiosConfig);
 
-      const response = await axios(axiosConfig);
-      const apiData = response.data;
+      let previewApiResponse: import("axios").AxiosResponse | undefined;
+      let currentPreviewUrl = url;
+      for (let hop = 0; hop <= 5; hop++) {
+        axiosConfig.url = currentPreviewUrl;
+        const r = await axios(axiosConfig);
+        if (!REDIRECT_STATUSES_IDX.has(r.status)) {
+          previewApiResponse = r;
+          break;
+        }
+        const location = r.headers["location"];
+        if (!location) throw new Error(`Redirect from "${currentPreviewUrl}" had no Location header.`);
+        const nextUrl = new URL(location, currentPreviewUrl).toString();
+        await assertOutboundFetchAllowed(nextUrl, previewPolicyOptions);
+        currentPreviewUrl = nextUrl;
+        if (hop === 5) throw new Error(`Too many redirects (>5) following "${url}".`);
+      }
+      const apiData = previewApiResponse!.data;
       rssXml = buildRSSFromApiData(apiData, feedConfig).xml;
     }
     return rssXml;
