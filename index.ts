@@ -36,7 +36,7 @@ import { sql, and, eq, gte, lte, desc, inArray } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import * as analyticsSchema from "./lib/analytics/schema";
 import { streamSSE } from "hono/streaming";
-import { listFeedConfigs, readFeedConfig, deleteFeedConfig, duplicateFeedConfig, exportFeedConfig } from "./utilities/config-manager.utility";
+import { listFeedConfigs, readFeedConfig, deleteFeedConfig, duplicateFeedConfig, exportFeedConfig, assertSafeFeedId } from "./utilities/config-manager.utility";
 import { patchMetadata, patchEnabled } from "./utilities/config-metadata.utility";
 import { buildFeedSummary } from "./utilities/feed-summary.utility";
 
@@ -863,43 +863,75 @@ app.get("/api/feeds", async (ctx) => {
 });
 
 app.patch("/api/feeds/:id/metadata", async (ctx) => {
-  const id = ctx.req.param("id");
-  const body = await ctx.req.json();
-  const allowed = ["title", "description", "tags", "category", "favorite"];
-  const patch = Object.fromEntries(Object.entries(body).filter(([k]) => allowed.includes(k)));
-  const updated = await patchMetadata(id, patch);
-  return ctx.json(updated);
+  try {
+    const id = ctx.req.param("id");
+    const body = await ctx.req.json();
+    const allowed = ["title", "description", "tags", "category", "favorite"];
+    const patch = Object.fromEntries(Object.entries(body).filter(([k]) => allowed.includes(k)));
+    const updated = await patchMetadata(id, patch);
+    return ctx.json(updated);
+  } catch (e: any) {
+    if (e?.message?.includes("not found")) return ctx.json({ error: e.message }, 404);
+    if (e?.message?.includes("Invalid feedId")) return ctx.json({ error: e.message }, 400);
+    return ctx.json({ error: "Internal error" }, 500);
+  }
 });
 
 app.patch("/api/feeds/:id/enabled", async (ctx) => {
-  const id = ctx.req.param("id");
-  const { enabled } = await ctx.req.json<{ enabled: boolean }>();
-  const updated = await patchEnabled(id, !!enabled);
-  return ctx.json(updated);
+  try {
+    const id = ctx.req.param("id");
+    const { enabled } = await ctx.req.json<{ enabled: boolean }>();
+    const updated = await patchEnabled(id, !!enabled);
+    return ctx.json(updated);
+  } catch (e: any) {
+    if (e?.message?.includes("not found")) return ctx.json({ error: e.message }, 404);
+    if (e?.message?.includes("Invalid feedId")) return ctx.json({ error: e.message }, 400);
+    return ctx.json({ error: "Internal error" }, 500);
+  }
 });
 
 app.post("/api/feeds/:id/duplicate", async (ctx) => {
-  const id = ctx.req.param("id");
-  const result = await duplicateFeedConfig(id);
-  return ctx.json(result, 201);
+  try {
+    const id = ctx.req.param("id");
+    const result = await duplicateFeedConfig(id);
+    return ctx.json(result, 201);
+  } catch (e: any) {
+    if (e?.message?.includes("not found")) return ctx.json({ error: e.message }, 404);
+    if (e?.message?.includes("Invalid feedId")) return ctx.json({ error: e.message }, 400);
+    return ctx.json({ error: "Internal error" }, 500);
+  }
 });
 
 app.get("/api/feeds/:id/export", async (ctx) => {
-  const id = ctx.req.param("id");
-  const yamlStr = await exportFeedConfig(id);
-  ctx.header("Content-Type", "application/x-yaml");
-  ctx.header("Content-Disposition", `attachment; filename="${id}.yaml"`);
-  return ctx.body(yamlStr);
+  try {
+    const id = ctx.req.param("id");
+    const yamlStr = await exportFeedConfig(id);
+    ctx.header("Content-Type", "application/x-yaml");
+    ctx.header("Content-Disposition", `attachment; filename="${id}.yaml"`);
+    return ctx.body(yamlStr);
+  } catch (e: any) {
+    if (e?.message?.includes("not found")) return ctx.json({ error: e.message }, 404);
+    if (e?.message?.includes("Invalid feedId")) return ctx.json({ error: e.message }, 400);
+    return ctx.json({ error: "Internal error" }, 500);
+  }
 });
 
 app.delete("/api/feeds/:id", async (ctx) => {
-  const id = ctx.req.param("id");
-  await deleteFeedConfig(id);
-  return ctx.body(null, 204);
+  try {
+    const id = ctx.req.param("id");
+    await deleteFeedConfig(id);
+    return ctx.body(null, 204);
+  } catch (e: any) {
+    if (e?.message?.includes("not found")) return ctx.json({ error: e.message }, 404);
+    if (e?.message?.includes("Invalid feedId")) return ctx.json({ error: e.message }, 400);
+    return ctx.json({ error: "Internal error" }, 500);
+  }
 });
 
 app.get("/api/feeds/:id/config", async (ctx) => {
-  const feedId = basename(ctx.req.param("id"));
+  const rawId = ctx.req.param("id").replace(/\.yaml$/, "");
+  try { assertSafeFeedId(rawId); } catch { return ctx.json({ error: "Invalid feed ID" }, 400); }
+  const feedId = rawId;
   const configPath = join(configsDir, `${feedId}.yaml`);
 
   if (!existsSync(configPath)) {
@@ -913,7 +945,9 @@ app.get("/api/feeds/:id/config", async (ctx) => {
 });
 
 app.put("/api/feeds/:id", async (ctx) => {
-  const feedId = basename(ctx.req.param("id"));
+  const rawId = ctx.req.param("id").replace(/\.yaml$/, "");
+  try { assertSafeFeedId(rawId); } catch { return ctx.json({ error: "Invalid feed ID" }, 400); }
+  const feedId = rawId;
   const configPath = join(configsDir, `${feedId}.yaml`);
 
   if (!existsSync(configPath)) {

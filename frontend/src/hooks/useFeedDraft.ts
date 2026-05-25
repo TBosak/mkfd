@@ -12,6 +12,7 @@ export type FeedDraft = {
 function redactDraftData(data: FeedFormData): Partial<FeedFormData> {
   const {
     emailPassword: _emailPassword,
+    emailUsername: _emailUsername,
     headers: _headers,
     cookies: _cookies,
     webhook: _webhook,

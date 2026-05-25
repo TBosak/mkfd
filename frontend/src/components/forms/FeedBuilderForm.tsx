@@ -83,12 +83,12 @@ export const FeedBuilderForm = forwardRef<FeedBuilderFormHandle, FeedBuilderForm
     const formValues = watch();
     useEffect(() => {
       saveDraft(formValues, activeFeedType, mode ?? "create", feedId);
-    }, [formValues]);
+    }, [formValues, activeFeedType, mode, feedId, saveDraft]);
 
     // Notify parent of value changes for preview
     useEffect(() => {
       onValuesChange?.(formValues);
-    }, [formValues]);
+    }, [formValues, onValuesChange]);
 
     const onSubmit = async (data: FeedFormData) => {
       setIsSubmitting(true);
@@ -163,7 +163,6 @@ export const FeedBuilderForm = forwardRef<FeedBuilderFormHandle, FeedBuilderForm
         sourceTitleSelector: formData.sourceTitleSelector || "",
       };
 
-      console.log("Preview data being sent:", data);
       setIsGeneratingPreview(true);
       try {
         const response = await fetch("/preview", {

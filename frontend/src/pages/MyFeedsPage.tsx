@@ -142,20 +142,32 @@ export const MyFeedsPage: React.FC = () => {
       }
       case "enable": {
         setFeeds((prev) => prev.map((f) => f.id === feed.id ? { ...f, enabled: true, status: "neverRun" as FeedStatus } : f));
-        await fetch(`/api/feeds/${feed.id}/enabled`, {
+        const enableRes = await fetch(`/api/feeds/${feed.id}/enabled`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ enabled: true }),
         });
+        if (!enableRes.ok) {
+          setFeeds((prev) => prev.map((f) => f.id === feed.id ? { ...f, enabled: false } : f));
+          toast.push({ tone: "err", title: "enable failed" });
+          return;
+        }
+        toast.push({ tone: "ok", title: "Feed enabled", body: feed.title });
         break;
       }
       case "disable": {
         setFeeds((prev) => prev.map((f) => f.id === feed.id ? { ...f, enabled: false, status: "disabled" as FeedStatus } : f));
-        await fetch(`/api/feeds/${feed.id}/enabled`, {
+        const disableRes = await fetch(`/api/feeds/${feed.id}/enabled`, {
           method: "PATCH",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({ enabled: false }),
         });
+        if (!disableRes.ok) {
+          setFeeds((prev) => prev.map((f) => f.id === feed.id ? { ...f, enabled: true } : f));
+          toast.push({ tone: "err", title: "disable failed" });
+          return;
+        }
+        toast.push({ tone: "warn", title: "Feed disabled", body: feed.title });
         break;
       }
       case "delete": {
@@ -176,7 +188,8 @@ export const MyFeedsPage: React.FC = () => {
           },
         });
         try {
-          await fetch(`/api/feeds/${feed.id}`, { method: "DELETE" });
+          const res = await fetch(`/api/feeds/${feed.id}`, { method: "DELETE" });
+          if (!res.ok) { toast.dismiss(toastId); setFeeds(prev); toast.push({ tone: "err", title: "Delete failed" }); return; }
         } catch {
           toast.dismiss(toastId);
           setFeeds(prev);
