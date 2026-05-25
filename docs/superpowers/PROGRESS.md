@@ -11,13 +11,13 @@
 ## Phase 2 — Output & Operations
 | Feature | Spec | Plan | Impl |
 |---|---|---|---|
-| Feed Format Refactor | ✅ | ✅ | ⬜ |
-| Normalized Feed Item Pipeline | ✅ | ✅ | ⬜ |
-| Email Worker Multi-Format + History | ✅ | ✅ | ⬜ |
-| Auto-save Draft | ✅ | ✅ | ⬜ |
-| App Shell / Navigation Redesign | ✅ | ✅ | ⬜ |
-| My Feeds Redesign | ✅ | ✅ | ⬜ |
-| Builder UI Redesign | ✅ | ✅ | ⬜ |
+| Feed Format Refactor | ✅ | ✅ | ✅ |
+| Normalized Feed Item Pipeline | ✅ | ✅ | ✅ |
+| Email Worker Multi-Format + History | ✅ | ✅ | ✅ |
+| Auto-save Draft | ✅ | ✅ | ✅ |
+| App Shell / Navigation Redesign | ✅ | ✅ | ✅ |
+| My Feeds Redesign | ✅ | ✅ | ✅ |
+| Builder UI Redesign | ✅ | ✅ | ✅ |
 
 ## Phase 2.5 — Admin & Runtime UX
 | Feature | Spec | Plan | Impl |
