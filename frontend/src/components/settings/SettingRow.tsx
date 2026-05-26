@@ -278,9 +278,9 @@ export function SettingRow({
           {isDirty && (
             <span
               style={{
-                background: "#fefce8",
-                color: "#ca8a04",
-                border: "1px solid #fde047",
+                background: "hsl(var(--primary) / 0.1)",
+                color: "hsl(var(--primary))",
+                border: "1px solid hsl(var(--primary) / 0.3)",
                 fontSize: 10,
                 fontWeight: 600,
                 padding: "1px 6px",
@@ -332,9 +332,9 @@ export function SettingRow({
           {isDirty && (
             <span
               style={{
-                background: "#fefce8",
-                color: "#ca8a04",
-                border: "1px solid #fde047",
+                background: "hsl(var(--primary) / 0.1)",
+                color: "hsl(var(--primary))",
+                border: "1px solid hsl(var(--primary) / 0.3)",
                 fontSize: 10,
                 fontWeight: 600,
                 padding: "1px 6px",
