@@ -171,6 +171,51 @@ docker run -e NODE_OPTIONS="--max-old-space-size=8192" -p 5000:5000 ... tbosk/mk
 
 ---
 
+## ⚙️ Settings
+
+Mkfd exposes a **Settings** page in the UI (`/settings`) and a REST API (`GET /api/settings`, `PUT /api/settings`) for managing runtime configuration.
+
+### Setting categories and precedence
+
+Values are resolved in this order (highest precedence first):
+
+1. **ENV** — environment variable or command-line argument (read-only from the UI)
+2. **DB** — value saved via the Settings UI or API
+3. **Default** — compiled-in default
+
+The resolved source is shown as a badge on each setting row.
+
+### Setting classes
+
+| Class | Description | Editable via UI |
+|-------|-------------|-----------------|
+| A | Runtime setting, takes effect immediately on save | Yes |
+| B | Runtime setting that requires a process restart | Yes (badge shown) |
+| C | Security secret, environment-managed only | No (read-only masked display) |
+
+### Restart-required settings (Class B)
+
+- `feed_run_timeout_ms` — feed execution timeout in milliseconds
+
+Changes to class B settings are saved to the database immediately but only take effect after restarting mkfd.
+
+### Available settings
+
+| Key | Type | Class | Description |
+|-----|------|-------|-------------|
+| `retention_days` | number | A | Max age in days for run records (requires time-based pruning enabled) |
+| `retention_days_enabled` | boolean | A | Enable time-based pruning of run records |
+| `retention_runs` | number | A | Max run records per feed (requires count-based pruning enabled) |
+| `retention_runs_enabled` | boolean | A | Enable count-based pruning of run records |
+| `allow_private_fetches` | boolean | A | Allow feeds to fetch from private/RFC-1918 IP ranges |
+| `outbound_fetch_allowlist` | string[] | A | Restrict outbound fetch to these hostnames/URL prefixes (empty = allow all) |
+| `feed_run_timeout_ms` | number | B | Feed execution timeout in ms (restart required) |
+| `encryption_key` | string | C | Secret key for encrypting stored credentials (env-only) |
+| `passkey` | string | C | API authentication passkey (env-only) |
+| `cookie_secret` | string | C | Session cookie signing secret (env-only) |
+
+---
+
 ## 🌎 Environment Variables / Command Line Arguments
 
 - **Passkey**: A passkey is a unique identifier that is used to authenticate requests to the Mkfd API. It is used to ensure that only authorized users can access the API and perform actions such as creating, updating, or deleting feeds.
