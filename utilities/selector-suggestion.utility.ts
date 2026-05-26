@@ -411,6 +411,10 @@ export async function suggestSelectors(
     html = response.data;
   }
 
+  return suggestSelectorsFromHtml(html, url);
+}
+
+export function suggestSelectorsFromHtml(html: string, url: string): SuggestedSelectors {
   // Parse the full page with Cheerio
   const $ = cheerio.load(html);
   const $content = $;
