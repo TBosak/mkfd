@@ -5,18 +5,11 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardHeader } from "@/components/ui/card";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
 import { cn } from "@/lib/utils";
+import type { EffectiveSetting } from "@/components/settings/SettingRow";
 
 // ---------------------------------------------------------------------------
 // API response types for GET /api/settings
 // ---------------------------------------------------------------------------
-
-type EffectiveSetting = {
-  value: string | number | boolean | string[];
-  source: "db" | "env" | "default";
-  restartRequired: boolean;
-  class: "A" | "B" | "C";
-  masked: boolean;
-};
 
 type SettingsResponse = {
   settings: Record<string, EffectiveSetting>;

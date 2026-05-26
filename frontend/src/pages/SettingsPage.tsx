@@ -128,7 +128,7 @@ export function SettingsPage() {
   // Track original (server) values for dirty-state comparison
   const serverValues = useRef<SettingsValues>({});
 
-  const load = useCallback(async () => {
+  const load = useCallback(async (): Promise<boolean> => {
     setLoadError(null);
     try {
       const res = await fetch("/api/settings");
@@ -146,8 +146,10 @@ export function SettingsPage() {
       }
       serverValues.current = { ...initial };
       setEdited({ ...initial });
+      return true;
     } catch (err) {
       setLoadError(err instanceof Error ? err.message : "Failed to load settings");
+      return false;
     }
   }, []);
 
@@ -200,8 +202,12 @@ export function SettingsPage() {
         return;
       }
       // Re-fetch so source badges update (e.g., default → db)
-      await load();
-      toast.push({ tone: "ok", title: "Settings saved" });
+      const refreshed = await load();
+      if (refreshed) {
+        toast.push({ tone: "ok", title: "Settings saved" });
+      } else {
+        toast.push({ tone: "ok", title: "Settings saved", body: "Could not refresh settings — try reloading the page." });
+      }
     } catch (err) {
       toast.push({ tone: "err", title: "Save failed", body: err instanceof Error ? err.message : "Network error" });
     } finally {
@@ -229,7 +235,7 @@ export function SettingsPage() {
     );
   }
 
-  if (loadError) {
+  if (!rawSettings && loadError) {
     return (
       <div className="flex h-full min-h-0 flex-col animate-in" style={{ background: "var(--wb-surface)" }}>
         <header

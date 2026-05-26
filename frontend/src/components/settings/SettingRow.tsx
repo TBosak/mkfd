@@ -31,7 +31,7 @@ function SourceBadge({ source }: { source: SettingSource }) {
     source === "db"
       ? { background: "hsl(var(--primary) / 0.12)", color: "hsl(var(--primary))", border: "1px solid hsl(var(--primary) / 0.3)" }
       : source === "env"
-      ? { background: "#fef3c7", color: "#92400e", border: "1px solid #fcd34d" }
+      ? { background: "color-mix(in srgb, var(--wb-warning) 15%, transparent)", color: "var(--wb-warning)", border: "1px solid color-mix(in srgb, var(--wb-warning) 40%, transparent)" }
       : { background: "hsl(var(--muted))", color: "hsl(var(--muted-foreground))", border: "1px solid hsl(var(--border))" };
 
   return (
@@ -59,9 +59,9 @@ function RestartBadge() {
   return (
     <span
       style={{
-        background: "#fff7ed",
-        color: "#c2410c",
-        border: "1px solid #fed7aa",
+        background: "hsl(var(--destructive) / 0.1)",
+        color: "hsl(var(--destructive))",
+        border: "1px solid hsl(var(--destructive) / 0.3)",
         fontSize: 10,
         fontWeight: 600,
         padding: "1px 6px",
@@ -79,16 +79,19 @@ function RestartBadge() {
 // ---------------------------------------------------------------------------
 
 function InlineSwitch({
+  id,
   checked,
   onChange,
   disabled,
 }: {
+  id?: string;
   checked: boolean;
   onChange: (v: boolean) => void;
   disabled?: boolean;
 }) {
   return (
     <button
+      id={id}
       type="button"
       role="switch"
       aria-checked={checked}
@@ -228,9 +231,9 @@ export function SettingRow({
             {isDirty && (
               <span
                 style={{
-                  background: "#fefce8",
-                  color: "#ca8a04",
-                  border: "1px solid #fde047",
+                  background: "hsl(var(--primary) / 0.1)",
+                  color: "hsl(var(--primary))",
+                  border: "1px solid hsl(var(--primary) / 0.3)",
                   fontSize: 10,
                   fontWeight: 600,
                   padding: "1px 6px",
@@ -247,6 +250,7 @@ export function SettingRow({
         </div>
         <div className="shrink-0 pt-0.5">
           <InlineSwitch
+            id={`setting-${label}`}
             checked={currentValue}
             onChange={(v) => onChange?.(v)}
           />
@@ -354,6 +358,7 @@ export function SettingRow({
           value={String(currentValue)}
           onChange={(e) => {
             const raw = e.target.value;
+            if (raw === "") return; // don't update state when field is cleared
             onChange?.(isNumber ? Number(raw) : raw);
           }}
         />
