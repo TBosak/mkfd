@@ -25,12 +25,18 @@ import { previewRouter } from "./routes/preview";
 import { healthRouter } from "./routes/health";
 import { utilsRouter } from "./routes/utils";
 import { settingsRouter } from "./routes/settings";
+import { sourceAssistantRouter } from "./routes/source-assistant";
+import { profilesRouter } from "./routes/profiles";
+import { catalogRouter } from "./routes/catalog";
+import { webhookFeedRouter } from "./routes/webhook";
+import { filesystemRouter } from "./routes/filesystem";
+import { serviceConnectorsRouter } from "./routes/service-connectors";
 
 // ---------------------------------------------------------------------------
 // Startup helpers
 // ---------------------------------------------------------------------------
 
-const args = minimist(process.argv.slice(3));
+const args = minimist(process.argv.slice(2));
 const SSL = process.env.SSL === "true" || args.ssl === true;
 
 async function prompt(question: string): Promise<string> {
@@ -44,17 +50,26 @@ async function prompt(question: string): Promise<string> {
 }
 
 async function getSecrets() {
-  const passkey =
-    process.env.PASSKEY ?? args.passkey ?? (await prompt("Enter passkey: "));
-  const cookieSecret =
-    process.env.COOKIE_SECRET ??
-    args.cookieSecret ??
-    (await prompt("Enter cookie secret: "));
-  const encryptionKey =
-    process.env.ENCRYPTION_KEY ??
-    args.encryptionKey ??
-    (await prompt("Enter encryption key: "));
-  return { passkey, cookieSecret, encryptionKey };
+  const passkey = process.env.PASSKEY ?? args.passkey;
+  const cookieSecret = process.env.COOKIE_SECRET ?? args.cookieSecret;
+  const encryptionKey = process.env.ENCRYPTION_KEY ?? args.encryptionKey;
+
+  if (passkey && cookieSecret && encryptionKey) {
+    return { passkey, cookieSecret, encryptionKey };
+  }
+
+  if (!process.stdin.isTTY) {
+    throw new Error(
+      "Missing required secrets (PASSKEY, COOKIE_SECRET, ENCRYPTION_KEY) " +
+      "and stdin is not a TTY. Cannot prompt for secrets.",
+    );
+  }
+
+  return {
+    passkey: passkey ?? (await prompt("Enter passkey: ")),
+    cookieSecret: cookieSecret ?? (await prompt("Enter cookie secret: ")),
+    encryptionKey: encryptionKey ?? (await prompt("Enter encryption key: ")),
+  };
 }
 
 // ---------------------------------------------------------------------------
@@ -179,6 +194,12 @@ app.route("/", feedsRouter({ encryptionKey, configsDir, feedPath }));
 app.route("/", previewRouter({ encryptionKey }));
 app.route("/", healthRouter({ runLogEmitter }));
 app.route("/", utilsRouter({ configsDir, feedPath }));
+app.route("/", sourceAssistantRouter);
+app.route("/", profilesRouter);
+app.route("/", catalogRouter({ encryptionKey, configsDir }));
+app.route("/", webhookFeedRouter({ configsDir }));
+app.route("/", filesystemRouter());
+app.route("/", serviceConnectorsRouter({ encryptionKey }));
 app.route("/api/settings", settingsRouter);
 
 // ---------------------------------------------------------------------------

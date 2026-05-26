@@ -1,6 +1,6 @@
 import React, { useState } from "react";
 import { NavLink, useNavigate, useLocation } from "react-router-dom";
-import { Activity, Github, PanelLeftClose, PanelLeftOpen, Plus, Rss, Settings } from "lucide-react";
+import { Activity, Github, Library, PanelLeftClose, PanelLeftOpen, Plus, Rss, Settings } from "lucide-react";
 import {
   Tooltip,
   TooltipContent,
@@ -119,6 +119,19 @@ export const Sidebar: React.FC = () => {
               <TooltipTrigger asChild>
                 <button
                   type="button"
+                  onClick={() => navigate("/catalog")}
+                  className={collapsedNavClass("/catalog")}
+                  aria-label="Catalog"
+                >
+                  <Library className="h-4 w-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right">Catalog</TooltipContent>
+            </Tooltip>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  type="button"
                   onClick={() => navigate("/settings")}
                   className={collapsedNavClass("/settings")}
                   aria-label="Settings"
@@ -138,6 +151,10 @@ export const Sidebar: React.FC = () => {
             <NavLink to="/health" className={navLinkClass}>
               <Activity className="h-4 w-4" />
               Health
+            </NavLink>
+            <NavLink to="/catalog" className={navLinkClass}>
+              <Library className="h-4 w-4" />
+              Catalog
             </NavLink>
             <NavLink to="/settings" className={navLinkClass}>
               <Settings className="h-4 w-4" />

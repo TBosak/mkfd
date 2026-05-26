@@ -76,3 +76,11 @@ bun test tests/json-ld-integration.test.ts
 ```
 
 Expected: PASS with consistent JSON-LD extraction behavior and no user-exposed per-stage tuning knobs.
+
+## Implementation Notes - 2026-05-25
+
+- Added formal Web Scraping JSON-LD extraction config shape and validation that rejects persisted tuning knobs.
+- Added JSON-LD item extraction into the normalized feed pipeline and wired `buildFeedObject` to execute JSON-LD modes.
+- Source Assistant Web Scraping starter configs now prefill JSON-LD mode and mappings when structured item data is found.
+- Web Scraping UI exposes JSON-LD mode and mapping fields in the existing extraction section.
+- Verification: `bun test tests/json-ld-integration.test.ts`, `bun test tests/`, and `cd frontend && bun run build` pass.

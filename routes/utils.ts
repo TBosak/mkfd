@@ -17,7 +17,11 @@ import { basename, join } from "node:path";
 import axios from "axios";
 import type { Config } from "node-imap";
 import { listImapFolders } from "../utilities/imap.utility";
-import { suggestSelectors } from "../utilities/suggestion-engine.utility";
+import { suggestSelectors } from "../utilities/selector-suggestion.utility";
+import { makeSourceAnalysisCacheKey, getCachedAnalysis, setCachedAnalysis } from "../utilities/source-assistant/analysis-cache.utility";
+import { observeSource } from "../utilities/source-assistant/observer.utility";
+import { buildRecommendations } from "../utilities/source-assistant/recommender.utility";
+import { detectFormsFromUrl } from "../utilities/form-detection.utility";
 import {
   assertOutboundFetchAllowed,
   getGlobalFetchPolicyOptions,
@@ -313,6 +317,43 @@ export function utilsRouter(deps: {
     } catch {
       return c.json({ origin: "" }, 400);
     }
+  });
+
+  app.post("/utils/detect-forms", async (c) => {
+    const body = await c.req.json().catch(() => null);
+    if (!body?.url) return c.json({ error: "url is required" }, 400);
+    try {
+      return c.json(await detectFormsFromUrl(body));
+    } catch (err: any) {
+      return c.json({ error: err?.message ?? "Could not detect forms" }, 500);
+    }
+  });
+
+  // -------------------------------------------------------------------------
+  // POST /utils/analyze-web-page
+  // -------------------------------------------------------------------------
+
+  app.post("/utils/analyze-web-page", async (c) => {
+    const body = await c.req.json().catch(() => null);
+    if (!body?.url) return c.json({ error: "url is required" }, 400);
+    const options = body.options ?? {};
+    const key = makeSourceAnalysisCacheKey(body.url, options);
+    const cached = getCachedAnalysis(key);
+    const entry = cached ?? (() => null)();
+    let observation = entry?.observation;
+    let recommendations = entry?.recommendations;
+    if (!observation || !recommendations) {
+      observation = await observeSource({ url: body.url, options }, { policyOptions: getGlobalFetchPolicyOptions() });
+      recommendations = buildRecommendations(observation);
+      setCachedAnalysis({ key, observation, recommendations });
+    }
+    const webScraping = recommendations.find((rec) => rec.routeType === "webScraping");
+    return c.json({
+      observation,
+      webScrapingPlan: webScraping?.webScrapingPlan ?? { request: { url: observation.finalUrl } },
+      recommendations,
+      warnings: observation.warnings,
+    });
   });
 
   // -------------------------------------------------------------------------

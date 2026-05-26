@@ -54,7 +54,7 @@ const FEED_TYPES: FeedTypeOption[] = [
     id: "graphql",
     label: "GraphQL",
     description: "Query GraphQL APIs",
-    active: false,
+    active: true,
     bg: "#ede4fc", color: "#4c1d95", border: "#ddd6fe",
     icon: (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -66,7 +66,7 @@ const FEED_TYPES: FeedTypeOption[] = [
     id: "sitemap",
     label: "Sitemap",
     description: "Parse XML sitemaps",
-    active: false,
+    active: true,
     bg: "#e0f2fe", color: "#0c4a6e", border: "#bae6fd",
     icon: (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -78,7 +78,7 @@ const FEED_TYPES: FeedTypeOption[] = [
     id: "calendar",
     label: "Calendar",
     description: "iCal / CalDAV to RSS",
-    active: false,
+    active: true,
     bg: "#fadcd9", color: "#7f1d1d", border: "#fca5a5",
     icon: (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -91,7 +91,7 @@ const FEED_TYPES: FeedTypeOption[] = [
     id: "filesystem",
     label: "Filesystem",
     description: "Watch a folder for new files",
-    active: false,
+    active: true,
     bg: "#f1f5f9", color: "#334155", border: "#cbd5e1",
     icon: (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -103,7 +103,7 @@ const FEED_TYPES: FeedTypeOption[] = [
     id: "webhook",
     label: "Webhook",
     description: "Receive pushes, emit RSS",
-    active: false,
+    active: true,
     bg: "#fef9c3", color: "#713f12", border: "#fef08a",
     icon: (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -115,7 +115,7 @@ const FEED_TYPES: FeedTypeOption[] = [
     id: "feedTransformer",
     label: "Feed Transformer",
     description: "Re-process an existing feed",
-    active: false,
+    active: true,
     bg: "#f0f9ff", color: "#075985", border: "#bae6fd",
     icon: (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -127,7 +127,7 @@ const FEED_TYPES: FeedTypeOption[] = [
     id: "serviceConnector",
     label: "Service Connector",
     description: "OAuth-connected services",
-    active: false,
+    active: true,
     bg: "#f5f3ff", color: "#4c1d95", border: "#ddd6fe",
     icon: (
       <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
@@ -155,6 +155,7 @@ export const TypePickerGrid: React.FC<TypePickerGridProps> = ({ onSelect }) => {
           <button
             key={type.id}
             type="button"
+            aria-label={type.label}
             onClick={() => type.active && onSelect(type.id)}
             disabled={!type.active}
             style={{

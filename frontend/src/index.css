@@ -4,31 +4,47 @@
 
 @layer base {
     :root {
-        --background: 0 0% 100%;
-        --foreground: 222.2 84% 4.9%;
+        --background: 210 17% 98%;
+        --foreground: 195 7% 11%;
         --card: 0 0% 100%;
-        --card-foreground: 222.2 84% 4.9%;
+        --card-foreground: 195 7% 11%;
         --popover: 0 0% 100%;
-        --popover-foreground: 222.2 84% 4.9%;
-        --primary: 222.2 47.4% 11.2%;
-        --primary-foreground: 210 40% 98%;
-        --secondary: 210 40% 96.1%;
-        --secondary-foreground: 222.2 47.4% 11.2%;
-        --muted: 210 40% 96.1%;
-        --muted-foreground: 215.4 16.3% 46.9%;
-        --accent: 210 40% 96.1%;
-        --accent-foreground: 222.2 47.4% 11.2%;
-        --destructive: 0 84.2% 60.2%;
-        --destructive-foreground: 210 40% 98%;
-        --border: 214.3 31.8% 91.4%;
-        --input: 214.3 31.8% 91.4%;
-        --ring: 222.2 84% 4.9%;
+        --popover-foreground: 195 7% 11%;
+        --primary: 205 13% 37%;
+        --primary-foreground: 0 0% 100%;
+        --secondary: 22 33% 47%;
+        --secondary-foreground: 0 0% 100%;
+        --muted: 210 9% 96%;
+        --muted-foreground: 204 9% 47%;
+        --accent: 210 9% 93%;
+        --accent-foreground: 202 8% 28%;
+        --destructive: 0 75% 42%;
+        --destructive-foreground: 0 0% 100%;
+        --border: 210 7% 78%;
+        --input: 210 7% 78%;
+        --ring: 205 13% 37%;
         --radius: 0.5rem;
-        --chart-1: 12 76% 61%;
-        --chart-2: 173 58% 39%;
-        --chart-3: 197 37% 24%;
-        --chart-4: 43 74% 66%;
-        --chart-5: 27 87% 67%;
+        --chart-1: 205 13% 37%;
+        --chart-2: 80 18% 46%;
+        --chart-3: 42 50% 57%;
+        --chart-4: 10 36% 53%;
+        --chart-5: 283 14% 52%;
+
+        --wb-surface: #f8f9fa;
+        --wb-surface-low: #f3f4f5;
+        --wb-surface-container: #edeeef;
+        --wb-surface-high: #e1e3e4;
+        --wb-card: #ffffff;
+        --wb-ink: #191c1d;
+        --wb-muted: #43474b;
+        --wb-outline: #c3c7cb;
+        --wb-primary: #52606a;
+        --wb-secondary: #a06a51;
+        --wb-success: #7a8a5f;
+        --wb-warning: #8c7f50;
+        --wb-error: #b25555;
+        --wb-console: #2e3132;
+        --wb-console-ink: #f0f1f2;
     }
 
     .dark {
@@ -65,6 +81,95 @@
     }
     body {
         @apply bg-background text-foreground;
+        font-family: "Geist", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+        font-size: 14px;
+    }
+}
+
+@layer components {
+    .workbench-panel {
+        background: var(--wb-card);
+        border: 1px solid var(--wb-outline);
+        border-radius: 8px;
+    }
+
+    .workbench-panel-header {
+        min-height: 36px;
+        padding: 8px 12px;
+        border-bottom: 1px solid var(--wb-outline);
+        background: var(--wb-surface-low);
+    }
+
+    .workbench-label {
+        font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 11px;
+        line-height: 14px;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: var(--wb-muted);
+        font-weight: 600;
+    }
+
+    .workbench-value {
+        font-size: 28px;
+        line-height: 34px;
+        letter-spacing: 0;
+        font-weight: 650;
+    }
+
+    .workbench-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 12px;
+    }
+
+    .workbench-table th {
+        height: 32px;
+        padding: 0 12px;
+        background: var(--wb-surface-low);
+        border-bottom: 1px solid var(--wb-outline);
+        color: var(--wb-muted);
+        font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 11px;
+        font-weight: 600;
+        text-align: left;
+        white-space: nowrap;
+    }
+
+    .workbench-table td {
+        height: 36px;
+        padding: 0 12px;
+        border-bottom: 1px solid var(--wb-outline);
+        vertical-align: middle;
+    }
+
+    .workbench-table tbody tr:hover {
+        background: var(--wb-surface-low);
+    }
+
+    .workbench-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 4px;
+        min-height: 20px;
+        padding: 2px 8px;
+        border-radius: 9999px;
+        border: 1px solid currentColor;
+        font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-size: 10px;
+        line-height: 14px;
+        font-weight: 700;
+        text-transform: uppercase;
+    }
+
+    .workbench-chip-success {
+        color: var(--wb-success);
+        background: rgba(122, 138, 95, 0.14);
+    }
+
+    .workbench-chip-error {
+        color: var(--wb-error);
+        background: rgba(178, 85, 85, 0.14);
     }
 }
 
@@ -139,18 +244,6 @@
 }
 
 /* Enhanced Focus States - Removed to avoid conflicting with shadcn's focus-visible styles */
-
-/* Enhanced Button Hover */
-button:not(:disabled):hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
-    transition: all 0.2s ease;
-}
-
-button:not(:disabled):active {
-    transform: translateY(0);
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-}
 
 /* Custom Scrollbar */
 ::-webkit-scrollbar {

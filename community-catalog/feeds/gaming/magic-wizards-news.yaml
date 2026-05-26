@@ -1,0 +1,29 @@
+schemaVersion: 2
+feedName: "Magic: The Gathering News"
+feedType: webScraping
+enabled: true
+refreshTime: 180
+config:
+  baseUrl: "https://magic.wizards.com/en/news"
+article:
+  iterator:
+    selector: "article, .view-content .views-row, [class*='article-card']"
+  title:
+    selector: "h2 a, h3 a, a[href*='/news/']"
+  link:
+    selector: "h2 a, h3 a, a[href*='/news/']"
+    attribute: href
+  description:
+    selector: "p"
+  pubDate:
+    selector: "time, .date, [class*='date']"
+    attribute: datetime
+metadata:
+  title: "Magic: The Gathering News"
+  description: "Community catalog starter for the public Wizards news page."
+  category: "gaming"
+  tags:
+    - magic
+    - wizards
+    - gaming
+    - news

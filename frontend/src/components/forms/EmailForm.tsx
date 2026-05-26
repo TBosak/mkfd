@@ -18,6 +18,7 @@ import {
 import { FolderOpen, Mail, Lock } from "lucide-react";
 import { useState } from "react";
 import { StorageSelect, type StorageMode } from "@/components/builder/StorageSelect";
+import { Section } from "@/components/builder/Section";
 
 interface EmailFormProps {
   register: UseFormRegister<FeedFormData>;
@@ -73,12 +74,11 @@ export const EmailForm = ({ register, setValue, watch, activeSection }: EmailFor
   return (
     <div className="space-y-6 mt-4">
       {show("connection") && (
-        <>
-          <h3 className="text-lg font-semibold flex items-center gap-2">
-            <Mail className="h-5 w-5" />
-            Email Configuration
-          </h3>
-
+        <Section
+          icon={<Mail className="h-4 w-4" />}
+          title="Connection"
+          sub="IMAP server, credentials, and mailbox"
+        >
           {/* IMAP Server */}
           <div className="space-y-2">
             <Label htmlFor="emailHost">IMAP Server</Label>
@@ -161,12 +161,16 @@ export const EmailForm = ({ register, setValue, watch, activeSection }: EmailFor
               </Button>
             </div>
           </div>
-        </>
+        </Section>
       )}
 
       {/* Filter section */}
       {show("filter") && (
-        <>
+        <Section
+          icon={<Mail className="h-4 w-4" />}
+          title="Filter"
+          sub="Limit how much mail becomes feed content"
+        >
           {/* Max Emails */}
           <div className="space-y-2">
             <Label htmlFor="emailCount">Max Emails in Feed</Label>
@@ -179,7 +183,7 @@ export const EmailForm = ({ register, setValue, watch, activeSection }: EmailFor
               defaultValue="10"
             />
           </div>
-        </>
+        </Section>
       )}
     </div>
   );

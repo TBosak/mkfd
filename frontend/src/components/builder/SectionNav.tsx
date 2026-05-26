@@ -1,4 +1,5 @@
 import React from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 
 export interface SectionDef {
   id: string;
@@ -38,7 +39,7 @@ export const SectionNav: React.FC<SectionNavProps> = ({
           style={{ background: "transparent", border: "1px solid hsl(var(--border))", borderRadius: 5, padding: "2px 6px", cursor: "pointer", fontSize: 11, color: "hsl(var(--muted-foreground))" }}
           aria-label={collapsed ? "Expand" : "Collapse"}
         >
-          {collapsed ? "›" : "‹"}
+          {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
         </button>
       </div>
       <div style={{ flex: 1, display: "flex", flexDirection: "column", gap: 2, padding: "0 6px 10px" }}>

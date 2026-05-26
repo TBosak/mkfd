@@ -14,11 +14,15 @@ export type NormalizedFeedItem = {
   link?: string;
   description?: string;
   content?: string;
+  contentEncoded?: string;
+  summary?: string;
   guid?: string;
+  updatedDate?: Date | string;
   pubDate?: Date | string;
-  author?: Array<{ name?: string; email?: string; link?: string }>;
+  author?: string | Array<{ name?: string; email?: string; link?: string }>;
   categories?: string[];
   image?: string;
   enclosure?: NormalizedFeedEnclosure;
   source?: NormalizedFeedSource;
+  raw?: unknown;
 };

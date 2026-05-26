@@ -1,0 +1,257 @@
+name: Service connector request
+description: Request a new first-class Mkfd service connector.
+title: "[Service Connector]: "
+labels:
+  - enhancement
+  - service-connector
+  - needs-triage
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for suggesting a new Mkfd service connector.
+
+        Service connectors turn structured services, apps, platforms, and homelab tools into RSS, Atom, and JSON Feed outputs.
+
+        Good connector requests explain what service should be connected, what resources should become feeds, and how Mkfd would authenticate safely.
+
+  - type: input
+    id: service-name
+    attributes:
+      label: Service name
+      description: What service, app, or platform should Mkfd connect to?
+      placeholder: Jellyfin, Plex, GitHub, Discord, Home Assistant, Sonarr, etc.
+    validations:
+      required: true
+
+  - type: input
+    id: service-url
+    attributes:
+      label: Service website or repository
+      description: Link to the service homepage, documentation, or source repository.
+      placeholder: https://jellyfin.org
+    validations:
+      required: true
+
+  - type: dropdown
+    id: service-category
+    attributes:
+      label: Service category
+      description: Which category best describes this service?
+      options:
+        - Media server
+        - Developer platform
+        - Community/chat
+        - Automation/home
+        - Downloads/torrents
+        - Photos/media library
+        - Books/comics/audiobooks
+        - Productivity/knowledge base
+        - Social/web platform
+        - Other
+    validations:
+      required: true
+
+  - type: dropdown
+    id: hosting-model
+    attributes:
+      label: Hosting model
+      description: Is this service usually self-hosted, cloud-hosted, or both?
+      options:
+        - Mostly self-hosted
+        - Mostly cloud-hosted
+        - Both self-hosted and cloud-hosted
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: feed-use-cases
+    attributes:
+      label: What feeds should Mkfd be able to create?
+      description: List the concrete feed ideas this connector should support.
+      placeholder: |
+        - Recently added movies
+        - Recently added TV episodes
+        - New GitHub releases
+        - New Discord channel messages
+        - Home Assistant alerts
+    validations:
+      required: true
+
+  - type: textarea
+    id: resources
+    attributes:
+      label: What resources should users be able to select?
+      description: Describe selectable resources such as libraries, repositories, channels, projects, folders, users, playlists, collections, or devices.
+      placeholder: |
+        - Library
+        - Collection
+        - Channel
+        - Repository
+        - Project
+        - Device
+        - Playlist
+    validations:
+      required: true
+
+  - type: textarea
+    id: presets
+    attributes:
+      label: Suggested connector presets
+      description: Presets are ready-made feed modes like "latest items", "new releases", or "channel messages".
+      placeholder: |
+        - latestItems
+        - recentlyAddedMovies
+        - recentlyAddedEpisodes
+        - releases
+        - issues
+        - channelMessages
+    validations:
+      required: false
+
+  - type: input
+    id: api-docs
+    attributes:
+      label: API documentation
+      description: Link to official API docs if available.
+      placeholder: https://api.example.com/docs
+    validations:
+      required: false
+
+  - type: dropdown
+    id: auth-method
+    attributes:
+      label: Authentication method
+      description: What kind of authentication does this service use?
+      options:
+        - No authentication
+        - API key
+        - Bearer token
+        - Bot token
+        - Basic auth
+        - OAuth2
+        - Session/cookie
+        - Unknown
+        - Other
+    validations:
+      required: true
+
+  - type: textarea
+    id: auth-details
+    attributes:
+      label: Authentication details
+      description: Explain anything important about authentication, token creation, permissions, scopes, or read-only access.
+      placeholder: |
+        Jellyfin uses an API key.
+        Discord should use a bot token with View Channel and Read Message History permissions.
+        GitHub should use a fine-grained token or GitHub App permissions.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: api-availability
+    attributes:
+      label: API availability
+      description: Does this service have an official API?
+      options:
+        - Official API exists
+        - Unofficial API exists
+        - No API, but data is available through files or exports
+        - No API known
+        - Not sure
+    validations:
+      required: true
+
+  - type: textarea
+    id: sample-response
+    attributes:
+      label: Sample API response or data shape
+      description: Paste a small sanitized sample response, object shape, or link to example API output. Do not include secrets.
+      render: json
+      placeholder: |
+        {
+          "Items": [
+            {
+              "Id": "abc123",
+              "Name": "Example Item",
+              "DateCreated": "2026-05-17T00:00:00Z"
+            }
+          ]
+        }
+    validations:
+      required: false
+
+  - type: textarea
+    id: feed-item-mapping
+    attributes:
+      label: Suggested feed item mapping
+      description: How should service data map into feed items?
+      placeholder: |
+        title: item name
+        description: overview or body
+        link: item URL
+        date: created/added/published date
+        author: service/user/channel
+        categories: library/type/tags
+        enclosure: image/poster/attachment
+    validations:
+      required: false
+
+  - type: textarea
+    id: existing-feeds
+    attributes:
+      label: Existing feed support
+      description: Does this service already expose RSS, Atom, JSON Feed, webhooks, or notifications?
+      placeholder: |
+        It has no RSS support.
+        It has webhooks but no feed support.
+        It exposes an RSS feed, but it is limited.
+    validations:
+      required: false
+
+  - type: textarea
+    id: safety-privacy
+    attributes:
+      label: Privacy, security, or safety concerns
+      description: Mention private data, private network access, rate limits, scopes, sensitive content, or anything Mkfd should avoid.
+      placeholder: |
+        This may expose private media libraries.
+        Generated feeds should default to private/local-only.
+        API key should be read-only if possible.
+        Avoid using user tokens or browser scraping.
+    validations:
+      required: false
+
+  - type: dropdown
+    id: testing-availability
+    attributes:
+      label: Can you help test this connector?
+      description: Connector requests are easier to build if someone can test against a real instance.
+      options:
+        - Yes, I can test it
+        - Yes, I can provide sanitized sample responses
+        - Maybe
+        - No
+    validations:
+      required: true
+
+  - type: textarea
+    id: additional-context
+    attributes:
+      label: Additional context
+      description: Add screenshots, links, examples, related issues, or implementation notes.
+    validations:
+      required: false
+
+  - type: checkboxes
+    id: checklist
+    attributes:
+      label: Checklist
+      options:
+        - label: I have searched existing issues for this connector request.
+          required: true
+        - label: I did not include passwords, API keys, tokens, cookies, or private URLs in this issue.
+          required: true
+        - label: I understand service connector feeds may expose private service data if the generated feed URL is shared.
+          required: true

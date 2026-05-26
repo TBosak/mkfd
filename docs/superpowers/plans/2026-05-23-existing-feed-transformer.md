@@ -2435,3 +2435,9 @@ to:
 git add tests/ utilities/ models/ workers/ routes/feeds.ts frontend/src/
 git commit -m "feat: Existing Feed Transformer — multi-source merge, cleanup, and republish"
 ```
+
+## Implementation Notes - 2026-05-25
+
+- Implemented feedTransformer parser/transform/filter/orchestrator, worker integration, probe endpoint, preview support, validation/normalization/casting, and builder UI.
+- Builder UI now exposes seven steps: Basic, Sources, Merge, Transform, Filters, Feed Metadata, Output.
+- Verification: `bun test tests/feed-item-filter.test.ts tests/feed-item-transform.test.ts tests/existing-feed-parser.test.ts tests/normalized-feed-builder.test.ts`, `bun test tests/`, and `cd frontend && bun run build` pass.

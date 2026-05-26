@@ -56,6 +56,7 @@ import {
   clearFeedUpdaterInterval,
   terminateWorker,
 } from "../utilities/worker-manager.utility";
+import { parseExistingFeed } from "../utilities/existing-feed-parser.utility";
 
 // ---------------------------------------------------------------------------
 // Router factory
@@ -68,6 +69,33 @@ export function feedsRouter(deps: {
 }): Hono {
   const { encryptionKey, configsDir, feedPath } = deps;
   const app = new Hono();
+
+  app.post("/api/feeds/transformer/probe", async (ctx) => {
+    try {
+      const body = await ctx.req.json();
+      const url = String(body.url ?? "").trim();
+      if (!url) return ctx.json({ error: "url is required" }, 400);
+      const policyOptions = mergeFeedPolicyOptions(getGlobalFetchPolicyOptions(), body);
+      const parsed = await parseExistingFeed({
+        url,
+        format: body.format ?? "auto",
+        headers: body.headers ?? {},
+        policyOptions,
+      });
+      return ctx.json({
+        detectedFormat: parsed.detectedFormat,
+        feed: parsed.feed,
+        itemCount: parsed.items.length,
+        sampleItems: parsed.items.slice(0, 5),
+        warnings: parsed.warnings,
+      });
+    } catch (e: any) {
+      if (e?.message?.startsWith("Outbound fetch blocked")) {
+        return ctx.json({ error: e.message }, 403);
+      }
+      return ctx.json({ error: e?.message ?? "Failed to probe source" }, 400);
+    }
+  });
 
   // -------------------------------------------------------------------------
   // POST / — create feed

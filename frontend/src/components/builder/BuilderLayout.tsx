@@ -1,5 +1,5 @@
-import React, { useState } from "react";
-import { SectionNav, type SectionDef } from "./SectionNav";
+import React from "react";
+import type { SectionDef } from "./SectionNav";
 
 interface BuilderLayoutProps {
   sections: SectionDef[];
@@ -9,46 +9,23 @@ interface BuilderLayoutProps {
   children: React.ReactNode;
 }
 
-const NAV_COLLAPSED_KEY = "mkfd:builder:nav-collapsed";
-
 export const BuilderLayout: React.FC<BuilderLayoutProps> = ({
-  sections, activeSection, onSectionChange, preview, children,
+  preview, children,
 }) => {
-  const [navCollapsed, setNavCollapsed] = useState(
-    () => localStorage.getItem(NAV_COLLAPSED_KEY) === "true"
-  );
-
-  const toggleNav = () => {
-    const next = !navCollapsed;
-    setNavCollapsed(next);
-    localStorage.setItem(NAV_COLLAPSED_KEY, String(next));
-  };
-
-  const showNav = sections.length > 1;
-
   return (
-    <div style={{ display: "flex", height: "100%", overflow: "hidden" }}>
-      {showNav && (
-        <SectionNav
-          sections={sections}
-          active={activeSection}
-          onChange={onSectionChange}
-          collapsed={navCollapsed}
-          onToggleCollapsed={toggleNav}
-        />
-      )}
-      <div style={{ flex: 1, overflowY: "auto", padding: "20px 24px", minWidth: 0 }}>
+    <div className="flex h-full overflow-hidden">
+      <section
+        className="min-w-0 overflow-y-auto border-r"
+        style={{ width: "58%", padding: 24, background: "var(--wb-card)", borderColor: "var(--wb-outline)" }}
+      >
         {children}
-      </div>
+      </section>
       {preview && (
         <aside
+          className="min-w-[360px] shrink-0 overflow-hidden"
           style={{
-            width: 320,
-            flexShrink: 0,
-            borderLeft: "1px solid hsl(var(--border))",
-            overflowY: "auto",
-            display: "flex",
-            flexDirection: "column",
+            width: "42%",
+            background: "var(--wb-console)",
           }}
         >
           {preview}

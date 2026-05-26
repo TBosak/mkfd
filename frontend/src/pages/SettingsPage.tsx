@@ -6,6 +6,7 @@ import { SettingRow } from "@/components/settings/SettingRow";
 import type { EffectiveSetting } from "@/components/settings/SettingRow";
 import { useToast } from "@/components/ui/toast-provider";
 import { RotateCcw, Save } from "lucide-react";
+import { RequestProfilesPanel } from "@/components/settings/RequestProfilesPanel";
 
 // ---------------------------------------------------------------------------
 // API types
@@ -330,6 +331,8 @@ export function SettingsPage() {
               </SettingsSection>
             );
           })}
+
+          <RequestProfilesPanel />
 
           {/* Database info */}
           <div

@@ -2,6 +2,8 @@ import React, { useState } from "react";
 import { Sparkles, RefreshCw, ChevronRight, CheckCircle, Circle, Loader2 } from "lucide-react";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
+import { useSourceAssistant } from "@/hooks/useSourceAssistant";
+import type { SourceAssistantApplyResponse, SourceAssistantRecommendation } from "@/types/source-assistant";
 
 const ANALYSIS_STEPS = [
   "Fetching source",
@@ -18,67 +20,34 @@ const ANALYSIS_STEPS = [
   "Building recommendations",
 ];
 
-type ConfidenceBand = "veryLikely" | "goodOption" | "possible" | "fallback" | "notRecommended";
-
-interface AnalysisReason {
-  code: string;
-  message: string;
-}
-
-interface AnalysisEvidence {
-  k: string;
-  v: string;
-}
-
-interface AnalysisWarning {
-  code: string;
-  message: string;
-  severity: "warning" | "error";
-}
-
-export interface SourceRecommendation {
-  id: string;
-  routeType: string;
-  label: string;
-  confidence: number;
-  confidenceBand: ConfidenceBand;
-  summary: string;
-  summaryDetail?: string;
-  reasons: AnalysisReason[];
-  warnings: AnalysisWarning[];
-  evidence: AnalysisEvidence[];
-  cta: string;
-  action: string;
-  starterConfig?: Record<string, unknown>;
-}
-
-interface SourceAnalysisResult {
-  url: string;
-  recommendations: SourceRecommendation[];
-}
-
 interface SourceAssistantPanelProps {
-  onApply: (rec: SourceRecommendation) => void;
+  onApply: (result: SourceAssistantApplyResponse) => void;
   onPickType: (type: string) => void;
 }
 
-const BAND_META: Record<ConfidenceBand, { label: string; color: string }> = {
-  veryLikely:      { label: "Very likely",       color: "var(--wb-success)" },
-  goodOption:      { label: "Good option",        color: "var(--wb-primary)" },
-  possible:        { label: "Possible",           color: "var(--wb-warning)" },
-  fallback:        { label: "Fallback",           color: "hsl(var(--muted-foreground))" },
-  notRecommended:  { label: "Not recommended",    color: "var(--wb-error)" },
+const BAND_META = {
+  high:   { label: "High confidence",   color: "var(--wb-success)" },
+  medium: { label: "Medium confidence", color: "var(--wb-primary)" },
+  low:    { label: "Low confidence",    color: "var(--wb-warning)" },
 };
 
-function ConfidenceMeter({ band, confidence }: { band: ConfidenceBand; confidence: number }) {
-  const meta = BAND_META[band] ?? BAND_META.fallback;
+function routeCta(routeType: string) {
+  if (routeType === "existingFeed") return "Use transformer";
+  if (routeType === "webScraping") return "Configure scraping";
+  if (routeType === "restApi") return "Configure API";
+  return "Apply";
+}
+
+function ConfidenceMeter({ band, confidence }: { band: "high" | "medium" | "low"; confidence: number }) {
+  const meta = BAND_META[band] ?? BAND_META.low;
+  const percent = Math.round(confidence * 100);
   return (
     <div style={{ display: "flex", alignItems: "center", gap: 8, flexShrink: 0 }}>
       <div style={{ width: 80, height: 6, borderRadius: 4, background: "hsl(var(--muted))", overflow: "hidden" }}>
-        <div style={{ width: `${confidence}%`, height: "100%", background: meta.color, borderRadius: 4 }} />
+        <div style={{ width: `${percent}%`, height: "100%", background: meta.color, borderRadius: 4 }} />
       </div>
       <span style={{ fontSize: 11, fontWeight: 700, color: meta.color, whiteSpace: "nowrap" }}>
-        {confidence > 0 ? `${confidence}%` : ""}
+        {percent > 0 ? `${percent}%` : ""}
       </span>
       <span style={{ fontSize: 11, color: "hsl(var(--muted-foreground))", whiteSpace: "nowrap" }}>
         {meta.label}
@@ -93,10 +62,10 @@ function RecommendationCard({
   isTop,
   onApply,
 }: {
-  rec: SourceRecommendation;
+  rec: SourceAssistantRecommendation;
   rank: number;
   isTop: boolean;
-  onApply: (rec: SourceRecommendation) => void;
+  onApply: (rec: SourceAssistantRecommendation) => void;
 }) {
   const [open, setOpen] = useState(isTop);
   const hasDetails = rec.reasons.length > 0 || rec.evidence.length > 0 || rec.warnings.length > 0;
@@ -124,16 +93,11 @@ function RecommendationCard({
         </span>
         <div style={{ flex: 1, minWidth: 0 }}>
           <div style={{ display: "flex", alignItems: "baseline", gap: 6, flexWrap: "wrap" }}>
-            <span style={{ fontWeight: 700, fontSize: 13 }}>{rec.label}</span>
-            {rec.summary && (
-              <span style={{ fontSize: 12, color: "hsl(var(--muted-foreground))" }}>· {rec.summary}</span>
+            <span style={{ fontWeight: 700, fontSize: 13 }}>{rec.title}</span>
+            {rec.description && (
+              <span style={{ fontSize: 12, color: "hsl(var(--muted-foreground))" }}>· {rec.description}</span>
             )}
           </div>
-          {rec.summaryDetail && (
-            <p style={{ margin: "2px 0 0", fontSize: 12, color: "hsl(var(--muted-foreground))", lineHeight: 1.4 }}>
-              {rec.summaryDetail}
-            </p>
-          )}
           <div style={{ marginTop: 6 }}>
             <ConfidenceMeter band={rec.confidenceBand} confidence={rec.confidence} />
           </div>
@@ -157,8 +121,8 @@ function RecommendationCard({
               <div style={{ display: "flex", flexDirection: "column", gap: 3 }}>
                 {rec.evidence.map((e, i) => (
                   <div key={i} style={{ display: "flex", gap: 8, fontSize: 12 }}>
-                    <span style={{ fontWeight: 600, minWidth: 80, color: "hsl(var(--muted-foreground))" }}>{e.k}</span>
-                    <span style={{ fontFamily: "var(--font-mono, monospace)", color: "hsl(var(--foreground))" }}>{e.v}</span>
+                    <span style={{ fontWeight: 600, minWidth: 80, color: "hsl(var(--muted-foreground))" }}>{e.label}</span>
+                    <span style={{ fontFamily: "var(--font-mono, monospace)", color: "hsl(var(--foreground))" }}>{String(e.value)}</span>
                   </div>
                 ))}
               </div>
@@ -169,7 +133,7 @@ function RecommendationCard({
               <div style={{ fontSize: 11, fontWeight: 700, marginBottom: 4, color: "var(--wb-warning)", textTransform: "uppercase", letterSpacing: "0.05em" }}>Warnings</div>
               <ul style={{ margin: 0, paddingLeft: 16, fontSize: 12, lineHeight: 1.6 }}>
                 {rec.warnings.map((w, i) => (
-                  <li key={i} style={{ color: w.severity === "error" ? "var(--wb-error)" : "var(--wb-warning)" }}>
+                  <li key={i} style={{ color: "var(--wb-warning)" }}>
                     {w.message}
                   </li>
                 ))}
@@ -201,7 +165,7 @@ function RecommendationCard({
             fontSize: 12, fontWeight: 600, cursor: "pointer", display: "flex", alignItems: "center", gap: 4,
           }}
         >
-          {rec.cta}
+          {routeCta(rec.routeType)}
           <ChevronRight size={12} />
         </button>
       </div>
@@ -213,17 +177,13 @@ export const SourceAssistantPanel: React.FC<SourceAssistantPanelProps> = ({ onAp
   const [url, setUrl] = useState("");
   const [needsHeaders, setNeedsHeaders] = useState(false);
   const [advancedFetch, setAdvancedFetch] = useState(false);
-  const [status, setStatus] = useState<"idle" | "analyzing" | "ready" | "error">("idle");
   const [analysisStep, setAnalysisStep] = useState(0);
-  const [result, setResult] = useState<SourceAnalysisResult | null>(null);
-  const [error, setError] = useState<string | null>(null);
+  const assistant = useSourceAssistant();
+  const { status, analysis: result, error } = assistant;
 
   async function handleAnalyze() {
     if (!url.trim()) return;
-    setStatus("analyzing");
     setAnalysisStep(0);
-    setResult(null);
-    setError(null);
 
     // Simulate step progression while waiting for the backend
     let step = 0;
@@ -233,33 +193,24 @@ export const SourceAssistantPanel: React.FC<SourceAssistantPanelProps> = ({ onAp
     }, 400);
 
     try {
-      const response = await fetch("/source-assistant/analyze", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ url: url.trim(), needsHeaders, advancedFetch }),
-      });
+      await assistant.analyze(url.trim(), { needsHeaders, advancedFetch });
       clearInterval(stepInterval);
       setAnalysisStep(ANALYSIS_STEPS.length - 1);
-
-      if (!response.ok) {
-        const err = await response.json().catch(() => ({ error: "Analysis failed" }));
-        throw new Error(err.error ?? "Analysis failed");
-      }
-
-      const data = await response.json();
-      setResult(data);
-      setStatus("ready");
     } catch (err: any) {
       clearInterval(stepInterval);
-      setError(err.message ?? "Analysis failed");
-      setStatus("error");
     }
   }
 
   function handleReanalyze() {
-    setStatus("idle");
-    setResult(null);
-    setError(null);
+    assistant.reset();
+  }
+
+  async function handleApply(rec: SourceAssistantRecommendation) {
+    try {
+      onApply(await assistant.apply(rec.id));
+    } catch (err: any) {
+      alert(err?.message ?? "Could not apply recommendation");
+    }
   }
 
   return (
@@ -374,7 +325,7 @@ export const SourceAssistantPanel: React.FC<SourceAssistantPanelProps> = ({ onAp
           <div style={{ borderTop: "1px solid var(--wb-outline)", padding: "14px 20px 16px", background: "hsl(var(--muted) / 0.25)" }}>
             <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 10 }}>
               <span style={{ fontSize: 12, fontWeight: 600 }}>Recommended approaches</span>
-              <span style={{ fontSize: 11, color: "hsl(var(--muted-foreground))" }}>Analyzed {result.url}</span>
+              <span style={{ fontSize: 11, color: "hsl(var(--muted-foreground))" }}>Analyzed {url}</span>
             </div>
             <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
               {result.recommendations.map((rec, i) => (
@@ -383,7 +334,7 @@ export const SourceAssistantPanel: React.FC<SourceAssistantPanelProps> = ({ onAp
                   rec={rec}
                   rank={i + 1}
                   isTop={i === 0}
-                  onApply={onApply}
+                  onApply={handleApply}
                 />
               ))}
             </div>

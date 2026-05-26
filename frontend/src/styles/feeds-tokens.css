@@ -12,15 +12,15 @@
   --brand-ink:   hsl(var(--primary));
   --brand-soft:  hsl(var(--primary) / 0.12);
 
-  --ok:       #15803d; --ok-ink:   #14532d; --ok-soft:  #dcf3e3;
-  --warn:     #b45309; --warn-ink: #78350f; --warn-soft:#fdecc8;
-  --err:      #b91c1c; --err-ink:  #7f1d1d; --err-soft: #fadcd9;
-  --info:     #1d4ed8; --info-ink: #1e40af; --info-soft:#dde6fb;
-  --purple:   #6d28d9; --purple-soft: #ede4fc;
+  --ok:       #7a8a5f; --ok-ink:   #4d5b37; --ok-soft:  #e8eddf;
+  --warn:     #8c7f50; --warn-ink: #5f542d; --warn-soft:#f1ecd9;
+  --err:      #b25555; --err-ink:  #7e3434; --err-soft: #f4dfdd;
+  --info:     #52606a; --info-ink: #3b4952; --info-soft:#d7e4f1;
+  --purple:   #8a7596; --purple-soft: #eee8f1;
 
-  --feeds-radius:    10px;
+  --feeds-radius:     8px;
   --feeds-radius-sm:  6px;
-  --feeds-radius-lg: 14px;
+  --feeds-radius-lg:  8px;
   --feeds-font-mono: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
   --shadow-1:   0 1px 0 rgba(0,0,0,0.04), 0 1px 2px rgba(0,0,0,0.04);
   --shadow-2:   0 1px 0 rgba(0,0,0,0.04), 0 8px 24px -12px rgba(0,0,0,0.12);

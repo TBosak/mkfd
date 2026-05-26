@@ -11,17 +11,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
-import {
   Tooltip,
   TooltipContent,
   TooltipTrigger,
 } from "@/components/ui/tooltip";
-import { Info, Settings2 } from "lucide-react";
+import { Clock, Info, RotateCw, Settings2, Shield, Webhook } from "lucide-react";
+import { Section } from "@/components/builder/Section";
+import { Field } from "@/components/builder/Field";
 import { WebhookConfiguration } from "./WebhookConfiguration";
 import { ProtectedKeyValueEditor } from "@/components/protected-value/ProtectedKeyValueEditor";
 import { ProtectedCookieEditor } from "@/components/protected-value/ProtectedCookieEditor";
@@ -107,7 +103,8 @@ interface AdditionalOptionsProps {
   control: Control<FeedFormData>;
   setValue: UseFormSetValue<FeedFormData>;
   watch: UseFormWatch<FeedFormData>;
-  feedType?: "webScraping" | "api" | "email";
+  feedType?: FeedFormData["feedType"];
+  activeSection?: string;
 }
 
 export const AdditionalOptions = ({
@@ -116,46 +113,49 @@ export const AdditionalOptions = ({
   setValue,
   watch,
   feedType,
+  activeSection,
 }: AdditionalOptionsProps) => {
   const isEmailFeed = feedType === "email";
+  const show = (id: string) => !activeSection || activeSection === id;
 
   return (
-    <Accordion type="single" collapsible className="w-full">
-      <AccordionItem value="additional">
-        <AccordionTrigger data-accordion-trigger="additional">
-          <span className="flex items-center gap-2">
-            <Settings2 className="h-4 w-4" />
-            Additional Options
-          </span>
-        </AccordionTrigger>
-        <AccordionContent>
+    <>
+      {show("headers") && !isEmailFeed && feedType !== "api" && (
+        <Section
+          icon={<Shield className="h-4 w-4" />}
+          title="Headers & Cookies"
+          sub="Protected request values for this source"
+        >
           <div className="space-y-6">
             {/* Cookies - Hide for email feeds */}
-            {!isEmailFeed && (
-              <Controller
-                control={control}
-                name="cookies"
-                render={({ field }) => (
-                  <ProtectedCookieEditor
-                    value={cookiesToCookieConfigs(field.value)}
-                    onChange={(configs) => field.onChange(cookieConfigsToCookies(configs))}
-                  />
-                )}
-              />
-            )}
+            <Controller
+              control={control}
+              name="cookies"
+              render={({ field }) => (
+                <ProtectedCookieEditor
+                  value={cookiesToCookieConfigs(field.value)}
+                  onChange={(configs) => field.onChange(cookieConfigsToCookies(configs))}
+                />
+              )}
+            />
 
-            {/* Headers - Hide for email and API feeds (API has its own headers section) */}
-            {!isEmailFeed && feedType !== "api" && (
-              <Controller
-                control={control}
-                name="headers"
-                render={({ field }) => <HeadersEditor field={field} />}
-              />
-            )}
+            <Controller
+              control={control}
+              name="headers"
+              render={({ field }) => <HeadersEditor field={field} />}
+            />
+          </div>
+        </Section>
+      )}
 
+      {show("basic") && (
+        <Section
+          icon={<Clock className="h-4 w-4" />}
+          title="Schedule"
+          sub="How often Mkfd refreshes this feed"
+        >
             {/* Refresh Time */}
-            <div className="space-y-2">
-              <Label htmlFor="refreshTime">Refresh Time (minutes)</Label>
+            <Field label="Refresh Time (minutes)" htmlFor="refreshTime">
               <Input
                 id="refreshTime"
                 type="number"
@@ -163,21 +163,18 @@ export const AdditionalOptions = ({
                 min="1"
                 defaultValue="5"
               />
-            </div>
+            </Field>
+        </Section>
+      )}
 
+      {show("advanced") && (
+        <Section
+          icon={<Settings2 className="h-4 w-4" />}
+          title="Advanced"
+          sub={isEmailFeed ? "No advanced source options for email feeds yet" : "Browser and anti-bot request options"}
+        >
+          <div className="space-y-6">
             {/* Reverse Order */}
-            <div className="flex items-center space-x-2">
-              <Checkbox
-                id="reverse"
-                checked={watch("reverse")}
-                onCheckedChange={(checked) =>
-                  setValue("reverse", checked as boolean)
-                }
-              />
-              <Label htmlFor="reverse">Reverse Order</Label>
-            </div>
-
-            {/* Advanced Scraping - Hide for email feeds */}
             {!isEmailFeed && (
               <div className="flex items-center space-x-2">
                 <Checkbox
@@ -265,6 +262,27 @@ export const AdditionalOptions = ({
                 )}
               </div>
             )}
+          </div>
+        </Section>
+      )}
+
+      {show("output") && (
+        <Section
+          icon={<RotateCw className="h-4 w-4" />}
+          title="Ordering & Validation"
+          sub="Feed item ordering and item validation"
+        >
+          <div className="space-y-6">
+            <div className="flex items-center space-x-2">
+              <Checkbox
+                id="reverse"
+                checked={watch("reverse")}
+                onCheckedChange={(checked) =>
+                  setValue("reverse", checked as boolean)
+                }
+              />
+              <Label htmlFor="reverse">Reverse Order</Label>
+            </div>
 
             {/* Strict Mode */}
             <div className="flex items-center space-x-2">
@@ -286,8 +304,16 @@ export const AdditionalOptions = ({
               </Tooltip>
             </div>
 
-            <hr className="my-6" />
+          </div>
+        </Section>
+      )}
 
+      {show("output") && (
+        <Section
+          icon={<Webhook className="h-4 w-4" />}
+          title="Webhook"
+          sub="Optional outbound notification for generated items"
+        >
             {/* Webhook Configuration */}
             <WebhookConfiguration
               register={register}
@@ -295,9 +321,8 @@ export const AdditionalOptions = ({
               setValue={setValue}
               watch={watch}
             />
-          </div>
-        </AccordionContent>
-      </AccordionItem>
-    </Accordion>
+        </Section>
+      )}
+    </>
   );
 };

@@ -12,11 +12,21 @@ import { Field } from "@/components/builder/Field";
 import { WebScrapingForm } from "./WebScrapingForm";
 import { APIForm } from "./APIForm";
 import { EmailForm } from "./EmailForm";
+import { ExistingFeedTransformerForm } from "./ExistingFeedTransformerForm";
+import { SitemapForm } from "./SitemapForm";
+import { CalendarForm } from "./CalendarForm";
+import { GraphQLForm } from "./GraphQLForm";
+import { WebhookFeedForm } from "./WebhookFeedForm";
+import { FilesystemForm } from "./FilesystemForm";
+import { ServiceConnectorForm } from "./ServiceConnectorForm";
+import { WebScrapingAnalysisBanner } from "./WebScrapingAnalysisBanner";
+import { WebScrapingAnalysisPanel } from "./WebScrapingAnalysisPanel";
 import { AdditionalOptions } from "./AdditionalOptions";
 import { FeedPreview } from "./FeedPreview";
 import { FlareSolverrIndicator } from "./FlareSolverrIndicator";
 import { LoadingSpinner } from "@/components/ui/loading-spinner";
-import { Eye, Rocket, Globe, Code, Mail, Tag, Pencil, Lock, Save } from "lucide-react";
+import { analyzeWebPage } from "@/lib/source-assistant-client";
+import { Eye, Rocket, Globe, Code, Mail, Rss, Tag, Pencil, Lock, Save, Map, CalendarDays, Boxes, Webhook, FolderOpen } from "lucide-react";
 
 export interface FeedBuilderFormHandle {
   submit: () => void;
@@ -34,9 +44,9 @@ export interface FeedBuilderFormProps {
 export const FeedBuilderForm = forwardRef<FeedBuilderFormHandle, FeedBuilderFormProps>(
   function FeedBuilderForm({ mode = "create", feedId, initialData, selectedType, activeSection, onValuesChange }, ref) {
     const navigate = useNavigate();
-    const [feedType, setFeedType] = useState<"webScraping" | "api" | "email">(
-      (selectedType as "webScraping" | "api" | "email" | undefined)
-        ?? (initialData?.feedType as "webScraping" | "api" | "email")
+    const [feedType, setFeedType] = useState<FeedFormData["feedType"]>(
+      selectedType
+        ?? initialData?.feedType
         ?? "webScraping"
     );
     const [showPreview, setShowPreview] = useState(false);
@@ -44,11 +54,62 @@ export const FeedBuilderForm = forwardRef<FeedBuilderFormHandle, FeedBuilderForm
     const [previewFeedConfig, setPreviewFeedConfig] = useState<Record<string, unknown> | undefined>();
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [isGeneratingPreview, setIsGeneratingPreview] = useState(false);
+    const [isReanalyzingPage, setIsReanalyzingPage] = useState(false);
 
     const defaultValues: Partial<FeedFormData> = {
-      feedType: (selectedType as "webScraping" | "api" | "email" | undefined) ?? "webScraping",
+      feedType: selectedType ?? "webScraping",
+      transformerSources: [{ url: "", format: "auto" }],
+      transformerMergeStrategy: "dateDesc",
+      transformerDedupeAcrossSources: true,
+      transformerGuidStrategy: "existingOrLinkHash",
+      transformerDateStrategy: "publishedOrUpdatedOrFetched",
+      transformerStripDescriptionHtml: true,
+      transformerNormalizeWhitespace: true,
+      transformerRemoveTrackingParams: true,
+      transformerNormalizeCategories: true,
+      transformerFilterInclude: [],
+      transformerFilterExclude: [],
       refreshTime: 5,
+      requestMode: "simple",
+      proxyProfileId: "",
+      userAgentProfileId: "",
+      userAgentOverride: "",
+      formMethod: "GET",
+      formEncoding: "application/x-www-form-urlencoded",
+      formFields: [],
+      extractionMode: "cssSelectors",
+      jsonLdTitlePath: "headline",
+      jsonLdDescriptionPath: "description",
+      jsonLdLinkPath: "url",
+      jsonLdDatePath: "datePublished",
+      jsonLdAuthorPath: "author.name",
+      jsonLdGuidPath: "url",
+      jsonLdContentPath: "articleBody",
+      jsonLdCategoriesPath: "keywords",
       emailCount: 10,
+      sitemapMaxItems: 50,
+      sitemapMaxUrlsToScan: 500,
+      sitemapMode: "urlList",
+      calendarWindowDays: 30,
+      calendarMaxEvents: 50,
+      calendarExpandRecurringEvents: true,
+      graphqlItemPath: "data.items",
+      graphqlTitlePath: "title",
+      graphqlLinkPath: "url",
+      graphqlDescriptionPath: "description",
+      graphqlDatePath: "publishedAt",
+      graphqlGuidPath: "id",
+      webhookMaxItems: 50,
+      webhookRetentionDays: 30,
+      webhookDuplicateStrategy: "idOrHash",
+      webhookDateStrategy: "payloadDateOrReceivedAt",
+      filesystemRecursive: true,
+      filesystemInclude: "*",
+      filesystemMaxItems: 50,
+      filesystemSortOrder: "modifiedDesc",
+      serviceConnectorService: "jellyfin",
+      serviceConnectorPreset: "latestItems",
+      serviceConnectorLimit: 50,
       reverse: false,
       advanced: false,
       strict: false,
@@ -79,11 +140,12 @@ export const FeedBuilderForm = forwardRef<FeedBuilderFormHandle, FeedBuilderForm
     const feedUrl = watch("feedUrl");
 
     const activeFeedType = watch("feedType") ?? "webScraping";
+    const sourceAssistantAnalysis = (watch() as any).sourceAssistantAnalysis;
     const show = (id: string) => !activeSection || activeSection === id;
 
     useEffect(() => {
       if (!selectedType || selectedType === feedType) return;
-      setFeedType(selectedType as "webScraping" | "api" | "email");
+      setFeedType(selectedType);
       setValue("feedType", selectedType);
     }, [feedType, selectedType, setValue]);
 
@@ -202,6 +264,31 @@ export const FeedBuilderForm = forwardRef<FeedBuilderFormHandle, FeedBuilderForm
       }
     };
 
+    const applyWebScrapingPlan = (plan: any) => {
+      const selectors = plan?.selectors ?? {};
+      if (plan?.request?.url) setValue("feedUrl", plan.request.url as any);
+      if (selectors.iterator) setValue("itemSelector", selectors.iterator as any);
+      if (selectors.title) setValue("titleSelector", selectors.title as any);
+      if (selectors.link) setValue("linkSelector", selectors.link as any);
+      if (selectors.description) setValue("descriptionSelector", selectors.description as any);
+      if (selectors.date) setValue("dateSelector", selectors.date as any);
+      if (selectors.author) setValue("authorSelector", selectors.author as any);
+    };
+
+    const handleReanalyzePage = async () => {
+      const currentUrl = getValues("feedUrl");
+      if (!currentUrl) return;
+      setIsReanalyzingPage(true);
+      try {
+        const result = await analyzeWebPage(currentUrl);
+        applyWebScrapingPlan(result.webScrapingPlan);
+      } catch (err: any) {
+        alert(err?.message ?? "Error analyzing page");
+      } finally {
+        setIsReanalyzingPage(false);
+      }
+    };
+
     return (
       <>
         <DraftRestoreDialog
@@ -246,7 +333,13 @@ export const FeedBuilderForm = forwardRef<FeedBuilderFormHandle, FeedBuilderForm
                   {feedType === "webScraping" && <Globe className="h-3.5 w-3.5" />}
                   {feedType === "api" && <Code className="h-3.5 w-3.5" />}
                   {feedType === "email" && <Mail className="h-3.5 w-3.5" />}
-                  {feedType === "webScraping" ? "Web Scraping" : feedType === "api" ? "REST API" : "Email"}
+                  {feedType === "feedTransformer" && <Rss className="h-3.5 w-3.5" />}
+                  {feedType === "sitemap" && <Map className="h-3.5 w-3.5" />}
+                  {feedType === "calendar" && <CalendarDays className="h-3.5 w-3.5" />}
+                  {feedType === "graphql" && <Boxes className="h-3.5 w-3.5" />}
+                  {feedType === "webhook" && <Webhook className="h-3.5 w-3.5" />}
+                  {feedType === "filesystem" && <FolderOpen className="h-3.5 w-3.5" />}
+                  {feedType === "webScraping" ? "Web Scraping" : feedType === "api" ? "REST API" : feedType === "email" ? "Email" : feedType === "feedTransformer" ? "Feed Transformer" : feedType}
                   {mode === "edit" && <Lock className="h-3 w-3 opacity-70" />}
                 </span>
               }
@@ -265,14 +358,30 @@ export const FeedBuilderForm = forwardRef<FeedBuilderFormHandle, FeedBuilderForm
           )}
 
           {feedType === "webScraping" && (
-            <WebScrapingForm
-              register={register}
-              control={control}
-              setValue={setValue}
-              watch={watch}
-              feedUrl={feedUrl}
-              activeSection={activeSection}
-            />
+            <>
+              {sourceAssistantAnalysis && show("extract") && (
+                <div className="space-y-2">
+                  <WebScrapingAnalysisBanner
+                    title={sourceAssistantAnalysis?.recommendation?.title}
+                    onReanalyze={handleReanalyzePage}
+                    busy={isReanalyzingPage}
+                  />
+                  <WebScrapingAnalysisPanel
+                    jsonLdItemCount={sourceAssistantAnalysis?.recommendation?.webScrapingPlan?.jsonLd?.itemLikeCount}
+                    formCount={sourceAssistantAnalysis?.recommendation?.webScrapingPlan?.forms?.length}
+                    drillChainCount={sourceAssistantAnalysis?.recommendation?.webScrapingPlan?.drillChainCandidates?.length}
+                  />
+                </div>
+              )}
+              <WebScrapingForm
+                register={register}
+                control={control}
+                setValue={setValue}
+                watch={watch}
+                feedUrl={feedUrl}
+                activeSection={activeSection}
+              />
+            </>
           )}
 
           {feedType === "api" && (
@@ -294,6 +403,23 @@ export const FeedBuilderForm = forwardRef<FeedBuilderFormHandle, FeedBuilderForm
               activeSection={activeSection}
             />
           )}
+
+          {feedType === "feedTransformer" && (
+            <ExistingFeedTransformerForm
+              register={register}
+              control={control}
+              setValue={setValue}
+              watch={watch}
+              activeSection={activeSection}
+            />
+          )}
+
+          {feedType === "sitemap" && <SitemapForm register={register} />}
+          {feedType === "calendar" && <CalendarForm register={register} setValue={setValue} watch={watch} />}
+          {feedType === "graphql" && <GraphQLForm register={register} />}
+          {feedType === "webhook" && <WebhookFeedForm register={register} setValue={setValue} watch={watch} />}
+          {feedType === "filesystem" && <FilesystemForm register={register} setValue={setValue} watch={watch} />}
+          {feedType === "serviceConnector" && <ServiceConnectorForm register={register} />}
 
           {/* Additional Options */}
           <AdditionalOptions
@@ -348,7 +474,7 @@ export const FeedBuilderForm = forwardRef<FeedBuilderFormHandle, FeedBuilderForm
         </form>
 
         {/* FlareSolverr Status Indicator */}
-        <FlareSolverrIndicator watch={watch} feedType={feedType} />
+        <FlareSolverrIndicator watch={watch} feedType={feedType as any} />
       </>
     );
   }

@@ -85,3 +85,10 @@ bun test tests/request-profiles.test.ts
 ```
 
 Expected: PASS with no sensitive value leakage.
+
+## Implementation Notes - 2026-05-25
+
+- Added request profile models, validation, masking, in-memory CRUD registry, and `/api/settings/request-profiles` routes.
+- Fetch executor now applies resolved user-agent/proxy profiles, and Web Scraping request config supports profile references and per-feed user-agent override.
+- Settings includes a compact Request Profiles management section; Builder exposes profile ID and User-Agent override controls in the request area.
+- Verification: `bun test tests/request-profiles.test.ts tests/fetch-policy.test.ts`, `bun test tests/`, and `cd frontend && bun run build` pass.

@@ -1,6 +1,6 @@
 export type ProtectedValue =
   | { type: "protected"; value: string }
-  | { type: "env"; value: string; prefix?: string };
+  | { type: "env"; value: string; prefix?: string; suffix?: string };
 
 export type ConfigValue =
   | string

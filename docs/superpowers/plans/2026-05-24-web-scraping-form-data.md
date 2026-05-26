@@ -161,6 +161,14 @@ cd /path/to/project && bun run tsc --noEmit
 
 Expected: no errors on the new model files.
 
+## Implementation Notes - 2026-05-25
+
+- Added canonical web scraping request and detected HTML form models.
+- Extended form detection with scoring, sensitive field marking, request-config conversion, URL detection endpoint, and Source Assistant model alignment.
+- Added a form-aware web scraping fetch dispatcher and wired standard worker/preview fetch paths through it.
+- Added config casting, edit hydration, validation, and compact builder controls for form submission.
+- Verification: `bun test tests/web-scraping-form-data.test.ts tests/source-assistant/analyzers.test.ts`, `bun test tests/`, and `cd frontend && bun run build` pass.
+
 - [ ] Commit:
 
 ```bash

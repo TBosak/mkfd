@@ -34,31 +34,31 @@
 ## Phase 3 — Transformation & Scraping Intelligence
 | Feature | Spec | Plan | Impl |
 |---|---|---|---|
-| Existing Feed Transformer | ✅ | ✅ | ⬜ |
-| Source Assistant: Backend Core | ✅ | ✅ | ⬜ |
-| Source Assistant: Frontend | ✅ | ✅ | ⬜ |
-| JSON-LD Integration | ✅ | ✅ | ⬜ |
-| Web Scraping Form Data | ✅ | ✅ | ⬜ |
-| Fetch Policy / Retry / Fallback | ✅ | ✅ | ⬜ |
-| Proxy / User-Agent Profiles | ✅ | ✅ | ⬜ |
+| Existing Feed Transformer | ✅ | ✅ | ✅ |
+| Source Assistant: Backend Core | ✅ | ✅ | ✅ |
+| Source Assistant: Frontend | ✅ | ✅ | ✅ |
+| JSON-LD Integration | ✅ | ✅ | ✅ |
+| Web Scraping Form Data | ✅ | ✅ | ✅ |
+| Fetch Policy / Retry / Fallback | ✅ | ✅ | ✅ |
+| Proxy / User-Agent Profiles | ✅ | ✅ | ✅ |
 
 ## Phase 4 — Catalog & Import
 | Feature | Spec | Plan | Impl |
 |---|---|---|---|
-| Parameterized Feed Config Templates | ✅ | ✅ | ⬜ |
-| Community Catalog | ✅ | ✅ | ⬜ |
-| Service Connector GH Issue Template | ✅ | ✅ | ⬜ |
+| Parameterized Feed Config Templates | ✅ | ✅ | ✅ |
+| Community Catalog | ✅ | ✅ | ✅ |
+| Service Connector GH Issue Template | ✅ | ✅ | ✅ |
 
 ## Phase 5 — New Source Types
 | Feature | Spec | Plan | Impl |
 |---|---|---|---|
-| Sitemap | ✅ | ✅ | ⬜ |
-| Calendar | ✅ | ✅ | ⬜ |
-| GraphQL | ✅ | ✅ | ⬜ |
-| Webhook | ✅ | ✅ | ⬜ |
-| Filesystem | ✅ | ✅ | ⬜ |
+| Sitemap | ✅ | ✅ | ✅ |
+| Calendar | ✅ | ✅ | ✅ |
+| GraphQL | ✅ | ✅ | ✅ |
+| Webhook | ✅ | ✅ | ✅ |
+| Filesystem | ✅ | ✅ | ✅ |
 
 ## Phase 6 — Service Connectors
 | Feature | Spec | Plan | Impl |
 |---|---|---|---|
-| Service Connectors | ✅ | ✅ | ⬜ |
+| Service Connectors | ✅ | ✅ | ✅ |

@@ -1,0 +1,20 @@
+{
+  "schemaVersion": 1,
+  "updatedAt": "2026-05-24T00:00:00Z",
+  "feeds": [
+    {
+      "id": "magic-wizards-news",
+      "title": "Magic: The Gathering News",
+      "description": "Creates a feed from Magic: The Gathering news articles.",
+      "category": "gaming",
+      "tags": ["magic", "wizards", "gaming", "news"],
+      "feedType": "webScraping",
+      "path": "feeds/gaming/magic-wizards-news.yaml",
+      "sourceHomepage": "https://magic.wizards.com/en/news",
+      "requiresSecrets": false,
+      "requiresPrivateNetwork": false,
+      "schemaVersion": 2,
+      "catalogVersion": 1
+    }
+  ]
+}

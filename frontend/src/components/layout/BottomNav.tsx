@@ -1,6 +1,6 @@
 import React from "react";
 import { NavLink, useNavigate } from "react-router-dom";
-import { Rss, Plus, Activity } from "lucide-react";
+import { Rss, Plus, Library } from "lucide-react";
 
 export const BottomNav: React.FC = () => {
   const navigate = useNavigate();
@@ -30,15 +30,15 @@ export const BottomNav: React.FC = () => {
         </button>
       </div>
       <NavLink
-        to="/health"
+        to="/catalog"
         className={({ isActive }) =>
           `flex flex-col items-center gap-0.5 py-2 px-4 flex-1 transition-colors ${
             isActive ? "text-primary" : "text-muted-foreground"
           }`
         }
       >
-        <Activity className="h-5 w-5" />
-        <span className="text-[10px]">Health</span>
+        <Library className="h-5 w-5" />
+        <span className="text-[10px]">Catalog</span>
       </NavLink>
     </nav>
   );

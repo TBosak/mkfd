@@ -1,0 +1,20 @@
+name: Validate Community Catalog
+
+on:
+  pull_request:
+    paths:
+      - "community-catalog/**"
+      - "scripts/validate-community-catalog.ts"
+      - "utilities/community-catalog/**"
+      - "utilities/feed-template.utility.ts"
+      - "models/community-catalog.model.ts"
+      - "models/feed-template.model.ts"
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: oven-sh/setup-bun@v2
+      - run: bun install --frozen-lockfile
+      - run: bun run validate:catalog

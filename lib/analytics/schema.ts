@@ -31,6 +31,11 @@ export const settings = sqliteTable("settings", {
 export type RunLog = typeof runLogs.$inferSelect;
 export type NewRunLog = typeof runLogs.$inferInsert;
 
+export const appSettings = sqliteTable("app_settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+});
+
 export const runtimeMigrations = sqliteTable("runtime_migrations", {
   id:          text("id").primaryKey(),
   name:        text("name").notNull(),

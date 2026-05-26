@@ -21,15 +21,16 @@ export function protectValue(
 export function envValue(
   varName: string,
   prefix?: string,
+  suffix?: string,
 ): ProtectedValue & { type: "env" } {
-  return { type: "env", value: varName, prefix };
+  return { type: "env", value: varName, prefix, suffix };
 }
 
 export function resolveProtectedValue(pv: ProtectedValue, encryptionKey: string): string {
   if (pv.type === "env") {
     const resolved = process.env[pv.value];
     if (!resolved) throw new Error(`Missing environment variable: ${pv.value}`);
-    return `${pv.prefix ?? ""}${resolved}`;
+    return `${pv.prefix ?? ""}${resolved}${pv.suffix ?? ""}`;
   }
   return decrypt(pv.value, encryptionKey);
 }

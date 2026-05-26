@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+
+<html lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Mkfd - Build Feed</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&amp;family=JetBrains+Mono:wght@100..800&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        "tertiary": "#6d5845",
+                        "surface-variant": "#e1e3e4",
+                        "on-background": "#191c1d",
+                        "error": "#ba1a1a",
+                        "inverse-surface": "#2e3132",
+                        "surface-dim": "#d9dadb",
+                        "on-secondary-container": "#5a6671",
+                        "primary-container": "#687680",
+                        "outline": "#74777b",
+                        "surface-container": "#edeeef",
+                        "background": "#f8f9fa",
+                        "secondary-fixed": "#d7e4f1",
+                        "surface": "#f8f9fa",
+                        "secondary": "#54606b",
+                        "secondary-fixed-dim": "#bbc8d5",
+                        "on-primary-fixed-variant": "#3b4952",
+                        "error-container": "#ffdad6",
+                        "tertiary-container": "#87705c",
+                        "surface-container-lowest": "#ffffff",
+                        "on-secondary-fixed": "#111d26",
+                        "on-surface-variant": "#43474b",
+                        "on-error": "#ffffff",
+                        "surface-container-low": "#f3f4f5",
+                        "on-tertiary": "#ffffff",
+                        "on-error-container": "#93000a",
+                        "primary-fixed-dim": "#bac8d4",
+                        "on-primary-fixed": "#0f1d25",
+                        "on-surface": "#191c1d",
+                        "outline-variant": "#c3c7cb",
+                        "primary": "#505e67",
+                        "on-secondary-fixed-variant": "#3c4853",
+                        "primary-fixed": "#d6e4f0",
+                        "on-primary-container": "#fcfcff",
+                        "tertiary-fixed": "#fbddc5",
+                        "on-primary": "#ffffff",
+                        "inverse-primary": "#bac8d4",
+                        "secondary-container": "#d7e4f1",
+                        "on-secondary": "#ffffff",
+                        "surface-tint": "#52606a",
+                        "on-tertiary-container": "#fffbff",
+                        "tertiary-fixed-dim": "#ddc1aa",
+                        "surface-bright": "#f8f9fa",
+                        "surface-container-highest": "#e1e3e4",
+                        "inverse-on-surface": "#f0f1f2",
+                        "on-tertiary-fixed": "#27180a",
+                        "on-tertiary-fixed-variant": "#564331",
+                        "surface-container-high": "#e7e8e9",
+                        // Muted Iris Palette Accents
+                        "base09": "#cb755b", // Copper
+                        "base0A": "#f4bf75", // Golden
+                        "base0B": "#90a959", // Green
+                        "base0D": "#6a9fb5", // Slate Blue
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "unit": "4px",
+                        "density-compact": "4px",
+                        "container-max": "1440px",
+                        "density-comfortable": "12px",
+                        "margin": "24px",
+                        "gutter": "16px"
+                    },
+                    "fontFamily": {
+                        "body-lg": ["Geist"],
+                        "headline-md": ["Geist"],
+                        "headline-lg": ["Geist"],
+                        "label-md": ["JetBrains Mono"],
+                        "body-md": ["Geist"],
+                        "body-sm": ["Geist"],
+                        "label-sm": ["JetBrains Mono"]
+                    },
+                    "fontSize": {
+                        "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "headline-md": ["20px", {"lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                        "headline-lg": ["28px", {"lineHeight": "36px", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                        "label-md": ["12px", {"lineHeight": "16px", "letterSpacing": "0.02em", "fontWeight": "500"}],
+                        "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "body-sm": ["12px", {"lineHeight": "16px", "fontWeight": "400"}],
+                        "label-sm": ["10px", {"lineHeight": "14px", "letterSpacing": "0.05em", "fontWeight": "500"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .json-editor {
+            scrollbar-width: thin;
+            scrollbar-color: #dee2e6 transparent;
+        }
+        .json-editor::-webkit-scrollbar {
+            width: 6px;
+        }
+        .json-editor::-webkit-scrollbar-thumb {
+            background-color: #dee2e6;
+            border-radius: 3px;
+        }
+        /* Syntax highlighting classes */
+        .json-key { color: #6a9fb5; } /* base0D */
+        .json-string { color: #90a959; } /* base0B */
+        .json-number { color: #cb755b; } /* base09 */
+        .json-boolean { color: #ac7bba; }
+    </style>
+</head>
+<body class="bg-background text-on-surface font-body-md flex h-screen overflow-hidden">
+<!-- SideNavBar Component -->
+<aside class="bg-surface-container-low border-r border-outline-variant flex flex-col h-screen w-64 py-margin">
+<div class="px-6 mb-8 flex items-center gap-3">
+<div class="w-8 h-8 rounded bg-primary flex items-center justify-center text-white">
+<span class="material-symbols-outlined text-[20px]" data-icon="rss_feed">rss_feed</span>
+</div>
+<div>
+<h1 class="font-headline-md text-headline-md font-bold text-on-surface">Mkfd</h1>
+<p class="font-label-md text-label-md text-on-surface-variant opacity-70">Feed Engine</p>
+</div>
+</div>
+<nav class="flex-1 px-4 space-y-1">
+<!-- Active State: Feeds -->
+<a class="flex items-center gap-3 px-4 py-3 bg-secondary-container text-on-secondary-container border-l-4 border-base0D font-bold scale-[0.98] transition-all" href="#">
+<span class="material-symbols-outlined text-base0D" data-icon="rss_feed">rss_feed</span>
+<span class="font-label-md text-label-md">Feeds</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="monitor_heart">monitor_heart</span>
+<span class="font-label-md text-label-md">Health</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all" href="#">
+<span class="material-symbols-outlined" data-icon="settings">settings</span>
+<span class="font-label-md text-label-md">Settings</span>
+</a>
+</nav>
+<div class="px-6 mt-auto">
+<div class="flex items-center gap-3 p-3 rounded-lg bg-surface-container">
+<img alt="Mkfd Logo" class="w-8 h-8 rounded-full border border-outline-variant" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDS33elFgKb3mJ2x6GYkj6X7bn02JINHPJMqsBtCCC-d-0i0rc00wMaUZnSEcnBJesWQiF20cve7ja87Ec_nb6ngeYR9T-oTTGhvV6Jwby4Fg8W6lCi_brhGptQfQFp8LTYetusbPbw0orwX-XpwOlMsvoz5G_ovto2Z8m6KKAct6mcWVJuNDFO2lddzSPw8xgZOX18LnwRTyR3fGX4CvBWAkd9ZfCsEAgNXlcxa1oQP0MNzCWXiinpWgi8JjXq7iIup0KMaszlKzvZ"/>
+<div class="overflow-hidden">
+<p class="font-label-md text-label-md truncate">admin@mkfd.io</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col overflow-hidden">
+<!-- TopAppBar Component -->
+<header class="bg-surface border-b border-outline-variant w-full shrink-0">
+<div class="flex justify-between items-center h-12 px-margin">
+<div class="flex items-center gap-4">
+<nav class="flex items-center gap-2 font-label-md text-label-md text-on-surface-variant">
+<span>Builder</span>
+<span class="material-symbols-outlined text-[14px] text-outline" data-icon="chevron_right">chevron_right</span>
+<span class="text-base0D font-bold">New Feed</span>
+</nav>
+</div>
+<div class="flex items-center gap-3">
+<button class="px-4 h-8 font-label-md text-label-md text-on-surface hover:bg-surface-container-low transition-colors rounded">Discard</button>
+<button class="px-4 h-8 font-label-md text-label-md bg-base0D text-white hover:opacity-90 transition-opacity rounded shadow-sm">Publish</button>
+</div>
+</div>
+<div class="px-margin">
+<div class="grid grid-cols-4 gap-gutter border-b border-outline-variant">
+<button class="flex flex-col gap-0.5 pb-2 border-b-2 border-base0D text-base0D transition-colors">
+<span class="font-label-sm text-[10px] uppercase opacity-70">Step 01</span>
+<span class="font-body-bold text-[13px] font-bold">Basic</span>
+</button>
+<button class="flex flex-col gap-0.5 pb-2 border-b-2 border-transparent text-on-surface-variant hover:text-on-surface transition-colors">
+<span class="font-label-sm text-[10px] uppercase opacity-70">Step 02</span>
+<span class="font-body-bold text-[13px] font-bold">Source</span>
+</button>
+<button class="flex flex-col gap-0.5 pb-2 border-b-2 border-transparent text-on-surface-variant hover:text-on-surface transition-colors">
+<span class="font-label-sm text-[10px] uppercase opacity-70">Step 03</span>
+<span class="font-body-bold text-[13px] font-bold">Selectors</span>
+</button>
+<button class="flex flex-col gap-0.5 pb-2 border-b-2 border-transparent text-on-surface-variant hover:text-on-surface transition-colors">
+<span class="font-label-sm text-[10px] uppercase opacity-70">Step 04</span>
+<span class="font-body-bold text-[13px] font-bold">Output</span>
+</button>
+</div>
+</div>
+</header>
+<!-- Canvas Body -->
+<div class="flex-1 flex overflow-hidden">
+<!-- Left Pane: General Configuration -->
+<section class="w-1/2 overflow-y-auto p-8 border-r border-outline-variant bg-surface-container-lowest">
+<div class="max-w-xl mx-auto space-y-10 !space-y-8"><div class="flex items-center gap-sm border-l-4 border-base0A pl-3 py-1 mb-6">
+<h3 class="font-headline-md text-headline-md">Basic Configuration</h3>
+</div>
+<div class="space-y-6">
+<!-- Feed Label -->
+<div class="space-y-2">
+<label class="font-label-md text-label-md block">Feed Label</label>
+<input class="w-full h-10 px-3 bg-white border border-outline-variant rounded focus:border-base0D focus:ring-1 focus:ring-base0D outline-none transition-all font-body-md" placeholder="e.g. Cluster-Alpha-Metrics" type="text"/>
+</div>
+<!-- Refresh Rate -->
+<div class="space-y-2">
+<label class="font-label-md text-label-md block">Refresh Rate (seconds)</label>
+<div class="flex items-center gap-4">
+<input class="flex-1 accent-base0D" type="range"/>
+<span class="font-label-md text-label-md bg-surface-container-high px-2 py-1 rounded">60s</span>
+</div>
+</div>
+<!-- Description -->
+<div class="space-y-2">
+<label class="font-label-md text-label-md block">Description</label>
+<textarea class="w-full p-3 bg-white border border-outline-variant rounded focus:border-base0D focus:ring-1 focus:ring-base0D outline-none transition-all font-body-md resize-none" placeholder="Briefly describe the purpose of this feed..." rows="4"></textarea>
+</div>
+</div>
+<!-- Advanced Highlighted Section -->
+<div class="pt-6 border-t border-outline-variant">
+<div class="flex items-center gap-2 mb-6">
+<h3 class="font-label-md text-label-md uppercase tracking-wider text-on-surface-variant">Data Normalization</h3>
+<span class="px-1.5 py-0.5 rounded bg-base0A/10 text-base0A font-label-sm text-[10px] border border-base0A/20">ADVANCED</span>
+</div>
+<div class="space-y-4">
+<!-- Toggle 1 -->
+<div class="flex items-center justify-between p-4 bg-surface-container-low rounded border border-outline-variant hover:border-base0D/30 transition-colors">
+<div>
+<p class="font-label-md text-label-md font-bold">Auto-Schema Detection</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Automatically infer data types and keys.</p>
+</div>
+<button class="w-10 h-5 bg-base0D rounded-full relative transition-colors" onclick="toggleSwitch(this)">
+<span class="absolute right-1 top-1 w-3 h-3 bg-white rounded-full"></span>
+</button>
+</div>
+<!-- Toggle 2 -->
+<div class="flex items-center justify-between p-4 bg-surface-container-low rounded border border-outline-variant hover:border-base0D/30 transition-colors">
+<div>
+<p class="font-label-md text-label-md font-bold">Flatten Nested Arrays</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Convert deep structures into key-value pairs.</p>
+</div>
+<button class="w-10 h-5 bg-outline-variant rounded-full relative transition-colors" onclick="toggleSwitch(this)">
+<span class="absolute left-1 top-1 w-3 h-3 bg-white rounded-full"></span>
+</button>
+</div>
+<!-- Toggle 3 -->
+<div class="flex items-center justify-between p-4 bg-surface-container-low rounded border border-outline-variant hover:border-base0D/30 transition-colors">
+<div>
+<p class="font-label-md text-label-md font-bold">Timestamp Standardization</p>
+<p class="font-body-sm text-body-sm text-on-surface-variant">Force UTC ISO-8601 formatting on all dates.</p>
+</div>
+<button class="w-10 h-5 bg-base0D rounded-full relative transition-colors" onclick="toggleSwitch(this)">
+<span class="absolute right-1 top-1 w-3 h-3 bg-white rounded-full"></span>
+</button>
+</div>
+</div>
+</div>
+<!-- Section Pager -->
+<div class="flex items-center justify-between pt-8">
+<button class="flex items-center gap-2 text-on-surface-variant font-label-md hover:text-on-surface">
+<span class="material-symbols-outlined text-[18px]">arrow_back</span>
+                        Previous
+                    </button>
+<div class="flex gap-2">
+<div class="w-2 h-2 rounded-full bg-base0D"></div>
+<div class="w-2 h-2 rounded-full bg-outline-variant"></div>
+<div class="w-2 h-2 rounded-full bg-outline-variant"></div>
+</div>
+<button class="flex items-center gap-2 text-base0D font-label-md font-bold hover:underline">
+                        Authentication
+                        <span class="material-symbols-outlined text-[18px]">arrow_forward</span>
+</button>
+</div>
+</div>
+</section>
+<!-- Right Pane: Raw Data Output Console -->
+<section class="w-1/2 flex flex-col bg-surface-container">
+<div class="h-10 border-b border-outline-variant px-4 flex items-center justify-between bg-surface-container-high">
+<span class="font-label-md text-label-md font-bold text-on-surface-variant">Raw Data Output Console</span>
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-base0B animate-pulse"></span>
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase">Live Output</span>
+</div>
+</div>
+<div class="flex-1 flex flex-col p-4 overflow-hidden gap-4">
+<!-- Technical Log -->
+<div class="h-1/3 bg-black rounded p-3 font-label-sm text-label-sm text-base0B overflow-y-auto json-editor">
+<div class="mb-1 opacity-60">[14:22:01] <span class="text-base0D">Initializing stream...</span></div>
+<div class="mb-1 opacity-60">[14:22:02] <span class="text-base0A">Authenticating via token SHA-256...</span></div>
+<div class="mb-1">[14:22:03] Connection established. Socket ID: <span class="text-base09">99a2-bc4x</span></div>
+<div class="mb-1">[14:22:05] Incoming packet: <span class="text-base09">2.4kb</span></div>
+<div class="mb-1 text-white">Parsed <span class="text-base0A">42</span> nodes in <span class="text-base09">14ms</span>.</div>
+<div class="mb-1 opacity-60">[14:22:10] Heartbeat <span class="text-base0B">OK</span>.</div>
+</div>
+<!-- JSON Preview -->
+<div class="flex-1 bg-white border border-outline-variant rounded flex flex-col overflow-hidden">
+<div class="p-2 bg-surface-container-low border-b border-outline-variant flex justify-between items-center">
+<span class="font-label-sm text-label-sm uppercase text-on-surface-variant">JSON Schema Preview</span>
+<button class="text-base0D hover:bg-secondary-container p-1 rounded transition-colors">
+<span class="material-symbols-outlined text-[16px]" data-icon="content_copy">content_copy</span>
+</button>
+</div>
+<div class="flex-1 p-4 overflow-auto font-label-md text-label-md text-on-surface json-editor">
+<pre>{
+  <span class="json-key">"id"</span>: <span class="json-string">"feed_7732"</span>,
+  <span class="json-key">"status"</span>: <span class="json-string">"active"</span>,
+  <span class="json-key">"payload"</span>: {
+    <span class="json-key">"timestamp"</span>: <span class="json-string">"2023-10-27T14:22:05Z"</span>,
+    <span class="json-key">"metrics"</span>: [
+      { <span class="json-key">"cpu_usage"</span>: <span class="json-number">0.42</span>, <span class="json-key">"mem_free"</span>: <span class="json-number">1024</span> },
+      { <span class="json-key">"cpu_usage"</span>: <span class="json-number">0.38</span>, <span class="json-key">"mem_free"</span>: <span class="json-number">1102</span> }
+    ],
+    <span class="json-key">"origin"</span>: {
+      <span class="json-key">"region"</span>: <span class="json-string">"us-east-1"</span>,
+      <span class="json-key">"host"</span>: <span class="json-string">"mkfd-proxy-01"</span>
+    }
+  },
+  <span class="json-key">"flags"</span>: {
+    <span class="json-key">"normalized"</span>: <span class="json-boolean">true</span>,
+    <span class="json-key">"version"</span>: <span class="json-string">"2.1.0"</span>
+  }
+}
+</pre>
+</div>
+</div>
+</div>
+</section>
+</div>
+</main>
+<!-- UI Enhancement Script -->
+<script>
+    function toggleSwitch(btn) {
+        const dot = btn.querySelector('span');
+        if (btn.classList.contains('bg-base0D')) {
+            btn.classList.remove('bg-base0D');
+            btn.classList.add('bg-outline-variant');
+            dot.style.right = 'auto';
+            dot.style.left = '4px';
+        } else {
+            btn.classList.remove('bg-outline-variant');
+            btn.classList.add('bg-base0D');
+            dot.style.left = 'auto';
+            dot.style.right = '4px';
+        }
+    }
+
+    // Simulating scrolling text for logs
+    const logContainer = document.querySelector('.json-editor');
+    setInterval(() => {
+        const time = new Date().toLocaleTimeString([], { hour12: false });
+        const div = document.createElement('div');
+        div.className = 'mb-1 opacity-60';
+        div.innerHTML = `[${time}] System monitoring... ping response <span class="text-base09">12ms</span>`;
+        logContainer.appendChild(div);
+        logContainer.scrollTop = logContainer.scrollHeight;
+        if (logContainer.children.length > 50) logContainer.removeChild(logContainer.children[0]);
+    }, 5000);
+</script>
+</body></html>

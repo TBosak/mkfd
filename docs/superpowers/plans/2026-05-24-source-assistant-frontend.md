@@ -121,3 +121,10 @@ cd frontend && bun run tsc --noEmit
   - re-analyze in Web Scraping path
 
 Expected: PASS, with no regression to manual builder flows.
+
+## Implementation Notes - 2026-05-25
+
+- Added typed Source Assistant frontend client, response types, and lifecycle hook.
+- Wired Build Feed Source Assistant recommendations through `/source-assistant/apply`, including builder switching and starter config hydration.
+- Added Web Scraping analysis banner/panel and `/utils/analyze-web-page` re-analysis path for applied Source Assistant state.
+- Verification: `cd frontend && bun run build` passes. The frontend package has no `test` script.

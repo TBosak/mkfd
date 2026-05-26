@@ -4,8 +4,10 @@ import {
   UseFormSetValue,
   UseFormWatch,
 } from "react-hook-form";
+import { useState } from "react";
 import { FeedFormData } from "@/types/feed";
 import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
 import { Checkbox } from "@/components/ui/checkbox";
 import {
@@ -43,7 +45,38 @@ export const WebScrapingForm = ({
   activeSection,
 }: WebScrapingFormProps) => {
   const dateFormat = watch("dateFormat");
+  const extractionMode = watch("extractionMode") || "cssSelectors";
+  const requestMode = watch("requestMode") || "simple";
+  const [formDetectionStatus, setFormDetectionStatus] = useState<string>("");
   const show = (id: string) => !activeSection || activeSection === id;
+
+  const detectForms = async () => {
+    const url = watch("feedUrl");
+    if (!url) return;
+    setFormDetectionStatus("Checking forms...");
+    try {
+      const response = await fetch("/utils/detect-forms", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ url }),
+      });
+      const body = await response.json();
+      if (!response.ok) throw new Error(body?.error ?? "Form detection failed");
+      const form = body.forms?.[0];
+      if (!form) {
+        setFormDetectionStatus("No forms detected.");
+        return;
+      }
+      setValue("requestMode", "form" as any);
+      setValue("formMethod", form.method);
+      setValue("formActionUrl", form.actionUrl);
+      setValue("formEncoding", form.encoding);
+      setValue("formFields" as any, (form.fields ?? []).filter((field: any) => !["submit", "button"].includes(field.type)).map((field: any) => ({ key: field.name, value: field.value ?? "" })));
+      setFormDetectionStatus(`${body.forms.length} form${body.forms.length === 1 ? "" : "s"} detected. Top candidate applied.`);
+    } catch (err: any) {
+      setFormDetectionStatus(err?.message ?? "Form detection failed");
+    }
+  };
 
   return (
     <>
@@ -63,11 +96,90 @@ export const WebScrapingForm = ({
                 placeholder="https://example.com"
               />
             </div>
+            <div className="mt-4 space-y-3 border-t pt-4">
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <Label>Request Mode</Label>
+                  <p className="text-xs text-muted-foreground">Submit a detected form before scraping the result page.</p>
+                </div>
+                <Button type="button" variant="outline" size="sm" onClick={detectForms}>Detect forms</Button>
+              </div>
+              <Select value={requestMode} onValueChange={(value) => setValue("requestMode", value as any)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="simple">Simple fetch</SelectItem>
+                  <SelectItem value="form">Submit form</SelectItem>
+                </SelectContent>
+              </Select>
+              <div className="grid gap-3 md:grid-cols-3">
+                <Input {...register("proxyProfileId")} placeholder="Proxy profile ID" />
+                <Input {...register("userAgentProfileId")} placeholder="User-agent profile ID" />
+                <Input {...register("userAgentOverride")} placeholder="Per-feed User-Agent override" />
+              </div>
+              {requestMode === "form" && (
+                <div className="grid gap-3 md:grid-cols-2">
+                  <Input {...register("formActionUrl")} placeholder="https://example.com/search" />
+                  <Select value={watch("formMethod") || "GET"} onValueChange={(value) => setValue("formMethod", value as any)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="GET">GET</SelectItem>
+                      <SelectItem value="POST">POST</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <Select value={watch("formEncoding") || "application/x-www-form-urlencoded"} onValueChange={(value) => setValue("formEncoding", value as any)}>
+                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="application/x-www-form-urlencoded">Form URL encoded</SelectItem>
+                      <SelectItem value="application/json">JSON</SelectItem>
+                      <SelectItem value="multipart/form-data">Multipart</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input {...register("formFields.0.key" as any)} placeholder="Field name" />
+                    <Input {...register("formFields.0.value" as any)} placeholder="Value" />
+                  </div>
+                </div>
+              )}
+              {formDetectionStatus && <p className="text-xs text-muted-foreground">{formDetectionStatus}</p>}
+            </div>
           </Section>
         )}
 
         {show("extract") && (
           <>
+            <Section icon={<FileCode2 className="h-4 w-4" />} title="Extraction Mode" sub="Choose CSS selectors or Source Assistant JSON-LD mapping">
+              <div className="space-y-3">
+                <div className="space-y-2">
+                  <Label>Mode</Label>
+                  <Select
+                    value={extractionMode}
+                    onValueChange={(value) => setValue("extractionMode", value as any)}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="cssSelectors">CSS selectors</SelectItem>
+                      <SelectItem value="jsonLdPage">JSON-LD on page</SelectItem>
+                      <SelectItem value="jsonLdWithCssFallback">JSON-LD with CSS fallback</SelectItem>
+                      <SelectItem value="jsonLdDetailDrillChain">Drill Chain JSON-LD</SelectItem>
+                      <SelectItem value="jsonLdDetailDrillChainWithCssFallback">Drill Chain JSON-LD with CSS fallback</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {extractionMode !== "cssSelectors" && (
+                  <div className="grid gap-3 md:grid-cols-2">
+                    <Input {...register("jsonLdTitlePath")} placeholder="headline" />
+                    <Input {...register("jsonLdDescriptionPath")} placeholder="description" />
+                    <Input {...register("jsonLdLinkPath")} placeholder="url" />
+                    <Input {...register("jsonLdDatePath")} placeholder="datePublished" />
+                    <Input {...register("jsonLdAuthorPath")} placeholder="author.name" />
+                    <Input {...register("jsonLdGuidPath")} placeholder="url" />
+                  </div>
+                )}
+              </div>
+            </Section>
+
             <h3 className="text-sm font-semibold mt-2 pb-2 border-b text-foreground flex items-center gap-2">
               <Wand2 className="h-5 w-5 text-primary" />
               CSS Selectors for RSS Feed Items

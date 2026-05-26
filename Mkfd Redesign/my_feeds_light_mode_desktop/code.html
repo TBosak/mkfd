@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Mkfd - My Feeds</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&amp;family=JetBrains+Mono:wght@100..800&amp;family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+          darkMode: "class",
+          theme: {
+            extend: {
+              "colors": {
+                      // Mapping Muted Iris Palette to functional keys
+                      "primary": "#52606a", // base0D Slate Blue-gray
+                      "on-primary": "#ffffff",
+                      "secondary": "#a06a51", // base09 Copper
+                      "tertiary": "#8c7f50", // base0A Golden
+                      "success": "#7a8a5f", // base0B Muted Olive
+                      "error": "#b25555", // base08 Muted Red
+                      "accent": "#8a7596", // base0E Soft Mauve
+                      
+                      "background": "#f8f9fa", // base07
+                      "surface": "#ffffff",
+                      "surface-container-low": "#f3f4f5", // base06
+                      "surface-container": "#edeeef",
+                      "surface-container-high": "#e1e3e4",
+                      "on-surface": "#191c1d",
+                      "on-surface-variant": "#43474b",
+                      "outline": "#74777b",
+                      "outline-variant": "#c3c7cb"
+              },
+              "borderRadius": {
+                      "DEFAULT": "0.25rem",
+                      "lg": "0.5rem",
+                      "xl": "0.75rem",
+                      "full": "9999px"
+              },
+              "spacing": {
+                      "unit": "4px",
+                      "density-compact": "4px",
+                      "container-max": "1440px",
+                      "density-comfortable": "12px",
+                      "margin": "24px",
+                      "gutter": "16px"
+              },
+              "fontFamily": {
+                      "body-lg": ["Geist"],
+                      "headline-md": ["Geist"],
+                      "headline-lg": ["Geist"],
+                      "label-md": ["JetBrains Mono"],
+                      "body-md": ["Geist"],
+                      "body-sm": ["Geist"],
+                      "label-sm": ["JetBrains Mono"]
+              },
+              "fontSize": {
+                      "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                      "headline-md": ["20px", {"lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                      "headline-lg": ["28px", {"lineHeight": "36px", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                      "label-md": ["12px", {"lineHeight": "16px", "letterSpacing": "0.02em", "fontWeight": "500"}],
+                      "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                      "body-sm": ["12px", {"lineHeight": "16px", "fontWeight": "400"}],
+                      "label-sm": ["10px", {"lineHeight": "14px", "letterSpacing": "0.05em", "fontWeight": "500"}]
+              }
+            },
+          },
+        }
+    </script>
+<style>
+        body {
+            background-color: #f8f9fa;
+            color: #191c1d;
+            font-family: 'Geist', sans-serif;
+            overflow: hidden;
+        }
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+            vertical-align: middle;
+        }
+        .sparkline-container {
+            display: flex;
+            align-items: flex-end;
+            gap: 2px;
+            height: 16px;
+        }
+        .sparkline-bar {
+            width: 3px;
+            border-radius: 1px;
+            background-color: #52606a; /* base0D */
+        }
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f3f4;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #dee2e6;
+            border-radius: 3px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #52606a;
+        }
+    </style>
+</head>
+<body class="flex h-screen w-full bg-background">
+<!-- SideNavBar -->
+<aside class="flex flex-col h-full py-margin bg-surface-container-low border-r border-outline-variant w-64 shrink-0">
+<div class="px-6 mb-8">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 rounded-lg bg-primary flex items-center justify-center text-on-primary">
+<span class="material-symbols-outlined">rss_feed</span>
+</div>
+<div>
+<h1 class="font-headline-md text-headline-md font-bold text-on-surface">Mkfd</h1>
+<p class="font-label-sm text-label-sm text-on-surface-variant opacity-70 uppercase tracking-widest">Feed Engine</p>
+</div>
+</div>
+</div>
+<nav class="flex-1 px-4 space-y-1">
+<!-- Feeds Tab (Active with base0D border and base09 soft tint) -->
+<a class="flex items-center gap-3 px-4 py-2 bg-primary/10 text-primary border-l-4 border-primary font-bold transition-all" href="#">
+<span class="material-symbols-outlined">rss_feed</span>
+<span class="font-label-md text-label-md">Feeds</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 text-on-surface-variant hover:bg-surface-container-high transition-all" href="#">
+<span class="material-symbols-outlined">monitor_heart</span>
+<span class="font-label-md text-label-md">Health</span>
+</a>
+<a class="flex items-center gap-3 px-4 py-2 text-on-surface-variant hover:bg-surface-container-high transition-all" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-label-md text-label-md">Settings</span>
+</a>
+</nav>
+<div class="mt-auto px-6 border-t border-outline-variant pt-6">
+<div class="flex items-center gap-3 mb-4">
+<div class="w-10 h-10 rounded-full bg-surface-container-high flex items-center justify-center border border-outline-variant overflow-hidden">
+<img alt="User Avatar" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuDUEeNPIj3y6rGzHrJiOKVp49CqEOZ13bHbkjbqRcY07eDuoStx8_nkEqrKtby33cjvTzHxsjGcQ0KbSgjr5kRtWsXruo3Ete_G9848hJnrE8JrTlSqxTIjFtaFxc7sns9YUlnm7c5MJZJVfYtQZJ_S56Hf9BiMwnhyLt9fCzfzTi7N-755WNYiPwp4dtxXVLKVBum_J-wCycrB1JV4wOK3JcFqktswN_nqMq6K99kf0wKacSIPiVtjnNed9vyv6jMmxApvaPjTuygg"/>
+</div>
+<div>
+<p class="font-label-md text-label-md font-bold text-on-surface">Alex Rivera</p>
+<p class="font-label-sm text-label-sm text-on-surface-variant">System Admin</p>
+</div>
+</div>
+</div>
+</aside>
+<main class="flex-1 flex flex-col min-w-0">
+<!-- TopAppBar -->
+<header class="flex justify-between items-center w-full px-margin h-12 bg-surface border-b border-outline-variant">
+<div class="flex items-center gap-4 flex-1">
+<div class="relative w-full max-w-md">
+<span class="material-symbols-outlined absolute left-3 top-1/2 -translate-y-1/2 text-on-surface-variant text-body-md">search</span>
+<input class="w-full bg-surface-container-low border border-outline-variant rounded-lg pl-10 pr-4 py-1.5 font-body-md text-body-md focus:outline-none focus:border-primary transition-colors" placeholder="Search feeds..." type="text"/>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<!-- Primary CTA using base09 Copper -->
+<button class="flex items-center gap-2 bg-secondary text-on-primary px-4 py-1.5 rounded font-label-md text-label-md hover:brightness-110 transition-all shadow-sm">
+<span class="material-symbols-outlined text-[18px]">add</span>
+                Create Feed
+            </button>
+<div class="flex items-center gap-2 border-l border-outline-variant pl-4">
+<button class="p-1.5 text-on-surface-variant hover:bg-surface-container-low rounded-full transition-colors relative">
+<span class="material-symbols-outlined">notifications</span>
+<span class="absolute top-1.5 right-1.5 w-2 h-2 bg-error rounded-full border-2 border-surface"></span>
+</button>
+<button class="p-1.5 text-on-surface-variant hover:bg-surface-container-low rounded-full transition-colors">
+<span class="material-symbols-outlined">account_circle</span>
+</button>
+</div>
+</div>
+</header>
+<!-- Content Canvas -->
+<div class="flex-1 overflow-auto p-margin flex flex-col gap-gutter">
+<!-- Summary Grid -->
+<div class="grid grid-cols-1 md:grid-cols-4 gap-gutter">
+<div class="bg-surface border border-outline-variant p-4 flex flex-col gap-1 border-t-4 border-t-primary">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase opacity-70">Total Feeds</span>
+<span class="font-headline-lg text-headline-lg text-primary">128</span>
+</div>
+<div class="bg-surface border border-outline-variant p-4 flex flex-col gap-1 border-t-4 border-t-success">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase opacity-70">Running</span>
+<span class="font-headline-lg text-headline-lg text-success">114</span>
+</div>
+<div class="bg-surface border border-outline-variant p-4 flex flex-col gap-1 border-t-4 border-t-tertiary">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase opacity-70">Warnings</span>
+<span class="font-headline-lg text-headline-lg text-tertiary">11</span>
+</div>
+<div class="bg-surface border border-outline-variant p-4 flex flex-col gap-1 border-t-4 border-t-error">
+<span class="font-label-sm text-label-sm text-on-surface-variant uppercase opacity-70">Failed</span>
+<span class="font-headline-lg text-headline-lg text-error">3</span>
+</div>
+</div>
+<!-- High Density Table -->
+<div class="bg-surface border border-outline-variant flex-1 flex flex-col min-h-0">
+<div class="overflow-auto">
+<table class="w-full text-left border-collapse">
+<thead class="sticky top-0 bg-surface-container-low border-b border-outline-variant z-10">
+<tr>
+<th class="py-2 px-4 font-label-md text-label-md text-on-surface-variant font-semibold">Feed Name</th>
+<th class="py-2 px-4 font-label-md text-label-md text-on-surface-variant font-semibold">Status</th>
+<th class="py-2 px-4 font-label-md text-label-md text-on-surface-variant font-semibold">Type</th>
+<th class="py-2 px-4 font-label-md text-label-md text-on-surface-variant font-semibold">Last Run</th>
+<th class="py-2 px-4 font-label-md text-label-md text-on-surface-variant font-semibold">Health Index</th>
+<th class="py-2 px-4 font-label-md text-label-md text-on-surface-variant font-semibold text-right">Actions</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant">
+<!-- Row 1: Running -->
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="py-2 px-4">
+<div class="flex items-center gap-3">
+<div class="w-2 h-2 rounded-full bg-success"></div>
+<span class="font-body-md text-body-md font-semibold text-on-surface">Global_Markets_Stream</span>
+</div>
+</td>
+<td class="py-2 px-4">
+<span class="inline-flex items-center px-2 py-0.5 rounded bg-success/15 text-success font-label-sm text-label-sm font-bold border border-success/20">RUNNING</span>
+</td>
+<td class="py-2 px-4">
+<span class="px-2 py-0.5 rounded bg-accent/10 text-accent font-label-sm text-label-sm">API / JSON</span>
+</td>
+<td class="py-2 px-4 font-body-sm text-body-sm text-on-surface-variant">2m 14s ago</td>
+<td class="py-2 px-4">
+<div class="sparkline-container">
+<div class="sparkline-bar h-[12px] bg-success"></div>
+<div class="sparkline-bar h-[14px] bg-success"></div>
+<div class="sparkline-bar h-[11px] bg-success"></div>
+<div class="sparkline-bar h-[15px] bg-success"></div>
+<div class="sparkline-bar h-[16px] bg-success"></div>
+<div class="sparkline-bar h-[14px] bg-success"></div>
+<div class="sparkline-bar h-[15px] bg-success"></div>
+</div>
+</td>
+<td class="py-2 px-4 text-right">
+<button class="p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-surface-container-high rounded text-on-surface-variant">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Row 2: Warning -->
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="py-2 px-4">
+<div class="flex items-center gap-3">
+<div class="w-2 h-2 rounded-full bg-tertiary"></div>
+<span class="font-body-md text-body-md font-semibold text-on-surface">Competitor_Pricing_Scrape</span>
+</div>
+</td>
+<td class="py-2 px-4">
+<span class="inline-flex items-center px-2 py-0.5 rounded bg-tertiary/15 text-tertiary font-label-sm text-label-sm font-bold border border-tertiary/20">WARNING</span>
+</td>
+<td class="py-2 px-4">
+<span class="px-2 py-0.5 rounded bg-accent/10 text-accent font-label-sm text-label-sm">Web Scraper</span>
+</td>
+<td class="py-2 px-4 font-body-sm text-body-sm text-on-surface-variant">15m ago</td>
+<td class="py-2 px-4">
+<div class="sparkline-container">
+<div class="sparkline-bar h-[14px] bg-tertiary"></div>
+<div class="sparkline-bar h-[10px] bg-tertiary"></div>
+<div class="sparkline-bar h-[8px] bg-tertiary"></div>
+<div class="sparkline-bar h-[6px] bg-tertiary"></div>
+<div class="sparkline-bar h-[9px] bg-tertiary"></div>
+<div class="sparkline-bar h-[11px] bg-tertiary"></div>
+<div class="sparkline-bar h-[12px] bg-tertiary"></div>
+</div>
+</td>
+<td class="py-2 px-4 text-right">
+<button class="p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-surface-container-high rounded text-on-surface-variant">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Row 3: Error -->
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="py-2 px-4">
+<div class="flex items-center gap-3">
+<div class="w-2 h-2 rounded-full bg-error"></div>
+<span class="font-body-md text-body-md font-semibold text-on-surface">Compliance_Email_Digest</span>
+</div>
+</td>
+<td class="py-2 px-4">
+<span class="inline-flex items-center px-2 py-0.5 rounded bg-error/15 text-error font-label-sm text-label-sm font-bold border border-error/20">ERROR</span>
+</td>
+<td class="py-2 px-4">
+<span class="px-2 py-0.5 rounded bg-accent/10 text-accent font-label-sm text-label-sm">Email Parser</span>
+</td>
+<td class="py-2 px-4 font-body-sm text-body-sm text-on-surface-variant">1h 22m ago</td>
+<td class="py-2 px-4">
+<div class="sparkline-container">
+<div class="sparkline-bar h-[12px] bg-error"></div>
+<div class="sparkline-bar h-[10px] bg-error"></div>
+<div class="sparkline-bar h-[4px] bg-error"></div>
+<div class="sparkline-bar h-[2px] bg-error"></div>
+<div class="sparkline-bar h-[2px] bg-error"></div>
+<div class="sparkline-bar h-[2px] bg-error"></div>
+<div class="sparkline-bar h-[2px] bg-error"></div>
+</div>
+</td>
+<td class="py-2 px-4 text-right">
+<button class="p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-surface-container-high rounded text-on-surface-variant">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</td>
+</tr>
+<!-- Row 4: Running -->
+<tr class="hover:bg-surface-container-low transition-colors group">
+<td class="py-2 px-4">
+<div class="flex items-center gap-3">
+<div class="w-2 h-2 rounded-full bg-success"></div>
+<span class="font-body-md text-body-md font-semibold text-on-surface">CRM_Webhook_Sync</span>
+</div>
+</td>
+<td class="py-2 px-4">
+<span class="inline-flex items-center px-2 py-0.5 rounded bg-success/15 text-success font-label-sm text-label-sm font-bold border border-success/20">RUNNING</span>
+</td>
+<td class="py-2 px-4">
+<span class="px-2 py-0.5 rounded bg-accent/10 text-accent font-label-sm text-label-sm">Webhook</span>
+</td>
+<td class="py-2 px-4 font-body-sm text-body-sm text-on-surface-variant">45s ago</td>
+<td class="py-2 px-4">
+<div class="sparkline-container">
+<div class="sparkline-bar h-[14px] bg-success"></div>
+<div class="sparkline-bar h-[15px] bg-success"></div>
+<div class="sparkline-bar h-[16px] bg-success"></div>
+<div class="sparkline-bar h-[15px] bg-success"></div>
+<div class="sparkline-bar h-[16px] bg-success"></div>
+<div class="sparkline-bar h-[15px] bg-success"></div>
+<div class="sparkline-bar h-[16px] bg-success"></div>
+</div>
+</td>
+<td class="py-2 px-4 text-right">
+<button class="p-1 opacity-0 group-hover:opacity-100 transition-opacity hover:bg-surface-container-high rounded text-on-surface-variant">
+<span class="material-symbols-outlined text-[18px]">more_vert</span>
+</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<!-- Pagination / Footer Info -->
+<div class="mt-auto border-t border-outline-variant px-4 py-2 flex items-center justify-between bg-surface-container-low">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Showing 4 of 128 feeds</span>
+<div class="flex items-center gap-2">
+<button class="p-1 hover:bg-surface-container-high rounded border border-outline-variant disabled:opacity-30" disabled="">
+<span class="material-symbols-outlined text-[16px]">chevron_left</span>
+</button>
+<span class="font-label-sm text-label-sm text-primary font-bold">1</span>
+<button class="p-1 hover:bg-surface-container-high rounded border border-outline-variant">
+<span class="material-symbols-outlined text-[16px]">chevron_right</span>
+</button>
+</div>
+</div>
+</div>
+</div>
+<!-- System Status Bar -->
+<footer class="h-8 bg-surface-container-high border-t border-outline-variant flex items-center justify-between px-margin">
+<div class="flex items-center gap-4">
+<div class="flex items-center gap-2">
+<span class="w-2 h-2 rounded-full bg-success animate-pulse"></span>
+<span class="font-label-sm text-label-sm text-success font-bold uppercase tracking-wider">System Operational</span>
+</div>
+<div class="h-3 w-px bg-outline-variant"></div>
+<div class="flex items-center gap-2">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Latency: <span class="text-primary font-bold">42ms</span></span>
+</div>
+</div>
+<div class="flex items-center gap-4">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Cluster: <span class="font-bold text-accent">US-EAST-1</span></span>
+<span class="font-label-sm text-label-sm text-on-surface-variant opacity-50">v2.4.12-stable</span>
+</div>
+</footer>
+</main>
+<script>
+    const bars = document.querySelectorAll('.sparkline-bar');
+    setInterval(() => {
+        bars.forEach(bar => {
+            if (Math.random() > 0.85) {
+                const currentHeight = parseInt(bar.style.height || "12px");
+                const delta = (Math.random() - 0.5) * 4;
+                const newHeight = Math.max(4, Math.min(16, currentHeight + delta));
+                bar.style.height = `${newHeight}px`;
+                bar.style.transition = 'height 0.4s ease-in-out';
+            }
+        });
+    }, 1000);
+</script>
+</body></html>

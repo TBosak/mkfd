@@ -73,3 +73,10 @@ bun test tests
 ```
 
 Expected: PASS with no regressions in existing fetch paths.
+
+## Implementation Notes - 2026-05-25
+
+- Added typed fetch policy model and shared fetch executor with bounded timeout, response size, redirects, retry classification, and backoff.
+- Added effective policy resolution from per-feed config/env/default values.
+- Wired standard web scraping fetches, existing feed parser fetches, and Source Assistant observation fetches through the shared executor.
+- Verification: `bun test tests/fetch-policy.test.ts tests/existing-feed-parser.test.ts tests/source-assistant/analyzers.test.ts tests/web-scraping-form-data.test.ts`, `bun test tests/`, and `cd frontend && bun run build` pass.

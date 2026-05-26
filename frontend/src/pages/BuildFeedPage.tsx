@@ -5,9 +5,10 @@ import { TypePickerGrid } from "@/components/builder/TypePickerGrid";
 import { BuilderLayout } from "@/components/builder/BuilderLayout";
 import { PreviewPanel } from "@/components/builder/PreviewPanel";
 import { FeedBuilderForm, type FeedBuilderFormHandle } from "@/components/forms/FeedBuilderForm";
-import { SourceAssistantPanel, type SourceRecommendation } from "@/components/source-assistant/SourceAssistantPanel";
+import { SourceAssistantPanel } from "@/components/source-assistant/SourceAssistantPanel";
 import type { SectionDef } from "@/components/builder/SectionNav";
 import type { FeedFormData } from "@/types/feed";
+import type { SourceAssistantApplyResponse, SourceAssistantRouteType } from "@/types/source-assistant";
 
 const SECTIONS_SCRAPE: SectionDef[] = [
   { id: "basic",    label: "Basic" },
@@ -31,6 +32,16 @@ const SECTIONS_EMAIL: SectionDef[] = [
   { id: "filter",     label: "Filter" },
 ];
 
+const SECTIONS_TRANSFORMER: SectionDef[] = [
+  { id: "basic", label: "Basic" },
+  { id: "sources", label: "Sources" },
+  { id: "merge", label: "Merge" },
+  { id: "transform", label: "Transform" },
+  { id: "filters", label: "Filters" },
+  { id: "feed", label: "Feed Metadata" },
+  { id: "output", label: "Output" },
+];
+
 const TYPE_LABELS: Record<string, string> = {
   webScraping: "Web Scraping",
   api: "REST API",
@@ -45,9 +56,18 @@ const TYPE_LABELS: Record<string, string> = {
   sourceAssistant: "Source Assistant",
 };
 
+const APPLY_TYPE_MAP: Partial<Record<SourceAssistantRouteType, FeedFormData["feedType"]>> = {
+  existingFeed: "feedTransformer",
+  webScraping: "webScraping",
+  restApi: "api",
+  calendar: "email",
+  manual: "webScraping",
+};
+
 function getSections(type: string): SectionDef[] {
   if (type === "api") return SECTIONS_API;
   if (type === "email") return SECTIONS_EMAIL;
+  if (type === "feedTransformer") return SECTIONS_TRANSFORMER;
   return SECTIONS_SCRAPE;
 }
 
@@ -70,6 +90,8 @@ export const BuildFeedPage: React.FC<BuildFeedPageProps> = ({
   );
   const [activeSection, setActiveSection] = useState<string>("basic");
   const [formValues, setFormValues] = useState<Partial<FeedFormData>>(initialData ?? {});
+  const [starterData, setStarterData] = useState<Partial<FeedFormData> | undefined>(undefined);
+  const [formKey, setFormKey] = useState(0);
 
   const sections = activeType ? getSections(activeType) : [];
 
@@ -89,6 +111,19 @@ export const BuildFeedPage: React.FC<BuildFeedPageProps> = ({
 
   const feedName = (formValues.feedName as string | undefined) ?? "Untitled Feed";
   const sourceUrl = (formValues as any).feedUrl ?? "";
+
+  const handleAssistantApply = (result: SourceAssistantApplyResponse) => {
+    const mappedType = APPLY_TYPE_MAP[result.routeType] ?? "webScraping";
+    const starter = {
+      ...(result.starterConfig as Partial<FeedFormData>),
+      feedType: mappedType,
+    };
+    setStarterData(starter);
+    setFormValues(starter);
+    setActiveType(mappedType);
+    setActiveSection("basic");
+    setFormKey((value) => value + 1);
+  };
 
   return (
     <div style={{ display: "flex", flexDirection: "column", height: "100%", background: "var(--wb-surface)" }}>
@@ -179,20 +214,7 @@ export const BuildFeedPage: React.FC<BuildFeedPageProps> = ({
       {!activeType ? (
         <div style={{ flex: 1, overflowY: "auto" }}>
           <SourceAssistantPanel
-            onApply={(rec: SourceRecommendation) => {
-              const typeMap: Record<string, string> = {
-                scrape: "webScraping",
-                webScraping: "webScraping",
-                rest: "api",
-                api: "api",
-                calendar: "email",
-                email: "email",
-              };
-              const mappedType = typeMap[rec.routeType] ?? rec.action?.replace("open-", "") ?? "webScraping";
-              if (["webScraping", "api", "email"].includes(mappedType)) {
-                handleTypeSelect(mappedType);
-              }
-            }}
+            onApply={handleAssistantApply}
             onPickType={handleTypeSelect}
           />
           <TypePickerGrid onSelect={handleTypeSelect} />
@@ -206,10 +228,11 @@ export const BuildFeedPage: React.FC<BuildFeedPageProps> = ({
               preview={<PreviewPanel feedName={feedName} sourceUrl={sourceUrl} />}
             >
             <FeedBuilderForm
+              key={formKey}
               ref={formRef}
               mode={mode}
               feedId={feedId}
-              initialData={initialData}
+              initialData={starterData ?? initialData}
               selectedType={activeType as FeedFormData["feedType"]}
               activeSection={activeSection}
               onValuesChange={setFormValues}

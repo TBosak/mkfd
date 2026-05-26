@@ -149,3 +149,9 @@ bun test tests/
 - [ ] Manual endpoint smoke checks for analyze/apply and web-page analysis.
 
 Expected: PASS, with bounded runtime and no SSRF policy bypass.
+
+## Implementation Notes - 2026-05-25
+
+- Implemented Source Assistant backend model, TTL cache, analyzers, drill-chain sampler, observation pipeline, scorers/recommender, starter config adapters, `/source-assistant/analyze`, `/source-assistant/apply`, and `/utils/analyze-web-page`.
+- Added selector-suggestion migration wrapper and updated utils route import.
+- Verification: `bun test tests/source-assistant/` and `bun test tests/` pass. Backend bundling via `bun build index.ts --target=bun` is blocked by existing optional `patchright-core` dependency resolution for Playwright/Electron modules.

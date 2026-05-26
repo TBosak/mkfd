@@ -8,9 +8,9 @@ interface AppShellProps {
 
 export const AppShell: React.FC<AppShellProps> = ({ children }) => {
   return (
-    <div className="flex h-screen overflow-hidden bg-background">
+    <div className="flex h-screen overflow-hidden" style={{ background: "var(--wb-surface)" }}>
       <Sidebar />
-      <main className="flex-1 overflow-auto min-w-0 pb-[calc(60px+env(safe-area-inset-bottom))] lg:pb-0">
+      <main className="flex-1 overflow-hidden min-w-0 pb-[calc(60px+env(safe-area-inset-bottom))] lg:pb-0">
         {children}
       </main>
       <BottomNav />

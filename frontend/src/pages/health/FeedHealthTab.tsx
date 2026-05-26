@@ -4,9 +4,9 @@ import { LineChart, Line, ResponsiveContainer, Tooltip } from "recharts";
 import type { FeedHealth, ChartRun } from "@/types/health";
 
 const HEALTH_DOT: Record<FeedHealth["healthStatus"], string> = {
-  green: "bg-green-500",
-  yellow: "bg-amber-400",
-  red: "bg-red-500",
+  green: "bg-[var(--wb-success)]",
+  yellow: "bg-[var(--wb-warning)]",
+  red: "bg-[var(--wb-error)]",
 };
 
 function Sparkline({ feedId }: { feedId: string }) {
@@ -23,7 +23,7 @@ function Sparkline({ feedId }: { feedId: string }) {
         <Line
           type="monotone"
           dataKey="itemCount"
-          stroke="#f97316"
+          stroke="#52606a"
           strokeWidth={1.5}
           dot={false}
         />
@@ -56,10 +56,10 @@ export function FeedHealthTab({
       {feedHealth.map((feed) => (
         <Card
           key={feed.feedId}
-          className="border border-border/50 hover:shadow-md transition-shadow cursor-pointer"
+          className="workbench-panel cursor-pointer shadow-none transition-colors hover:bg-muted"
           onClick={() => onSelectFeed(feed.feedId)}
         >
-          <CardHeader className="pb-1">
+          <CardHeader className="workbench-panel-header pb-1">
             <div className="flex items-center gap-2">
               <span
                 className={`w-2.5 h-2.5 rounded-full flex-shrink-0 ${HEALTH_DOT[feed.healthStatus]}`}

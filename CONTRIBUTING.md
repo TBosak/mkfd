@@ -101,4 +101,35 @@ Thanks for considering a contribution to **Mkfd**! This project turns webpages, 
 
 We’ll review your PR and work with you to get it merged. Welcome aboard ✨
 
+## Service Connector Requests
+
+If you want to request a new service connector, use the [Service Connector Request issue template](.github/ISSUE_TEMPLATE/service-connector-request.yml).
+
+### Triage criteria
+
+When evaluating a connector request, the maintainers will check:
+
+1. Is there a stable API?
+2. Can the connector be read-only?
+3. Can authentication be stored safely as `ProtectedValue`?
+4. Does the service expose resources that naturally map to feeds?
+5. Are there obvious presets?
+6. Is this connector useful to self-hosted users?
+7. Can it be implemented without scraping private web UIs?
+8. Can someone test it?
+9. Are there privacy risks?
+10. Should this be a service connector, a REST config, a webhook feed, or an existing-feed transformer instead?
+
+See [docs/service-connector-review.md](docs/service-connector-review.md) for the full review checklist.
+
+### Issue lifecycle
+
+```text
+needs-triage -> accepted -> needs-design -> ready-for-implementation -> in-progress -> done
+```
+
+If a request is not accepted, it will be labeled with one of:
+`not-planned`, `duplicate`, `better-as-rest-config`, `better-as-webhook-feed`,
+`better-as-existing-feed-transformer`, `blocked:unsafe-auth`, `blocked:no-api`.
+
 Thanks again for helping improve Mkfd 💜

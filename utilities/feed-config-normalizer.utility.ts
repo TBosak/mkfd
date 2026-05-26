@@ -1,4 +1,4 @@
-import type { FeedConfig, WebScrapingFeedConfig, RestFeedConfig, ApiFeedConfig, EmailFeedConfig } from "../models/feed-config.model";
+import type { FeedConfig, WebScrapingFeedConfig, RestFeedConfig, ApiFeedConfig, EmailFeedConfig, FeedTransformerFeedConfig } from "../models/feed-config.model";
 import { defaultFeedRssMetadata } from "../models/feed-config.model";
 
 function s(v: unknown, fallback = ""): string {
@@ -93,6 +93,18 @@ export function normalizeLoadedFeedConfig(input: Record<string, unknown>): FeedC
         host: "", port: 993, user: "", folder: "INBOX", emailCount: 10,
       },
     } as EmailFeedConfig;
+  }
+
+  if (feedType === "feedTransformer") {
+    return {
+      ...base,
+      feedType: "feedTransformer",
+      feedTransformer: (input.feedTransformer as FeedTransformerFeedConfig["feedTransformer"]) ?? {
+        sources: [],
+        mergeStrategy: "dateDesc",
+        dedupeAcrossSources: true,
+      },
+    } as FeedTransformerFeedConfig;
   }
 
   // Stub types and unknown — pass through base with their source block

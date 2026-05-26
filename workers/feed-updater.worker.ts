@@ -17,8 +17,21 @@ import { getRandomUserAgent } from "../utilities/user-agents.utility";
 import { loadDateIndex, saveDateIndex, storeFeedHistory } from "../utilities/feed-history.utility";
 import { resolveProtectedValues } from "../utilities/protected-values.utility";
 import { assertOutboundFetchAllowed, mergeFeedPolicyOptions, parseAllowlist, type OutboundFetchPolicyOptions } from "../utilities/outbound-fetch-policy.utility";
+import { runFeedTransformer } from "../utilities/feed-transformer.utility";
+import { fetchWebScrapingHtml } from "../utilities/web-scraping-fetcher.utility";
+import { initDb } from "../lib/analytics/db";
+import { buildFeedFromNormalizedItems } from "../utilities/normalized-feed-builder.utility";
+import { fetchAndBuildSitemapItems } from "../utilities/sitemap.utility";
+import { fetchAndBuildCalendarItems } from "../utilities/calendar-feed.utility";
+import { executeGraphQLFeed, buildGraphQLItems } from "../utilities/graphql-feed.utility";
+import { readWebhookEvents, buildWebhookItems } from "../utilities/webhook-feed.utility";
+import { scanFilesystemFeed } from "../utilities/filesystem-feed.utility";
+import { runServiceConnector } from "../utilities/service-connector-runner.utility";
+import { loadServiceConnectorState, saveServiceConnectorState } from "../utilities/service-connector-state.utility";
+import { getDb } from "../lib/analytics/db";
 
 declare var self: Worker;
+initDb();
 const rssDir = "./public/feeds";
 
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
@@ -86,6 +99,10 @@ async function fetchDataAndUpdateFeed(rawConfig: Record<string, unknown>) {
     const feedUrl =
       feedConfig.feedType === "webScraping" || feedConfig.feedType === "api" || feedConfig.feedType === "rest"
         ? ((feedConfig.config?.baseUrl || "") + (feedConfig.config?.route || "")).trim()
+        : feedConfig.feedType === "sitemap" ? (feedConfig as any).sitemap?.url
+        : feedConfig.feedType === "calendar" ? (feedConfig as any).calendar?.url
+        : feedConfig.feedType === "graphql" ? (feedConfig as any).graphql?.endpoint
+        : feedConfig.feedType === "serviceConnector" ? (feedConfig as any).serviceConnector?.connection?.settings?.serverUrl
         : null;
 
     // Build the effective outbound-fetch policy for this feed (used for initial
@@ -110,7 +127,56 @@ async function fetchDataAndUpdateFeed(rawConfig: Record<string, unknown>) {
       })
       .join("; ");
 
-    if (feedConfig.feedType === "webScraping") {
+    if (feedConfig.feedType === "feedTransformer") {
+      const transformerResult = await runFeedTransformer(feedConfig as any, {
+        policyOptions: effectivePolicyOptions,
+      });
+      lastFeedObject = transformerResult.feed;
+      lastBuildResult = {
+        xml: transformerResult.feed.rss2(),
+        metrics: {
+          itemCount: transformerResult.metrics.itemCount,
+          selectorMatches: null,
+          dateFallbacks: 0,
+          duplicateGuids: transformerResult.metrics.duplicateGuids,
+        },
+      };
+    } else if (feedConfig.feedType === "sitemap") {
+      const items = await fetchAndBuildSitemapItems((feedConfig as any).sitemap);
+      lastFeedObject = buildFeedFromNormalizedItems({ feedId: feedConfig.feedId, feedName: feedConfig.feedName, items });
+      lastBuildResult = { xml: lastFeedObject.rss2(), metrics: { itemCount: items.length, selectorMatches: null, dateFallbacks: 0, duplicateGuids: 0 } };
+    } else if (feedConfig.feedType === "calendar") {
+      const items = await fetchAndBuildCalendarItems((feedConfig as any).calendar);
+      lastFeedObject = buildFeedFromNormalizedItems({ feedId: feedConfig.feedId, feedName: feedConfig.feedName, items });
+      lastBuildResult = { xml: lastFeedObject.rss2(), metrics: { itemCount: items.length, selectorMatches: null, dateFallbacks: 0, duplicateGuids: 0 } };
+    } else if (feedConfig.feedType === "graphql") {
+      const result = await executeGraphQLFeed({
+        endpoint: (feedConfig as any).graphql.endpoint,
+        headers: resolveProtectedValues((feedConfig as any).graphql.headers ?? {}, { encryptionKey: encKey }),
+        query: (feedConfig as any).graphql.query,
+        variables: (feedConfig as any).graphql.variables,
+        operationName: (feedConfig as any).graphql.operationName,
+        timeoutMs: (feedConfig as any).graphql.timeoutMs,
+      });
+      const items = buildGraphQLItems(result.data, (feedConfig as any).graphql);
+      lastFeedObject = buildFeedFromNormalizedItems({ feedId: feedConfig.feedId, feedName: feedConfig.feedName, items });
+      lastBuildResult = { xml: lastFeedObject.rss2(), metrics: { itemCount: items.length, selectorMatches: null, dateFallbacks: 0, duplicateGuids: 0 } };
+    } else if (feedConfig.feedType === "webhook") {
+      const items = buildWebhookItems(await readWebhookEvents(feedConfig.feedId), (feedConfig as any).webhookFeed);
+      lastFeedObject = buildFeedFromNormalizedItems({ feedId: feedConfig.feedId, feedName: feedConfig.feedName, items });
+      lastBuildResult = { xml: lastFeedObject.rss2(), metrics: { itemCount: items.length, selectorMatches: null, dateFallbacks: 0, duplicateGuids: 0 } };
+    } else if (feedConfig.feedType === "filesystem") {
+      const result = await scanFilesystemFeed((feedConfig as any).filesystem, process.env.FILESYSTEM_FEEDS_ROOT ?? process.cwd(), feedConfig.feedId);
+      lastFeedObject = buildFeedFromNormalizedItems({ feedId: feedConfig.feedId, feedName: feedConfig.feedName, items: result.items });
+      lastBuildResult = { xml: lastFeedObject.rss2(), metrics: { itemCount: result.items.length, selectorMatches: null, dateFallbacks: 0, duplicateGuids: 0 } };
+    } else if (feedConfig.feedType === "serviceConnector") {
+      const db = getDb();
+      const priorState = loadServiceConnectorState(db, feedConfig.feedId);
+      const result = await runServiceConnector((feedConfig as any).serviceConnector, encKey, priorState);
+      if (result.nextState) saveServiceConnectorState(db, feedConfig.feedId, result.nextState as any);
+      lastFeedObject = buildFeedFromNormalizedItems({ feedId: feedConfig.feedId, feedName: feedConfig.feedName, items: result.items });
+      lastBuildResult = { xml: lastFeedObject.rss2(), metrics: { itemCount: result.items.length, selectorMatches: null, dateFallbacks: 0, duplicateGuids: 0 } };
+    } else if (feedConfig.feedType === "webScraping") {
       if (feedConfig.flaresolverr?.enabled) {
         // FlareSolverr scraping
         const flaresolverrUrl =
@@ -221,28 +287,19 @@ async function fetchDataAndUpdateFeed(rawConfig: Record<string, unknown>) {
         lastBuildResult = { xml: playwrightResult.feed.rss2(), metrics: playwrightResult.metrics };
       } else {
         // Standard web scraping with Axios
-        const resolvedBaseUrl = resolveProtectedValues(
-          feedConfig.config.baseUrl as string,
-          { encryptionKey: encKey },
-        );
         const resolvedHeaders = resolveProtectedValues(
           feedConfig.headers ?? {},
           { encryptionKey: encKey },
         );
-        const response = await axiosGetWithPolicyRedirects(
-          resolvedBaseUrl,
-          {
-            headers: {
-              ...resolvedHeaders,
-              ...(cookieString && { Cookie: cookieString }),
-            },
-            maxContentLength: 2 * 1024 * 1024, // 2MB
-            maxBodyLength: 2 * 1024 * 1024, // 2MB
-          },
-          effectivePolicyOptions,
-        );
+        const response = await fetchWebScrapingHtml({
+          feedConfig: feedConfig as any,
+          policyOptions: effectivePolicyOptions,
+          encryptionKey: encKey,
+          headers: resolvedHeaders,
+          cookieString,
+        });
         httpStatus = response.status;
-        const html = response.data;
+        const html = response.html;
         const standardResult = await buildFeedObject(html, feedConfig, dateIndex);
         lastFeedObject = standardResult.feed;
         lastBuildResult = { xml: standardResult.feed.rss2(), metrics: standardResult.metrics };

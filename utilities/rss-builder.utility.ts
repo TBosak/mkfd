@@ -17,6 +17,8 @@ import { sanitizeForXML, sanitizeURLForXML } from "./xml-sanitizer.utility";
 import type ApiConfig from "./../models/apiconfig.model";
 import { makeItemKey } from "./feed-history.utility";
 import striptags from "striptags";
+import { extractJsonLdItemsFromHtml } from "./json-ld-extractor.utility";
+import { buildFeedFromNormalizedItems } from "./normalized-feed-builder.utility";
 
 export type BuildMetrics = {
   itemCount: number;
@@ -402,6 +404,27 @@ async function _buildFeedFromHtml(res: any, feedConfig: any, dateIndex?: Map<str
 }
 
 export async function buildFeedObject(res: any, feedConfig: any, dateIndex?: Map<string, string>): Promise<BuildFeedObjectResult> {
+  if (feedConfig.extraction?.mode && feedConfig.extraction.mode !== "cssSelectors") {
+    const extracted = extractJsonLdItemsFromHtml(String(res ?? ""), feedConfig.config?.baseUrl ?? "", feedConfig.extraction);
+    const feed = buildFeedFromNormalizedItems({
+      feedConfig,
+      items: extracted.items,
+      metadata: {
+        title: feedConfig.feedName,
+        description: feedConfig.feedDescription,
+        link: feedConfig.config?.baseUrl,
+      },
+    });
+    return {
+      feed,
+      metrics: {
+        itemCount: extracted.items.length,
+        selectorMatches: null,
+        dateFallbacks: extracted.items.filter((item) => !item.pubDate).length,
+        duplicateGuids: 0,
+      },
+    };
+  }
   return _buildFeedFromHtml(res, feedConfig, dateIndex);
 }
 

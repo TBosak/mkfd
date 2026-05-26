@@ -16,6 +16,15 @@ import {
   mergeFeedPolicyOptions,
 } from "./outbound-fetch-policy.utility";
 import { normalizeUrl, axiosGetWithPolicyRedirects } from "./feed-config-route-adapter.utility";
+import { runFeedTransformer } from "./feed-transformer.utility";
+import { fetchWebScrapingHtml } from "./web-scraping-fetcher.utility";
+import { buildFeedFromNormalizedItems } from "./normalized-feed-builder.utility";
+import { fetchAndBuildSitemapItems } from "./sitemap.utility";
+import { fetchAndBuildCalendarItems } from "./calendar-feed.utility";
+import { executeGraphQLFeed, buildGraphQLItems } from "./graphql-feed.utility";
+import { readWebhookEvents, buildWebhookItems } from "./webhook-feed.utility";
+import { scanFilesystemFeed } from "./filesystem-feed.utility";
+import { runServiceConnector } from "./service-connector-runner.utility";
 
 const REDIRECT_STATUSES_IDX = new Set([301, 302, 303, 307, 308]);
 
@@ -37,6 +46,10 @@ export async function generatePreview(feedConfig: any): Promise<import("feed").F
       feedConfig.feedType === "api" ||
       feedConfig.feedType === "rest"
         ? ((feedConfig.config?.baseUrl || "") + (feedConfig.config?.route || "")).trim()
+        : feedConfig.feedType === "sitemap" ? feedConfig.sitemap?.url
+        : feedConfig.feedType === "calendar" ? feedConfig.calendar?.url
+        : feedConfig.feedType === "graphql" ? feedConfig.graphql?.endpoint
+        : feedConfig.feedType === "serviceConnector" ? feedConfig.serviceConnector?.connection?.settings?.serverUrl
         : null;
     if (previewUrl) {
       await assertOutboundFetchAllowed(previewUrl, previewPolicyOptions);
@@ -148,24 +161,34 @@ export async function generatePreview(feedConfig: any): Promise<import("feed").F
         const cookieString = (feedConfig.cookies || [])
           .map((c: any) => `${c.name}=${c.value}`)
           .join("; ");
-        const response = await axiosGetWithPolicyRedirects(
-          feedConfig.config.baseUrl,
-          {
-            headers: {
-              ...(feedConfig.headers || {}),
-              ...(cookieString && { Cookie: cookieString }),
-            },
-            maxContentLength: 2 * 1024 * 1024,
-            maxBodyLength: 2 * 1024 * 1024,
-            timeout: 30000,
-          },
-          previewPolicyOptions,
-        );
+        const response = await fetchWebScrapingHtml({
+          feedConfig,
+          policyOptions: previewPolicyOptions,
+          headers: feedConfig.headers || {},
+          cookieString,
+        });
         console.log("[Preview] Page fetched, building feed...");
-        const html = response.data;
+        const html = response.html;
         previewFeed = (await buildFeedObject(html, feedConfig)).feed;
         console.log("[Preview] Feed build complete");
       }
+    } else if (feedConfig.feedType === "feedTransformer") {
+      previewFeed = (await runFeedTransformer(feedConfig, { policyOptions: previewPolicyOptions })).feed;
+    } else if (feedConfig.feedType === "sitemap") {
+      previewFeed = buildFeedFromNormalizedItems({ feedId: feedConfig.feedId, feedName: feedConfig.feedName, items: await fetchAndBuildSitemapItems(feedConfig.sitemap) });
+    } else if (feedConfig.feedType === "calendar") {
+      previewFeed = buildFeedFromNormalizedItems({ feedId: feedConfig.feedId, feedName: feedConfig.feedName, items: await fetchAndBuildCalendarItems(feedConfig.calendar) });
+    } else if (feedConfig.feedType === "graphql") {
+      const result = await executeGraphQLFeed({ ...feedConfig.graphql, headers: feedConfig.graphql.headers ?? {} });
+      previewFeed = buildFeedFromNormalizedItems({ feedId: feedConfig.feedId, feedName: feedConfig.feedName, items: buildGraphQLItems(result.data, feedConfig.graphql) });
+    } else if (feedConfig.feedType === "webhook") {
+      previewFeed = buildFeedFromNormalizedItems({ feedId: feedConfig.feedId, feedName: feedConfig.feedName, items: buildWebhookItems(await readWebhookEvents(feedConfig.feedId), feedConfig.webhookFeed) });
+    } else if (feedConfig.feedType === "filesystem") {
+      const result = await scanFilesystemFeed(feedConfig.filesystem, process.env.FILESYSTEM_FEEDS_ROOT ?? process.cwd(), feedConfig.feedId);
+      previewFeed = buildFeedFromNormalizedItems({ feedId: feedConfig.feedId, feedName: feedConfig.feedName, items: result.items });
+    } else if (feedConfig.feedType === "serviceConnector") {
+      const result = await runServiceConnector(feedConfig.serviceConnector, process.env.ENCRYPTION_KEY ?? "", null);
+      previewFeed = buildFeedFromNormalizedItems({ feedId: feedConfig.feedId, feedName: feedConfig.feedName, items: result.items });
     } else if (feedConfig.feedType === "api" || feedConfig.feedType === "rest") {
       const method = String(feedConfig.config.method || "GET").toUpperCase();
       const url =

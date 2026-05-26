@@ -5,9 +5,8 @@ import { ChevronDown, ChevronUp } from "lucide-react";
 import type { RunLog } from "@/types/health";
 
 const STATUS_BADGE: Record<string, string> = {
-  success:
-    "bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400",
-  error: "bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400",
+  success: "workbench-chip-success",
+  error: "workbench-chip-error",
 };
 
 const WEBHOOK_BADGE: Record<string, string> = {
@@ -119,9 +118,9 @@ export function RunLogTab({
       {loading ? (
         <LoadingSpinner message="Loading runs…" />
       ) : (
-        <div className="overflow-x-auto rounded border border-border/50">
-          <table className="w-full text-xs">
-            <thead className="bg-muted/40">
+        <div className="workbench-panel overflow-x-auto">
+          <table className="workbench-table">
+            <thead>
               <tr>
                 {[
                   "Feed",
@@ -136,7 +135,7 @@ export function RunLogTab({
                 ].map((h) => (
                   <th
                     key={h}
-                    className="px-3 py-2 text-left font-medium text-muted-foreground whitespace-nowrap"
+                    className="whitespace-nowrap"
                   >
                     {h}
                   </th>
@@ -148,7 +147,7 @@ export function RunLogTab({
               {rows.map((row) => (
                 <React.Fragment key={row.id}>
                   <tr
-                    className="border-t border-border/30 hover:bg-muted/20 cursor-pointer"
+                    className="cursor-pointer"
                     onClick={() =>
                       setExpandedId(expandedId === row.id ? null : row.id)
                     }
@@ -169,7 +168,7 @@ export function RunLogTab({
                     </td>
                     <td className="px-3 py-2">
                       <span
-                        className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${STATUS_BADGE[row.status]}`}
+                        className={`workbench-chip ${STATUS_BADGE[row.status]}`}
                       >
                         {row.status}
                       </span>
@@ -201,7 +200,7 @@ export function RunLogTab({
                     <td className="px-3 py-2">
                       {row.webhookStatus ? (
                         <span
-                          className={`px-1.5 py-0.5 rounded-full text-xs font-medium ${WEBHOOK_BADGE[row.webhookStatus] ?? ""}`}
+                          className={`workbench-chip ${WEBHOOK_BADGE[row.webhookStatus] ?? ""}`}
                         >
                           {row.webhookStatus}
                         </span>

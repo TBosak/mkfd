@@ -4,8 +4,10 @@ import { spawn } from "bun";
 import { writeAllFeedFormats, extractFeedItemSnapshots, serializeAllFeedFormats } from "../utilities/feed-output.utility";
 import { storeFeedHistory } from "../utilities/feed-history.utility";
 import { Feed } from "feed";
+import { initDb } from "../lib/analytics/db";
 import type { EmailFeedMessage, EmailItemSnapshot } from "../node/imap-watch.utility";
 
+initDb();
 let childProcess: any = null;
 
 async function handleEmailWebhook(

@@ -55,6 +55,23 @@ export interface FlareSolverrConfig {
 export interface WebScrapingConfig {
   feedUrl: string;
   itemSelector: string;
+  extractionMode?: "cssSelectors" | "jsonLdPage" | "jsonLdDetailDrillChain" | "jsonLdWithCssFallback" | "jsonLdDetailDrillChainWithCssFallback";
+  jsonLdTitlePath?: string;
+  jsonLdDescriptionPath?: string;
+  jsonLdLinkPath?: string;
+  jsonLdDatePath?: string;
+  jsonLdAuthorPath?: string;
+  jsonLdGuidPath?: string;
+  jsonLdContentPath?: string;
+  jsonLdCategoriesPath?: string;
+  requestMode?: "simple" | "form";
+  proxyProfileId?: string;
+  userAgentProfileId?: string;
+  userAgentOverride?: string;
+  formMethod?: "GET" | "POST";
+  formActionUrl?: string;
+  formEncoding?: "application/x-www-form-urlencoded" | "multipart/form-data" | "application/json";
+  formFields?: KeyValuePair[];
 
   // Field selectors
   titleSelector?: string;
@@ -229,10 +246,111 @@ export interface EmailConfig {
   emailCount?: number;
 }
 
+export interface FeedTransformerSourceForm {
+  url: string;
+  format?: "auto" | "rss" | "atom" | "jsonFeed";
+}
+
+export interface FeedTransformerFormConfig {
+  transformerSources?: FeedTransformerSourceForm[];
+  transformerMergeStrategy?: "dateDesc" | "dateAsc" | "preserveOrder";
+  transformerMaxItems?: number;
+  transformerDedupeAcrossSources?: boolean;
+  transformerFeedTitle?: string;
+  transformerFeedDescription?: string;
+  transformerFeedLink?: string;
+  transformerGuidStrategy?: "existing" | "link" | "existingOrLinkHash" | "titleLinkDateHash" | "contentHash";
+  transformerDateStrategy?: "published" | "updated" | "publishedOrUpdated" | "publishedOrUpdatedOrFetched" | "fetched";
+  transformerStripDescriptionHtml?: boolean;
+  transformerNormalizeWhitespace?: boolean;
+  transformerForceHttps?: boolean;
+  transformerRemoveTrackingParams?: boolean;
+  transformerNormalizeCategories?: boolean;
+  transformerFilterInclude?: FeedTransformerFilterRuleForm[];
+  transformerFilterExclude?: FeedTransformerFilterRuleForm[];
+}
+
+export interface FeedTransformerFilterRuleForm {
+  field: "title" | "link" | "description" | "content" | "author" | "categories";
+  type: "contains" | "notContains" | "equals" | "startsWith" | "endsWith" | "regex";
+  value: string;
+  caseSensitive?: boolean;
+}
+
+export interface SitemapFormConfig {
+  sitemapUrl?: string;
+  sitemapMode?: "urlList" | "pageMetadata" | "jsonLd" | "jsonLdWithFallback" | "changeDetection";
+  sitemapMaxItems?: number;
+  sitemapMaxUrlsToScan?: number;
+  sitemapSortOrder?: "lastmodDesc" | "lastmodAsc" | "urlAsc" | "sitemapOrder";
+  sitemapTitleStrategy?: "path" | "url" | "hostnameAndPath" | "bestAvailable";
+  sitemapDescriptionStrategy?: "sitemapMetadata" | "pageMetadata" | "jsonLd" | "bestAvailable" | "none";
+}
+
+export interface CalendarFormConfig {
+  calendarUrl?: string;
+  calendarWindowDays?: number;
+  calendarMaxEvents?: number;
+  calendarExpandRecurringEvents?: boolean;
+  calendarSortOrder?: "startAsc" | "startDesc" | "modifiedDesc";
+  calendarLinkStrategy?: "eventUrl" | "location" | "calendarUrl" | "none";
+  calendarIncludePastEvents?: boolean;
+  calendarIncludeCanceled?: boolean;
+}
+
+export interface GraphQLFormConfig {
+  graphqlEndpoint?: string;
+  graphqlQuery?: string;
+  graphqlVariables?: string;
+  graphqlOperationName?: string;
+  graphqlItemPath?: string;
+  graphqlTitlePath?: string;
+  graphqlLinkPath?: string;
+  graphqlDescriptionPath?: string;
+  graphqlDatePath?: string;
+  graphqlGuidPath?: string;
+}
+
+export interface WebhookFeedFormConfig {
+  webhookSlug?: string;
+  webhookToken?: string;
+  webhookTokenHash?: string;
+  webhookMaxItems?: number;
+  webhookRetentionDays?: number;
+  webhookDuplicateStrategy?: "idOrHash" | "idOnly" | "always";
+  webhookDateStrategy?: "payloadDateOrReceivedAt" | "receivedAt" | "payloadDateOnly";
+  webhookStoreRawPayload?: boolean;
+}
+
+export interface FilesystemFormConfig {
+  filesystemRootPath?: string;
+  filesystemPublicBaseUrl?: string;
+  filesystemRecursive?: boolean;
+  filesystemInclude?: string;
+  filesystemExclude?: string;
+  filesystemMaxItems?: number;
+  filesystemSortOrder?: "modifiedDesc" | "modifiedAsc" | "createdDesc" | "createdAsc" | "filenameAsc" | "filenameDesc" | "firstSeenDesc";
+  filesystemTitleStrategy?: "filename" | "filenameWithoutExtension" | "relativePath" | "sidecarTitle";
+  filesystemDescriptionStrategy?: "fileMetadata" | "sidecarDescription" | "textPreview" | "none";
+  filesystemSidecarEnabled?: boolean;
+  filesystemExtractionEnabled?: boolean;
+}
+
+export interface ServiceConnectorFormConfig {
+  serviceConnectorService?: string;
+  serviceConnectorLabel?: string;
+  serviceConnectorServerUrl?: string;
+  serviceConnectorApiKey?: string;
+  serviceConnectorResourceId?: string;
+  serviceConnectorResourceLabel?: string;
+  serviceConnectorPreset?: string;
+  serviceConnectorLimit?: number;
+}
+
 // Main Feed Configuration
 export interface FeedConfig {
   feedName: string;
-  feedType: "webScraping" | "api" | "email";
+  feedType: "webScraping" | "api" | "email" | "feedTransformer" | "sitemap" | "calendar" | "graphql" | "webhook" | "filesystem" | "serviceConnector";
 
   // Additional options (common to all types)
   headers?: KeyValuePair[];
@@ -248,10 +366,24 @@ export interface FeedConfig {
   webScraping?: WebScrapingConfig;
   api?: APIConfig;
   email?: EmailConfig;
+  feedTransformer?: FeedTransformerFormConfig;
+  sitemap?: SitemapFormConfig;
+  calendar?: CalendarFormConfig;
+  graphql?: GraphQLFormConfig;
+  webhookFeed?: WebhookFeedFormConfig;
+  filesystem?: FilesystemFormConfig;
+  serviceConnector?: ServiceConnectorFormConfig;
 }
 
 // Form data type (matches what we send to backend)
 export type FeedFormData = FeedConfig &
   WebScrapingConfig &
   APIConfig &
-  EmailConfig;
+  EmailConfig &
+  FeedTransformerFormConfig &
+  SitemapFormConfig &
+  CalendarFormConfig &
+  GraphQLFormConfig &
+  WebhookFeedFormConfig &
+  FilesystemFormConfig &
+  ServiceConnectorFormConfig;

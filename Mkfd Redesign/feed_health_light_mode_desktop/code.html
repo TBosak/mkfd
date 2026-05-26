@@ -1,0 +1,456 @@
+<!DOCTYPE html>
+
+<html class="light" lang="en"><head>
+<meta charset="utf-8"/>
+<meta content="width=device-width, initial-scale=1.0" name="viewport"/>
+<title>Mkfd - Feed Health Dashboard</title>
+<script src="https://cdn.tailwindcss.com?plugins=forms,container-queries"></script>
+<link href="https://fonts.googleapis.com/css2?family=Geist:wght@100..900&amp;family=JetBrains+Mono:wght@100..800&amp;display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=Material+Symbols+Outlined:wght,FILL@100..700,0..1&amp;display=swap" rel="stylesheet"/>
+<script id="tailwind-config">
+        tailwind.config = {
+            darkMode: "class",
+            theme: {
+                extend: {
+                    "colors": {
+                        // Muted Iris Palette Base Colors
+                        "base08": "#d65d0e", // Red/Orange spike
+                        "base09": "#fe8019", // Orange
+                        "base0A": "#fabd2f", // Yellow
+                        "base0B": "#8ec07c", // Olive (Uptime/Success)
+                        "base0C": "#83a598", // Aqua
+                        "base0D": "#458588", // Slate Blue (Primary/Active)
+                        "base0E": "#b16286", // Purple
+                        "base0F": "#af3a03", // Brown/Dark Red
+
+                        "tertiary": "#6d5845",
+                        "surface-variant": "#e1e3e4",
+                        "on-background": "#191c1d",
+                        "error": "#ba1a1a",
+                        "inverse-surface": "#2e3132",
+                        "surface-dim": "#d9dadb",
+                        "on-secondary-container": "#111d26",
+                        "primary-container": "#d7e4f1",
+                        "outline": "#74777b",
+                        "surface-container": "#edeeef",
+                        "background": "#f8f9fa",
+                        "secondary-fixed": "#d7e4f1",
+                        "surface": "#f8f9fa",
+                        "secondary": "#54606b",
+                        "secondary-fixed-dim": "#bbc8d5",
+                        "on-primary-fixed-variant": "#3b4952",
+                        "error-container": "#ffdad6",
+                        "tertiary-container": "#87705c",
+                        "surface-container-lowest": "#ffffff",
+                        "on-secondary-fixed": "#111d26",
+                        "on-surface-variant": "#43474b",
+                        "on-error": "#ffffff",
+                        "surface-container-low": "#f3f4f5",
+                        "on-tertiary": "#ffffff",
+                        "on-error-container": "#93000a",
+                        "primary-fixed-dim": "#bac8d4",
+                        "on-primary-fixed": "#0f1d25",
+                        "on-surface": "#191c1d",
+                        "outline-variant": "#c3c7cb",
+                        "primary": "#458588", // base0D (Slate Blue)
+                        "on-secondary-fixed-variant": "#3c4853",
+                        "primary-fixed": "#d6e4f0",
+                        "on-primary-container": "#fcfcff",
+                        "tertiary-fixed": "#fbddc5",
+                        "on-primary": "#ffffff",
+                        "inverse-primary": "#bac8d4",
+                        "secondary-container": "#d7e4f1",
+                        "on-secondary": "#ffffff",
+                        "surface-tint": "#458588",
+                        "on-tertiary-container": "#fffbff",
+                        "tertiary-fixed-dim": "#ddc1aa",
+                        "surface-bright": "#f8f9fa",
+                        "surface-container-highest": "#e1e3e4",
+                        "inverse-on-surface": "#f0f1f2",
+                        "on-tertiary-fixed": "#27180a",
+                        "on-tertiary-fixed-variant": "#564331",
+                        "surface-container-high": "#e7e8e9"
+                    },
+                    "borderRadius": {
+                        "DEFAULT": "0.25rem",
+                        "lg": "0.5rem",
+                        "xl": "0.75rem",
+                        "full": "9999px"
+                    },
+                    "spacing": {
+                        "unit": "4px",
+                        "density-compact": "4px",
+                        "container-max": "1440px",
+                        "density-comfortable": "12px",
+                        "margin": "24px",
+                        "gutter": "16px"
+                    },
+                    "fontFamily": {
+                        "body-lg": ["Geist"],
+                        "headline-md": ["Geist"],
+                        "headline-lg": ["Geist"],
+                        "label-md": ["JetBrains Mono"],
+                        "body-md": ["Geist"],
+                        "body-sm": ["Geist"],
+                        "label-sm": ["JetBrains Mono"]
+                    },
+                    "fontSize": {
+                        "body-lg": ["16px", {"lineHeight": "24px", "fontWeight": "400"}],
+                        "headline-md": ["20px", {"lineHeight": "28px", "letterSpacing": "-0.01em", "fontWeight": "600"}],
+                        "headline-lg": ["28px", {"lineHeight": "36px", "letterSpacing": "-0.02em", "fontWeight": "600"}],
+                        "label-md": ["12px", {"lineHeight": "16px", "letterSpacing": "0.02em", "fontWeight": "500"}],
+                        "body-md": ["14px", {"lineHeight": "20px", "fontWeight": "400"}],
+                        "body-sm": ["12px", {"lineHeight": "16px", "fontWeight": "400"}],
+                        "label-sm": ["10px", {"lineHeight": "14px", "letterSpacing": "0.05em", "fontWeight": "500"}]
+                    }
+                },
+            },
+        }
+    </script>
+<style>
+        .material-symbols-outlined {
+            font-variation-settings: 'FILL' 0, 'wght' 400, 'GRAD' 0, 'opsz' 24;
+        }
+        body {
+            background-color: #f8f9fa;
+        }
+        .bento-grid {
+            display: grid;
+            grid-template-columns: repeat(12, 1fr);
+            gap: 16px;
+        }
+        .data-stream-path {
+            stroke-dasharray: 1000;
+            stroke-dashoffset: 1000;
+            animation: dash 5s linear infinite;
+        }
+        @keyframes dash {
+            to { stroke-dashoffset: 0; }
+        }
+    </style>
+</head>
+<body class="flex h-screen overflow-hidden text-on-surface font-body-md">
+<!-- SideNavBar -->
+<aside class="bg-surface-container-low border-r border-outline-variant h-screen w-64 flex flex-col py-margin shrink-0">
+<div class="px-6 mb-8">
+<div class="flex items-center gap-3">
+<div class="w-8 h-8 bg-base0D rounded flex items-center justify-center text-on-primary">
+<span class="material-symbols-outlined text-[20px]" style="font-variation-settings: 'FILL' 1;">dataset</span>
+</div>
+<div>
+<h1 class="font-headline-md text-headline-md font-bold text-on-surface">Mkfd</h1>
+<p class="font-label-sm text-label-sm text-on-surface-variant">Feed Engine</p>
+</div>
+</div>
+</div>
+<nav class="flex-1 space-y-1">
+<a class="flex items-center gap-3 px-6 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all" href="#">
+<span class="material-symbols-outlined">rss_feed</span>
+<span class="font-label-md text-label-md">Feeds</span>
+</a>
+<a class="flex items-center gap-3 px-6 py-3 bg-secondary-container text-base0D border-l-4 border-base0D font-bold transition-all" href="#">
+<span class="material-symbols-outlined" style="font-variation-settings: 'FILL' 1;">monitor_heart</span>
+<span class="font-label-md text-label-md">Health</span>
+</a>
+<a class="flex items-center gap-3 px-6 py-3 text-on-surface-variant hover:bg-surface-container-high transition-all" href="#">
+<span class="material-symbols-outlined">settings</span>
+<span class="font-label-md text-label-md">Settings</span>
+</a>
+</nav>
+<div class="px-6 pt-6 mt-auto border-t border-outline-variant">
+<div class="flex items-center gap-3 p-2 rounded hover:bg-surface-container-high transition-colors cursor-pointer">
+<div class="w-8 h-8 rounded-full bg-outline-variant overflow-hidden">
+<img alt="Mkfd Logo" class="w-full h-full object-cover" src="https://lh3.googleusercontent.com/aida-public/AB6AXuC5URkqwmN2TOYUU_QYF-Cx__IsIrVZFNDjtPo9Ypx29se0jcuz20Q79ZyTcUIIZ3kqwmnIf7umvd17ONTOdjaeD4VTEJt-rG2RV5l6bPT-OGx6A38I49i_cFfbwna_QT3ZnfzvzB86K0ACzuSBUhkxmhoCAfYKJRs8sx-2KxBOwTee2E9mYc7H2FWEuEu2sdpreYCV54zfxUPdu2ROJLkHB0v33aEqY4nsft1yasUMh4dU-vkAHxliBwrIy7FD0XMlM9B_oVsZxb28"/>
+</div>
+<div class="overflow-hidden">
+<p class="font-label-md text-label-md truncate">Admin User</p>
+<p class="font-label-sm text-label-sm text-on-surface-variant truncate">Standard Tier</p>
+</div>
+</div>
+</div>
+</aside>
+<!-- Main Content Area -->
+<main class="flex-1 flex flex-col min-w-0 bg-background overflow-y-auto">
+<!-- TopAppBar -->
+<header class="bg-surface border-b border-outline-variant flex justify-between items-center w-full px-margin h-12 sticky top-0 z-10">
+<div class="flex items-center gap-4">
+<span class="font-headline-md text-headline-md font-bold text-on-surface">Health Dashboard</span>
+</div>
+<div class="flex items-center gap-3">
+<button class="flex items-center gap-2 px-3 py-1.5 border border-base0D text-base0D hover:bg-surface-container-low transition-colors rounded text-label-md">
+<span class="material-symbols-outlined text-[18px]">sync</span>
+                Force Re-sync
+            </button>
+<button class="flex items-center gap-2 px-3 py-1.5 bg-base0D text-on-primary hover:opacity-80 transition-opacity rounded text-label-md">
+<span class="material-symbols-outlined text-[18px]">download</span>
+                Export Logs
+            </button>
+<div class="h-6 w-px bg-outline-variant mx-1"></div>
+<button class="text-on-surface-variant hover:bg-surface-container-low p-1.5 rounded transition-colors">
+<span class="material-symbols-outlined">notifications</span>
+</button>
+<button class="text-on-surface-variant hover:bg-surface-container-low p-1.5 rounded transition-colors">
+<span class="material-symbols-outlined">account_circle</span>
+</button>
+</div>
+</header>
+<!-- Content Grid -->
+<div class="p-margin max-w-[1600px] mx-auto w-full space-y-6">
+<!-- High-Density Telemetry Widgets -->
+<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-gutter">
+<!-- Uptime -->
+<div class="bg-surface-container-low border border-outline-variant p-4 rounded-lg flex flex-col justify-between">
+<div class="flex justify-between items-start mb-2">
+<span class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Global Uptime</span>
+<span class="material-symbols-outlined text-base0B text-[20px]">check_circle</span>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="font-headline-lg text-headline-lg font-bold">99.98%</span>
+<span class="font-label-sm text-label-sm text-base0B">+0.02%</span>
+</div>
+<div class="mt-3 w-full bg-surface-container-highest h-1 rounded-full overflow-hidden">
+<div class="bg-base0B h-full w-[99.98%]"></div>
+</div>
+</div>
+<!-- Success Rate -->
+<div class="bg-surface-container-low border border-outline-variant p-4 rounded-lg flex flex-col justify-between">
+<div class="flex justify-between items-start mb-2">
+<span class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Success Rate</span>
+<span class="material-symbols-outlined text-base0B text-[20px]">task_alt</span>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="font-headline-lg text-headline-lg font-bold">94.2%</span>
+<span class="font-label-sm text-label-sm text-base08">-1.4%</span>
+</div>
+<div class="mt-3 w-full bg-surface-container-highest h-1 rounded-full overflow-hidden">
+<div class="bg-base0B h-full w-[94.2%]"></div>
+</div>
+</div>
+<!-- Active Threads -->
+<div class="bg-surface-container-low border border-outline-variant p-4 rounded-lg flex flex-col justify-between">
+<div class="flex justify-between items-start mb-2">
+<span class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Active Threads</span>
+<span class="material-symbols-outlined text-base0D text-[20px]">memory</span>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="font-headline-lg text-headline-lg font-bold">128</span>
+<span class="font-label-sm text-label-sm text-on-surface-variant">/ 256 max</span>
+</div>
+<div class="mt-3 w-full bg-surface-container-highest h-1 rounded-full overflow-hidden flex gap-0.5">
+<div class="bg-base0D h-full w-[50%]"></div>
+<div class="bg-outline-variant h-full w-[25%] opacity-20"></div>
+</div>
+</div>
+<!-- Latency -->
+<div class="bg-surface-container-low border border-outline-variant p-4 rounded-lg flex flex-col justify-between">
+<div class="flex justify-between items-start mb-2">
+<span class="font-label-md text-label-md text-on-surface-variant uppercase tracking-wider">Mean Latency</span>
+<span class="material-symbols-outlined text-base09 text-[20px]">speed</span>
+</div>
+<div class="flex items-baseline gap-2">
+<span class="font-headline-lg text-headline-lg font-bold">142ms</span>
+<span class="font-label-sm text-label-sm text-base08">+12ms</span>
+</div>
+<div class="mt-3 flex items-end h-6 gap-0.5">
+<div class="bg-outline-variant w-full h-[40%] opacity-30"></div>
+<div class="bg-outline-variant w-full h-[60%] opacity-30"></div>
+<div class="bg-outline-variant w-full h-[50%] opacity-30"></div>
+<div class="bg-base08 w-full h-[80%] opacity-80"></div>
+<div class="bg-base0D w-full h-[100%]"></div>
+</div>
+</div>
+</div>
+<!-- Primary Visualization: 24H History 'Telemetry Stream' -->
+<section class="bg-surface-container-low border border-outline-variant rounded-lg overflow-hidden">
+<div class="bg-surface px-6 py-4 border-b border-outline-variant flex justify-between items-center">
+<div>
+<h2 class="font-headline-md text-headline-md font-bold">24H History</h2>
+<p class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Telemetry Stream • Requests/sec</p>
+</div>
+<div class="flex gap-2">
+<span class="flex items-center gap-1 font-label-md text-label-md text-on-surface-variant">
+<span class="w-3 h-3 rounded-full bg-base0D"></span> Primary
+                    </span>
+<span class="flex items-center gap-1 font-label-md text-label-md text-on-surface-variant ml-4">
+<span class="w-3 h-3 rounded-full bg-outline-variant"></span> Baseline
+                    </span>
+<span class="flex items-center gap-1 font-label-md text-label-md text-on-surface-variant ml-4">
+<span class="w-3 h-3 rounded-full bg-base08"></span> Outage/Spike
+                    </span>
+</div>
+</div>
+<div class="p-6 h-[320px] relative bg-white">
+<!-- Chart Simulation -->
+<svg class="w-full h-full preserve-3d" preserveaspectratio="none" viewbox="0 0 1000 240">
+<!-- Grid Lines -->
+<line stroke="#dee2e6" stroke-dasharray="4" stroke-width="1" x1="0" x2="1000" y1="0" y2="0"></line>
+<line stroke="#dee2e6" stroke-dasharray="4" stroke-width="1" x1="0" x2="1000" y1="60" y2="60"></line>
+<line stroke="#dee2e6" stroke-dasharray="4" stroke-width="1" x1="0" x2="1000" y1="120" y2="120"></line>
+<line stroke="#dee2e6" stroke-dasharray="4" stroke-width="1" x1="0" x2="1000" y1="180" y2="180"></line>
+<line stroke="#dee2e6" stroke-width="1" x1="0" x2="1000" y1="240" y2="240"></line>
+<!-- Baseline Path -->
+<path d="M0,180 Q100,160 200,170 T400,150 T600,165 T800,140 T1000,155" fill="none" opacity="0.3" stroke="#c3c7cb" stroke-width="2"></path>
+<!-- Primary Data Path -->
+<path class="data-stream-path" d="M0,200 L50,190 L100,210 L150,180 L200,160 L250,170 L300,140 L350,130 L400,150 L450,110 L500,120 L550,90 L600,105 L650,80 L700,95 L750,70 L800,85 L850,60 L900,75 L950,50 L1000,65" fill="none" stroke="#458588" stroke-width="3"></path>
+<!-- Anomaly Indicator (Spike Highlight) -->
+<circle cx="100" cy="210" fill="#d65d0e" r="4"></circle>
+<circle cx="850" cy="60" fill="#d65d0e" r="4"></circle>
+<!-- Gradient Fill -->
+<path d="M0,200 L50,190 L100,210 L150,180 L200,160 L250,170 L300,140 L350,130 L400,150 L450,110 L500,120 L550,90 L600,105 L650,80 L700,95 L750,70 L800,85 L850,60 L900,75 L950,50 L1000,65 L1000,240 L0,240 Z" fill="url(#grad)" opacity="0.1"></path>
+<defs>
+<lineargradient id="grad" x1="0%" x2="0%" y1="0%" y2="100%">
+<stop offset="0%" style="stop-color:#458588;stop-opacity:1"></stop>
+<stop offset="100%" style="stop-color:#458588;stop-opacity:0"></stop>
+</lineargradient>
+</defs>
+</svg>
+<!-- X-Axis Labels -->
+<div class="flex justify-between mt-4 font-label-sm text-label-sm text-on-surface-variant">
+<span>24H AGO</span>
+<span>18H AGO</span>
+<span>12H AGO</span>
+<span>6H AGO</span>
+<span>NOW</span>
+</div>
+</div>
+</section>
+<!-- Process Execution Log Table -->
+<section class="bg-surface-container-low border border-outline-variant rounded-lg overflow-hidden">
+<div class="bg-surface px-6 py-4 border-b border-outline-variant">
+<h2 class="font-headline-md text-headline-md font-bold">Process Execution Log</h2>
+<p class="font-label-sm text-label-sm text-on-surface-variant uppercase tracking-wider">Detailed Execution History • Latency &amp; Outcomes</p>
+</div>
+<div class="overflow-x-auto">
+<table class="w-full text-left border-collapse">
+<thead>
+<tr class="bg-surface-container-low border-b border-outline-variant">
+<th class="px-6 py-3 font-label-md text-label-md text-on-surface-variant uppercase">Timestamp</th>
+<th class="px-6 py-3 font-label-md text-label-md text-on-surface-variant uppercase">Process ID</th>
+<th class="px-6 py-3 font-label-md text-label-md text-on-surface-variant uppercase">Status</th>
+<th class="px-6 py-3 font-label-md text-label-md text-on-surface-variant uppercase text-right">Latency</th>
+<th class="px-6 py-3 font-label-md text-label-md text-on-surface-variant uppercase">Cluster</th>
+<th class="px-6 py-3 font-label-md text-label-md text-on-surface-variant uppercase text-right">Action</th>
+</tr>
+</thead>
+<tbody class="divide-y divide-outline-variant">
+<tr class="hover:bg-surface-container-high transition-colors font-body-md group h-12">
+<td class="px-6 py-2 font-label-md text-on-surface-variant">2023-10-24 14:22:10</td>
+<td class="px-6 py-2 font-label-md">PRC-99210</td>
+<td class="px-6 py-2">
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-base0B/10 text-base0B text-label-sm font-bold border border-base0B/20">
+<span class="w-1.5 h-1.5 rounded-full bg-base0B"></span> SUCCESS
+                                </span>
+</td>
+<td class="px-6 py-2 text-right font-label-md">112ms</td>
+<td class="px-6 py-2 font-label-md text-on-surface-variant">US-EAST-1</td>
+<td class="px-6 py-2 text-right">
+<button class="text-base0D hover:underline font-label-md">View Details</button>
+</td>
+</tr>
+<tr class="bg-surface-container-lowest hover:bg-surface-container-high transition-colors font-body-md group h-12">
+<td class="px-6 py-2 font-label-md text-on-surface-variant">2023-10-24 14:21:45</td>
+<td class="px-6 py-2 font-label-md">PRC-99209</td>
+<td class="px-6 py-2">
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-base0A/10 text-base0A text-label-sm font-bold border border-base0A/20">
+<span class="w-1.5 h-1.5 rounded-full bg-base0A"></span> RETRYING
+                                </span>
+</td>
+<td class="px-6 py-2 text-right font-label-md">452ms</td>
+<td class="px-6 py-2 font-label-md text-on-surface-variant">US-EAST-1</td>
+<td class="px-6 py-2 text-right">
+<button class="text-base0D hover:underline font-label-md">View Details</button>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-high transition-colors font-body-md group h-12">
+<td class="px-6 py-2 font-label-md text-on-surface-variant">2023-10-24 14:20:12</td>
+<td class="px-6 py-2 font-label-md">PRC-99208</td>
+<td class="px-6 py-2">
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-base0C/10 text-base0C text-label-sm font-bold border border-base0C/20">
+<span class="w-1.5 h-1.5 rounded-full bg-base0C"></span> QUEUED
+                                </span>
+</td>
+<td class="px-6 py-2 text-right font-label-md">98ms</td>
+<td class="px-6 py-2 font-label-md text-on-surface-variant">EU-WEST-2</td>
+<td class="px-6 py-2 text-right">
+<button class="text-base0D hover:underline font-label-md">View Details</button>
+</td>
+</tr>
+<tr class="bg-surface-container-lowest hover:bg-surface-container-high transition-colors font-body-md group h-12">
+<td class="px-6 py-2 font-label-md text-on-surface-variant">2023-10-24 14:19:58</td>
+<td class="px-6 py-2 font-label-md">PRC-99207</td>
+<td class="px-6 py-2">
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-base08/10 text-base08 text-label-sm font-bold border border-base08/20">
+<span class="w-1.5 h-1.5 rounded-full bg-base08"></span> FAILED
+                                </span>
+</td>
+<td class="px-6 py-2 text-right font-label-md">--</td>
+<td class="px-6 py-2 font-label-md text-on-surface-variant">US-WEST-2</td>
+<td class="px-6 py-2 text-right">
+<button class="text-base0D hover:underline font-label-md">View Details</button>
+</td>
+</tr>
+<tr class="hover:bg-surface-container-high transition-colors font-body-md group h-12">
+<td class="px-6 py-2 font-label-md text-on-surface-variant">2023-10-24 14:18:30</td>
+<td class="px-6 py-2 font-label-md">PRC-99206</td>
+<td class="px-6 py-2">
+<span class="inline-flex items-center gap-1 px-2.5 py-1 rounded bg-base0E/10 text-base0E text-label-sm font-bold border border-base0E/20">
+<span class="w-1.5 h-1.5 rounded-full bg-base0E"></span> TERMINATED
+                                </span>
+</td>
+<td class="px-6 py-2 text-right font-label-md">104ms</td>
+<td class="px-6 py-2 font-label-md text-on-surface-variant">US-EAST-1</td>
+<td class="px-6 py-2 text-right">
+<button class="text-base0D hover:underline font-label-md">View Details</button>
+</td>
+</tr>
+</tbody>
+</table>
+</div>
+<div class="bg-surface px-6 py-3 flex items-center justify-between border-t border-outline-variant">
+<span class="font-label-sm text-label-sm text-on-surface-variant">Showing 1-10 of 1,244 executions</span>
+<div class="flex gap-2">
+<button class="p-1 border border-outline-variant rounded hover:bg-surface-container-low disabled:opacity-50" disabled="">
+<span class="material-symbols-outlined">chevron_left</span>
+</button>
+<button class="p-1 border border-outline-variant rounded hover:bg-surface-container-low">
+<span class="material-symbols-outlined">chevron_right</span>
+</button>
+</div>
+</div>
+</section>
+</div>
+<footer class="mt-auto py-8 px-margin border-t border-outline-variant flex justify-between items-center opacity-60">
+<p class="font-label-sm text-label-sm uppercase tracking-tighter">Mkfd Cluster Monitoring System v4.2.0</p>
+<div class="flex gap-4">
+<a class="font-label-sm text-label-sm uppercase hover:text-base0D transition-colors" href="#">Documentation</a>
+<a class="font-label-sm text-label-sm uppercase hover:text-base0D transition-colors" href="#">API Reference</a>
+<a class="font-label-sm text-label-sm uppercase hover:text-base0D transition-colors" href="#">System Status</a>
+</div>
+</footer>
+</main>
+<!-- Visual Accents & Overlays -->
+<div class="fixed inset-0 pointer-events-none z-[-1] opacity-5">
+<div class="absolute inset-0" style="background-image: radial-gradient(#458588 1px, transparent 1px); background-size: 40px 40px;"></div>
+</div>
+<script>
+    // Simple Interaction logic
+    document.querySelectorAll('button').forEach(btn => {
+        btn.addEventListener('click', function() {
+            this.classList.add('scale-[0.98]');
+            setTimeout(() => this.classList.remove('scale-[0.98]'), 100);
+        });
+    });
+
+    // Dynamic status colors for latency simulation using Muted Iris spectrum
+    const bars = document.querySelectorAll('.bg-outline-variant.w-full');
+    const colors = ['bg-base08', 'bg-base09', 'bg-base0A', 'bg-base0B', 'bg-base0C', 'bg-base0D', 'bg-base0E', 'bg-base0F'];
+    bars.forEach((bar, idx) => {
+        if (Math.random() > 0.6) {
+            bar.classList.remove('bg-outline-variant', 'opacity-30');
+            // Distribute palette colors randomly for high-density feel
+            const randomColor = colors[Math.floor(Math.random() * colors.length)];
+            bar.classList.add(randomColor);
+        }
+    });
+</script>
+</body></html>

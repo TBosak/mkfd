@@ -2,9 +2,9 @@ import { Database } from "bun:sqlite";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import { migrate } from "drizzle-orm/bun-sqlite/migrator";
 import { and, desc, eq, inArray, lt } from "drizzle-orm";
-import { mkdirSync, existsSync } from "node:fs";
+import { mkdirSync, existsSync, readdirSync } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
-import { dirname, basename, extname } from "node:path";
+import { dirname, basename, extname, join } from "node:path";
 import { createHash } from "node:crypto";
 import * as schema from "./schema";
 import type { RunLog } from "./schema";
@@ -37,10 +37,34 @@ export type RunLogInput = {
 let _sqlite: Database | null = null;
 
 export function initDb(dbPath: string = process.env.RUNTIME_DB_PATH ?? "./data/runtime.db"): Database {
-  mkdirSync(dirname(dbPath), { recursive: true });
-  _sqlite = new Database(dbPath);
+  const absoluteDbPath = join(process.cwd(), dbPath);
+  mkdirSync(dirname(absoluteDbPath), { recursive: true });
+  
+  _sqlite = new Database(absoluteDbPath);
   const db = drizzle(_sqlite, { schema });
-  migrate(db, { migrationsFolder: "./drizzle/migrations" });
+  
+  // In Bun, import.meta.dir is the most reliable way to get the current file's directory
+  const currentDir = import.meta.dir;
+  const migrationsFolder = join(currentDir, "../../drizzle/migrations");
+  
+  console.log(`[Analytics] Initializing DB at ${absoluteDbPath}`);
+  console.log(`[Analytics] Migrations folder: ${migrationsFolder}`);
+  
+  try {
+    if (!existsSync(migrationsFolder)) {
+      throw new Error(`Migrations folder not found at ${migrationsFolder}`);
+    }
+    const migrationFiles = readdirSync(migrationsFolder);
+    console.log(`[Analytics] Found migration files: ${migrationFiles.join(", ")}`);
+    
+    migrate(db, { migrationsFolder });
+    console.log("[Analytics] Migrations complete");
+  } catch (err) {
+    console.error("[Analytics] Migration failed:", err);
+    // Don't throw if we are in a worker and the main process might be migrating
+    // but for now, let's throw to see the error in logs
+    throw err;
+  }
   return _sqlite;
 }
 
