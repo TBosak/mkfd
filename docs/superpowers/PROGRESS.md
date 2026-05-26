@@ -18,16 +18,18 @@
 | App Shell / Navigation Redesign | ✅ | ✅ | ✅ |
 | My Feeds Redesign | ✅ | ✅ | ✅ |
 | Builder UI Redesign | ✅ | ✅ | ✅ |
+| UI Redesign Correction Pass | ✅ | ✅ | ✅ |
+| Workbench v2 Frontend Redesign | ✅ | ✅ | ✅ |
 
 ## Phase 2.5 — Admin & Runtime UX
 | Feature | Spec | Plan | Impl |
 |---|---|---|---|
-| Settings Page (Runtime/Admin) | ✅ | ✅ | ⬜ |
+| Settings Page (Runtime/Admin) | ✅ | ✅ | ✅ |
 
 ## Phase 3 Prerequisite — Backend Maintainability
 | Feature | Spec | Plan | Impl |
 |---|---|---|---|
-| Backend Route Decomposition (prereq) | ✅ | ✅ | ⬜ |
+| Backend Route Decomposition (prereq) | ✅ | ✅ | ✅ |
 
 ## Phase 3 — Transformation & Scraping Intelligence
 | Feature | Spec | Plan | Impl |
