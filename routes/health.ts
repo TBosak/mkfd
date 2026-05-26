@@ -25,19 +25,28 @@ export function healthRouter(deps: { runLogEmitter: EventEmitter }): Hono {
   // -------------------------------------------------------------------------
 
   app.get("/api/health/runs", async (c) => {
-    const { feedId, status, feedType, from, to, page = "1", pageSize = "50" } =
+    const { feedId, status, feedType, from, to, page, pageSize } =
       c.req.query();
     const db = drizzle(getDb(), { schema: analyticsSchema });
+
+    const fromNum = from ? parseInt(from, 10) : undefined;
+    const toNum = to ? parseInt(to, 10) : undefined;
+    const pageNum = parseInt(page || "1", 10) || 1;
+    const pageSizeNum = parseInt(pageSize || "50", 10) || 50;
 
     const conditions: any[] = [];
     if (feedId) conditions.push(eq(analyticsSchema.runLogs.feedId, feedId));
     if (status) conditions.push(eq(analyticsSchema.runLogs.status, status));
     if (feedType) conditions.push(eq(analyticsSchema.runLogs.feedType, feedType));
-    if (from) conditions.push(gte(analyticsSchema.runLogs.startedAt, Number(from)));
-    if (to) conditions.push(lte(analyticsSchema.runLogs.startedAt, Number(to)));
+    if (fromNum !== undefined && !isNaN(fromNum)) {
+      conditions.push(gte(analyticsSchema.runLogs.startedAt, fromNum));
+    }
+    if (toNum !== undefined && !isNaN(toNum)) {
+      conditions.push(lte(analyticsSchema.runLogs.startedAt, toNum));
+    }
 
     const where = conditions.length ? and(...conditions) : undefined;
-    const offset = (Number(page) - 1) * Number(pageSize);
+    const offset = (pageNum - 1) * pageSizeNum;
 
     const [rows, countResult] = await Promise.all([
       db
@@ -45,7 +54,7 @@ export function healthRouter(deps: { runLogEmitter: EventEmitter }): Hono {
         .from(analyticsSchema.runLogs)
         .where(where)
         .orderBy(desc(analyticsSchema.runLogs.startedAt))
-        .limit(Number(pageSize))
+        .limit(pageSizeNum)
         .offset(offset),
       db
         .select({ count: sql`count(*)` })

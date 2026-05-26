@@ -194,17 +194,18 @@ export function setFeedUpdaterInterval(feedConfig: any): void {
       config: feedConfig,
       encryptionKey: _encryptionKey,
     });
-  }
 
-  if (feedConfig.feedType !== "email") {
-    if (!feedIntervals.has(feedId)) {
+    // Set interval inside this block so worker and interval are always paired —
+    // avoids a race where terminateWorker is called between worker creation and
+    // interval registration.
+    if (feedConfig.feedType !== "email" && !feedIntervals.has(feedId)) {
       console.log("Setting interval for feed:", feedId);
       const interval = setInterval(() => {
         console.log("Engaging worker for feed:", feedId);
-        feedUpdaters.get(feedId)!.postMessage({
-          command: "start",
-          config: feedConfig,
-        });
+        const worker = feedUpdaters.get(feedId);
+        if (worker) {
+          worker.postMessage({ command: "start", config: feedConfig });
+        }
       }, feedConfig.refreshTime * 60 * 1000);
       feedIntervals.set(feedId, interval);
     }
@@ -240,6 +241,7 @@ export function clearFeedUpdaterInterval(feedId: string): void {
 // ---------------------------------------------------------------------------
 
 export function clearAllFeedUpdaterIntervals(): void {
+  // Iterating with .entries() snapshot is safe — deletions of returned keys don't cause skips
   for (const [feedId] of feedIntervals.entries()) {
     clearFeedUpdaterInterval(feedId);
     terminateWorker(feedId);

@@ -264,6 +264,19 @@ export interface OutboundFetchPolicyOptions {
 }
 
 /**
+ * Returns the global outbound fetch policy options read from environment variables.
+ *
+ * Migration note: When the Settings Page is implemented, the env-var reads
+ * here must be replaced with effective settings lookups.
+ */
+export function getGlobalFetchPolicyOptions(): OutboundFetchPolicyOptions {
+  return {
+    allowPrivateFetches: process.env.ALLOW_PRIVATE_FETCHES === "true",
+    allowlist: parseAllowlist(process.env.OUTBOUND_FETCH_ALLOWLIST),
+  };
+}
+
+/**
  * Merges feed-level policy overrides on top of a global policy baseline.
  *
  * Precedence: feed override > global setting > safe default (false / empty).

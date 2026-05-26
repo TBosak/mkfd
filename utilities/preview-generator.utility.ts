@@ -10,20 +10,12 @@ import { chromium } from "patchright";
 import { getChromiumLaunchOptions } from "./chrome-extensions.utility";
 import { getRandomUserAgent } from "./user-agents.utility";
 import { buildFeedObject, buildFeedObjectFromApiData } from "./rss-builder.utility";
-import { assertOutboundFetchAllowed, mergeFeedPolicyOptions } from "./outbound-fetch-policy.utility";
+import {
+  assertOutboundFetchAllowed,
+  getGlobalFetchPolicyOptions,
+  mergeFeedPolicyOptions,
+} from "./outbound-fetch-policy.utility";
 import { normalizeUrl, axiosGetWithPolicyRedirects } from "./feed-config-route-adapter.utility";
-import { parseAllowlist, type OutboundFetchPolicyOptions } from "./outbound-fetch-policy.utility";
-
-// ---------------------------------------------------------------------------
-// Policy helper
-// ---------------------------------------------------------------------------
-
-function getGlobalFetchPolicyOptions(): OutboundFetchPolicyOptions {
-  return {
-    allowPrivateFetches: process.env.ALLOW_PRIVATE_FETCHES === "true",
-    allowlist: parseAllowlist(process.env.OUTBOUND_FETCH_ALLOWLIST),
-  };
-}
 
 const REDIRECT_STATUSES_IDX = new Set([301, 302, 303, 307, 308]);
 
@@ -222,6 +214,11 @@ export async function generatePreview(feedConfig: any): Promise<import("feed").F
 
       console.log("Preview Axios Config:", axiosConfig);
 
+      // NOTE: The redirect-following loop below duplicates what axiosGetWithPolicyRedirects
+      // does for the webScraping path. The API/REST path can't use that helper directly
+      // because it needs to support non-GET methods with a request body (axiosConfig.data).
+      // If axiosGetWithPolicyRedirects is ever extended to support POST/PUT with body,
+      // this inline loop should be replaced.
       let previewApiResponse: import("axios").AxiosResponse | undefined;
       let currentPreviewUrl = url;
       for (let hop = 0; hop <= 5; hop++) {

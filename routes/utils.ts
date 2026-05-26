@@ -13,15 +13,14 @@
 import { Hono } from "hono";
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
-import { join } from "node:path";
+import { basename, join } from "node:path";
 import axios from "axios";
 import type { Config } from "node-imap";
 import { listImapFolders } from "../utilities/imap.utility";
 import { suggestSelectors } from "../utilities/suggestion-engine.utility";
 import {
   assertOutboundFetchAllowed,
-  parseAllowlist,
-  type OutboundFetchPolicyOptions,
+  getGlobalFetchPolicyOptions,
 } from "../utilities/outbound-fetch-policy.utility";
 import {
   normalizeUrl,
@@ -32,13 +31,6 @@ import * as yaml from "js-yaml";
 // ---------------------------------------------------------------------------
 // Internal helpers
 // ---------------------------------------------------------------------------
-
-function getGlobalFetchPolicyOptions(): OutboundFetchPolicyOptions {
-  return {
-    allowPrivateFetches: process.env.ALLOW_PRIVATE_FETCHES === "true",
-    allowlist: parseAllowlist(process.env.OUTBOUND_FETCH_ALLOWLIST),
-  };
-}
 
 function injectSelectorGadget(html: string): string {
   const SG_SCRIPT = `
@@ -225,6 +217,16 @@ export function utilsRouter(deps: {
       user: config.user,
       password: config.password ? "[REDACTED]" : undefined,
     });
+
+    try {
+      await assertOutboundFetchAllowed(
+        `https://${config.host}:${config.port}/`,
+        getGlobalFetchPolicyOptions(),
+      );
+    } catch (policyErr: any) {
+      return c.text(policyErr.message, 403);
+    }
+
     const folders = await listImapFolders(config);
     console.log("IMAP folders:", folders);
     return c.json({ folders });
@@ -325,7 +327,6 @@ export function utilsRouter(deps: {
     }
 
     try {
-      const { basename } = await import("node:path");
       const sanitizedFeedId = basename(feedId as string);
       const configPath = join(configsDir, `${sanitizedFeedId}.yaml`);
 

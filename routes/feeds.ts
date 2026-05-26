@@ -42,9 +42,8 @@ import { castFeedFormDataToFeedConfig } from "../utilities/feed-config-caster.ut
 import { validateFeedConfig } from "../utilities/feed-config-validator.utility";
 import {
   assertOutboundFetchAllowed,
+  getGlobalFetchPolicyOptions,
   mergeFeedPolicyOptions,
-  parseAllowlist,
-  type OutboundFetchPolicyOptions,
 } from "../utilities/outbound-fetch-policy.utility";
 import {
   normalizeUrl,
@@ -57,17 +56,6 @@ import {
   clearFeedUpdaterInterval,
   terminateWorker,
 } from "../utilities/worker-manager.utility";
-
-// ---------------------------------------------------------------------------
-// Internal helpers
-// ---------------------------------------------------------------------------
-
-function getGlobalFetchPolicyOptions(): OutboundFetchPolicyOptions {
-  return {
-    allowPrivateFetches: process.env.ALLOW_PRIVATE_FETCHES === "true",
-    allowlist: parseAllowlist(process.env.OUTBOUND_FETCH_ALLOWLIST),
-  };
-}
 
 // ---------------------------------------------------------------------------
 // Router factory
