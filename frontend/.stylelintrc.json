@@ -22,6 +22,20 @@
         ]
       }
     ],
-    "no-descending-specificity": null
+    "no-descending-specificity": null,
+    "import-notation": null,
+    "at-rule-prelude-no-invalid": null,
+    "value-keyword-case": [
+      "lower",
+      {
+        "ignoreKeywords": [
+          "SFMono-Regular",
+          "Menlo",
+          "Consolas",
+          "Geist",
+          "Figtree"
+        ]
+      }
+    ]
   }
 }

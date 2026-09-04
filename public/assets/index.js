@@ -486,7 +486,13 @@ For more information, see https://radix-ui.com/primitives/docs/components/${t.do
     body {
       margin: 0;
       padding: 20px;
-      font-family: 'Courier New', monospace;
+      /* This document is a blob: URL, a separate document from the app, so it
+         cannot see the parent's @font-face rules. Geist Mono is named first in
+         case it is installed locally; otherwise this falls through to a modern
+         system mono rather than the dated Courier New it replaced. Serving
+         Geist Mono into the preview needs an absolute font URL and interacts
+         with the sandboxing Packet 2 owns for this iframe, so it is deferred. */
+      font-family: 'Geist Mono Variable', ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
       background: #f5f5f5;
       overflow: auto;
     }

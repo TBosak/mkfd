@@ -1,3 +1,11 @@
+/* Self-hosted variable fonts. Bundled deliberately, never CDN-loaded: Mkfd
+   runs self-hosted and often on a LAN or air-gapped homelab, where a CDN
+   link would silently fall back to system fonts (the CF-06 defect), and a
+   third-party font request carries privacy exposure for every user. */
+@import "@fontsource-variable/geist";
+@import "@fontsource-variable/geist-mono";
+@import "@fontsource-variable/figtree";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -15,6 +23,7 @@
         --secondary: 22 33% 47%;
         --secondary-foreground: 0 0% 100%;
         --muted: 210 9% 96%;
+
         /* 47% lightness measured 4.03:1 on --muted, 4.22:1 on --background and
            4.41:1 on white, all below the 4.5:1 WCAG AA threshold for normal
            text. This token carries the sidebar and bottom-nav labels, so axe
@@ -30,17 +39,22 @@
         --input: 210 7% 78%;
         --ring: 205 13% 37%;
         --radius: 0.5rem;
+
+        /* Type system. Geist Sans for headings and titles, Figtree for body
+           and UI controls, Geist Mono for code and markup previews. */
+        --font-display: "Geist Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        --font-sans: "Figtree Variable", ui-sans-serif, system-ui, -apple-system, "Segoe UI", sans-serif;
+        --font-mono: "Geist Mono Variable", ui-monospace, SFMono-Regular, Menlo, monospace;
         --chart-1: 205 13% 37%;
         --chart-2: 80 18% 46%;
         --chart-3: 42 50% 57%;
         --chart-4: 10 36% 53%;
         --chart-5: 283 14% 52%;
-
         --wb-surface: #f8f9fa;
         --wb-surface-low: #f3f4f5;
         --wb-surface-container: #edeeef;
         --wb-surface-high: #e1e3e4;
-        --wb-card: #ffffff;
+        --wb-card: #fff;
         --wb-ink: #191c1d;
         --wb-muted: #43474b;
         --wb-outline: #c3c7cb;
@@ -48,6 +62,7 @@
         --wb-secondary: #a06a51;
         --wb-success: #7a8a5f;
         --wb-warning: #8c7f50;
+
         /* Text-safe companion to --wb-warning. The base tone is a fill/dot
            colour: as 10px text on its own 15% tint it measures 3.37:1 and on
            white 3.99:1, both under AA. This darker ink measures 5.13:1 and
@@ -91,10 +106,24 @@
     * {
         @apply border-border;
     }
+
     body {
         @apply bg-background text-foreground;
-        font-family: "Geist", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+
+        font-family: var(--font-sans);
         font-size: 14px;
+    }
+
+    /* Geist Sans carries headings and titles, tightened per the locked type
+       decision. Figtree stays on body copy, labels, and controls. */
+    h1,
+    h2,
+    h3,
+    h4,
+    h5,
+    h6 {
+        font-family: var(--font-display);
+        letter-spacing: -0.02em;
     }
 }
 
@@ -113,7 +142,7 @@
     }
 
     .workbench-label {
-        font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-family: var(--font-mono);
         font-size: 11px;
         line-height: 14px;
         letter-spacing: 0.05em;
@@ -141,7 +170,7 @@
         background: var(--wb-surface-low);
         border-bottom: 1px solid var(--wb-outline);
         color: var(--wb-muted);
-        font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+        font-family: var(--font-mono);
         font-size: 11px;
         font-weight: 600;
         text-align: left;
@@ -155,7 +184,7 @@
         vertical-align: middle;
     }
 
-    .workbench-table tbody tr:hover {
+    .workbench-table tbody tr:hover, .workbench-table tbody tr:focus {
         background: var(--wb-surface-low);
     }
 
@@ -166,8 +195,8 @@
         min-height: 20px;
         padding: 2px 8px;
         border-radius: 9999px;
-        border: 1px solid currentColor;
-        font-family: "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+        border: 1px solid currentcolor;
+        font-family: var(--font-mono);
         font-size: 10px;
         line-height: 14px;
         font-weight: 700;
@@ -176,31 +205,56 @@
 
     .workbench-chip-success {
         color: var(--wb-success);
-        background: rgba(122, 138, 95, 0.14);
+        background: rgb(122 138 95 / 14%);
     }
 
     .workbench-chip-error {
         color: var(--wb-error);
-        background: rgba(178, 85, 85, 0.14);
+        background: rgb(178 85 85 / 14%);
     }
 }
 
 @layer utilities {
     /* Custom Animations */
     .animate-in {
-        animation: animateIn 0.3s ease-out;
+        animation: animate-in-kf 0.3s ease-out;
     }
 
     .fade-in {
-        animation: fadeIn 0.5s ease-out;
+        animation: fade-in-kf 0.5s ease-out;
     }
 
     .slide-up {
-        animation: slideUp 0.4s ease-out;
+        animation: slide-up-kf 0.4s ease-out;
     }
 
     .slide-down {
-        animation: slideDown 0.4s ease-out;
+        animation: slide-down-kf 0.4s ease-out;
+    }
+
+    /* Honour a reduced-motion preference.
+       This block is placed AFTER the animation utilities deliberately. A media
+       query adds no specificity, so at equal specificity the later rule wins.
+       The stylelint a11y autofix inserts its guard BEFORE each rule, which
+       means the animation declaration overrides it and the guard silently does
+       nothing — it satisfies the linter while leaving the defect in place.
+       That autofix was reverted; this ordering is what actually works. */
+    @media (prefers-reduced-motion: reduce) {
+        .animate-in {
+            animation: none;
+        }
+
+        .fade-in {
+            animation: none;
+        }
+
+        .slide-up {
+            animation: none;
+        }
+
+        .slide-down {
+            animation: none;
+        }
     }
 
     /* Gradient Border Effect */
@@ -213,42 +267,46 @@
     }
 }
 
-@keyframes animateIn {
+@keyframes animate-in-kf {
     from {
         opacity: 0;
         transform: translateY(10px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
     }
 }
 
-@keyframes fadeIn {
+@keyframes fade-in-kf {
     from {
         opacity: 0;
     }
+
     to {
         opacity: 1;
     }
 }
 
-@keyframes slideUp {
+@keyframes slide-up-kf {
     from {
         opacity: 0;
         transform: translateY(20px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
     }
 }
 
-@keyframes slideDown {
+@keyframes slide-down-kf {
     from {
         opacity: 0;
         transform: translateY(-20px);
     }
+
     to {
         opacity: 1;
         transform: translateY(0);
@@ -273,6 +331,6 @@
     border-radius: 4px;
 }
 
-::-webkit-scrollbar-thumb:hover {
-    background: hsl(var(--foreground) / 0.5);
+::-webkit-scrollbar-thumb:hover, ::-webkit-scrollbar-thumb:focus {
+    background: hsl(var(--foreground) / 50%);
 }
