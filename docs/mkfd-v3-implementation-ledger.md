@@ -25,6 +25,7 @@ This is the single execution-status record for `docs/mkfd-v3-implementation-road
 | 7B — Ingress/local sources | Codex | Not started | — | — | Depends on shared runtime/UI contracts |
 | 8 — Templates/catalog | Codex | Not started | — | — | Depends on protected values and config contract |
 | 9 — Service connectors | Codex | Not started | — | — | Depends on source registry and outbound executor |
+| 4D/9D — Front-end design assessment/polish | Codex | Not started | — | — | Design tooling installed (impeccable, emilkowalski/skills, motion, morphicons); 4D assessment gates on Packet 4 start, 9D polish must follow Packet 4 route-splitting or it compounds the 944 kB bundle advisory |
 | 10 — Release proof | Codex | Not started | — | — | All earlier packets |
 
 ## TDD slice evidence

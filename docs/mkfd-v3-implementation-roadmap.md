@@ -377,6 +377,46 @@ Packets 4 and 5 should be sequential if one agent is doing all frontend work. Wi
 
 **Estimated complexity:** Large. Start only after Packets 2, 3, and 5.
 
+### Packet 4D / 9D — front-end design assessment and polish
+
+**Purpose:** make the interface feel considered and alive rather than merely functional, and catch the class of defect that lint, typecheck, and axe route scans structurally cannot see.
+
+This packet is deliberately split into two touchpoints, because assessment and polish belong at opposite ends of the build.
+
+**Installed design tooling** (project-scoped under `.claude/skills`, `.agents/skills`):
+
+- `emilkowalski/skills` (MIT) — `animate`, `animation-vocabulary`, `improve-animations`, `review-animations`, `find-animation-opportunities`, `apple-design`, `emil-design-eng`, `pick-ui-library`, `prototype`.
+- `impeccable` (Apache-2.0) — `/impeccable` commands: `shape`, `critique`, `audit`, `polish`, `typeset`, `layout`, `animate`, `harden`, `optimize`, `adapt`, `distill`, `document`, `live`.
+- `Leonxlnx/taste-skill` (MIT, 84k stars) — `design-taste-frontend`, `high-end-visual-design`, `redesign-existing-projects`, `brandkit`, `full-output-enforcement`, plus alternative aesthetic skills (`minimalist-ui`, `industrial-brutalist-ui`) that are deliberately NOT adopted, since Mkfd already has an established workbench aesthetic.
+- Runtime: `motion` 13 and `morphicons` 1.7 (both MIT), for state-driven animation and stroke-icon morphing.
+
+#### 4D — assessment, at the start of Packet 4
+
+Runs before the frontend packets do their work, so findings shape the build instead of being retrofitted.
+
+- `/impeccable init` to capture `PRODUCT.md` and `DESIGN.md`, giving every later agent a single on-brand reference. This is the missing artifact today: the redesign has no written visual system, which is why drift keeps being found by hand.
+- `/impeccable critique` and `/impeccable audit` over the shell, My Feeds, Builder, Health, Settings, and Catalog, at both 1280 px and 390 px.
+- `review-animations` and `find-animation-opportunities` to inventory what motion exists and which state changes currently happen with no feedback at all.
+- Output is a written assessment with severity, feeding the Packet 4 and 5 backlogs. No production changes in this step.
+
+#### 9D — polish, after Packets 4 through 7B
+
+Runs once the surfaces are feature-complete, so polish is not applied to code about to be rewritten.
+
+- `/impeccable polish` plus `typeset` and `layout` passes on each shipped surface.
+- Motion work with `motion`, guided by `animate` and `animation-vocabulary`: correct easing direction (`ease-out` for enter, `ease-in` for exit), spring physics for direct manipulation, and durations that read as responsive rather than sluggish.
+- **Feed source-type icon morphing** (product request): the source-type icon buttons morph into the RSS glyph on hover and morph back to the source glyph when selected, using `morphicons` over the existing stroke-based `lucide-react` set. Selection state must stay legible without relying on the animation, and the effect must be suppressed under `prefers-reduced-motion`.
+- `/impeccable harden` for empty, loading, error, overflow, and long-string states.
+
+**Known inputs already collected:** three contrast defects fixed by hand during Packet 1 (`--muted-foreground`, `SettingRow` row opacity, `--wb-warning` used as text); react-doctor reporting 7 icon-only buttons with no accessible name, 5 controls missing labels, and 2 placeholder-as-label fields; stylelint reporting 4 animations with no `prefers-reduced-motion` guard and 2 hover styles with no matching `:focus`.
+
+**Exit criteria:** `DESIGN.md` exists and matches the shipped system; every interactive control has an accessible name; every animation respects `prefers-reduced-motion`; every hover affordance has a focus equivalent; the axe gate stays green at both viewports; and the icon-morph interaction works with keyboard, touch, and reduced motion.
+
+**Constraint:** `motion` and `morphicons` add to a bundle that already trips the Vite 500 kB advisory at 944 kB. Packet 4 owns route-level code splitting, and 9D must not land before that work or it compounds a known regression.
+
+**Estimated complexity:** Medium for 4D (assessment, no production changes), Medium-Large for 9D. Sequence 9D after Packet 7B and before Packet 10.
+
+
 ### Packet 10 — release proof, migration rehearsal, and documentation truth
 
 **Purpose:** prove the integrated product rather than discovering feature defects after versioning.

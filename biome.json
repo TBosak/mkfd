@@ -16,7 +16,8 @@
 			"!feed-history",
 			"!configs",
 			"!data",
-			"!drizzle/migrations"
+			"!drizzle/migrations",
+			"!.agents"
 		]
 	},
 	"formatter": {
@@ -31,7 +32,9 @@
 				"noUnknownAtRules": {
 					"level": "error",
 					"options": {
-						"ignore": ["tailwind"]
+						"ignore": [
+							"tailwind"
+						]
 					}
 				}
 			}

@@ -1,6 +1,8 @@
 {
 	"$schema": "https://biomejs.dev/schemas/2.5.11/schema.json",
-	"extends": ["./biome.json"],
+	"extends": [
+		"./biome.json"
+	],
 	"files": {
 		"includes": [
 			"**",
@@ -12,7 +14,8 @@
 			"!feed-history",
 			"!configs",
 			"!data",
-			"!drizzle/migrations"
+			"!drizzle/migrations",
+			"!.agents"
 		]
 	}
 }

@@ -1,0 +1,27 @@
+{
+  "extends": [
+    "stylelint-config-standard",
+    "@double-great/stylelint-a11y/recommended"
+  ],
+  "ignoreFiles": [
+    "../public/**",
+    "dist/**",
+    "node_modules/**"
+  ],
+  "rules": {
+    "at-rule-no-unknown": [
+      true,
+      {
+        "ignoreAtRules": [
+          "tailwind",
+          "apply",
+          "layer",
+          "screen",
+          "variants",
+          "responsive"
+        ]
+      }
+    ],
+    "no-descending-specificity": null
+  }
+}
