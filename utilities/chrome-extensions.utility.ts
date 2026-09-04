@@ -5,7 +5,7 @@ import { join } from "node:path";
  * Gets Chrome extension paths from the configured extensions directory
  * @returns Array of absolute paths to Chrome extensions
  */
-export function getChromeExtensionPaths(): string[] {
+function getChromeExtensionPaths(): string[] {
   // Default to /app/extensions if not configured
   const extensionsDir = process.env.CHROME_EXTENSIONS_PATH || "/app/extensions";
 

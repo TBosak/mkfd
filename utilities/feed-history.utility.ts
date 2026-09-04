@@ -19,7 +19,7 @@ export function setFeedHistoryStore(store: FeedHistoryStore): void {
 /**
  * Ensures the feed history directory exists
  */
-export function ensureFeedHistoryDir(): void {
+function ensureFeedHistoryDir(): void {
 	if (!existsSync(FEED_HISTORY_DIR)) {
 		mkdirSync(FEED_HISTORY_DIR, { recursive: true });
 	}
@@ -86,7 +86,7 @@ export async function getPreviousFeedHistory(
 /**
  * Clears feed history for a specific feed.
  */
-export async function clearFeedHistory(feedId: string): Promise<void> {
+async function clearFeedHistory(feedId: string): Promise<void> {
 	if (_store) {
 		await _store.clearFeedHistory(feedId);
 	}

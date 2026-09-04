@@ -90,7 +90,7 @@ export async function scanFilesystemFeed(config: FilesystemFeedConfig, allowedRo
   return { items: sortItems(items, config.sortOrder).slice(0, config.maxItems), warnings, stats };
 }
 
-export async function loadFilesystemState(feedId: string, dir = DEFAULT_STATE_DIR): Promise<FilesystemFeedState> {
+async function loadFilesystemState(feedId: string, dir = DEFAULT_STATE_DIR): Promise<FilesystemFeedState> {
   const path = join(dir, `${feedId}.json`);
   if (!existsSync(path)) return { files: {} };
   return JSON.parse(await readFile(path, "utf8"));

@@ -1,7 +1,7 @@
 import type { Database } from "bun:sqlite";
 import type { ServiceConnectorFeedState } from "../models/service-connector.model";
 
-export function ensureServiceConnectorStateTable(db: Database): void {
+function ensureServiceConnectorStateTable(db: Database): void {
   db.run(`CREATE TABLE IF NOT EXISTS service_connector_state (
     feed_id TEXT PRIMARY KEY,
     state_json TEXT NOT NULL,

@@ -85,7 +85,7 @@ async function insertAndEmitRunLog(
 // initializeWorker
 // ---------------------------------------------------------------------------
 
-export function initializeWorker(feedConfig: any): void {
+function initializeWorker(feedConfig: any): void {
 	feedUpdaters.set(
 		feedConfig.feedId,
 		new Worker(

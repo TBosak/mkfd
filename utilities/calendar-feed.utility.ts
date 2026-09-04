@@ -19,7 +19,7 @@ export async function fetchAndBuildCalendarItems(config: CalendarFeedConfig): Pr
   return buildCalendarItems(parseIcsEvents(String(response.data), config), config);
 }
 
-export function buildCalendarItems(events: CalendarEventItem[], config: CalendarFeedConfig): NormalizedFeedItem[] {
+function buildCalendarItems(events: CalendarEventItem[], config: CalendarFeedConfig): NormalizedFeedItem[] {
   return events.map((event) => ({
     title: event.summary,
     link: config.linkStrategy === "eventUrl" ? event.url : config.linkStrategy === "location" ? event.location : config.linkStrategy === "calendarUrl" ? config.url : undefined,

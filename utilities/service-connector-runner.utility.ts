@@ -6,7 +6,7 @@ import type {
 import { getServiceConnector } from "./service-connector-registry.utility";
 import { resolveProtectedValues } from "./protected-values.utility";
 
-export function resolveServiceConnectorAuth(
+function resolveServiceConnectorAuth(
 	config: ServiceConnectorConfig,
 	encryptionKey: string,
 ): Record<string, string> {

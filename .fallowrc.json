@@ -1,5 +1,9 @@
 {
   "$schema": "./node_modules/fallow/schema.json",
+  "entry": [
+    "workers/feed-updater.worker.ts",
+    "workers/imap-feed.worker.ts"
+  ],
   "ignorePatterns": [
     "public/**",
     "drizzle/**",

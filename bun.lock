@@ -9,6 +9,7 @@
         "axios": "^1.20.0",
         "cheerio": "^1.0.0",
         "dayjs": "^1.11.13",
+        "domhandler": "^5.0.3",
         "drizzle-orm": "^0.45.2",
         "feed": "^5.1.0",
         "hono": "^4.13.5",

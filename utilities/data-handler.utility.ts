@@ -5,22 +5,22 @@ import customParseFormat from "dayjs/plugin/customParseFormat";
 import { type Browser, chromium, type Cookie, type Page } from "patchright";
 import { getChromiumLaunchOptions } from "./chrome-extensions.utility";
 import { getRandomUserAgent } from "./user-agents.utility";
-import { discoverUrl, looksLikeUrl } from "./rss-builder.utility";
+import { discoverUrl, looksLikeUrl } from "./url-discovery.utility";
 
 dayjs.extend(customParseFormat);
 
-export function stripHtml(html: string) {
+function stripHtml(html: string) {
 	return html.replace(/<(?:.|\n)*?>/gm, "");
 }
 
-export function titleCase(words: string) {
+function titleCase(words: string) {
 	return words.replace(
 		/\w\S*/g,
 		(txt) => txt.charAt(0).toUpperCase() + txt.substring(1).toLowerCase(),
 	);
 }
 
-export function appendUrl(url?: string, link?: string) {
+function appendUrl(url?: string, link?: string) {
 	if (url && link) {
 		if (link.startsWith("/")) {
 			return url.endsWith("/")

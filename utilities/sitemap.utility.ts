@@ -29,7 +29,7 @@ export function parseSitemapXml(xml: string, sourceSitemapUrl: string): SitemapP
   };
 }
 
-export function applySitemapFilters(entries: SitemapEntry[], filters?: SitemapFeedConfig["filters"]): SitemapEntry[] {
+function applySitemapFilters(entries: SitemapEntry[], filters?: SitemapFeedConfig["filters"]): SitemapEntry[] {
   return entries.filter((entry) => {
     const includes = filters?.include ?? [];
     const excludes = filters?.exclude ?? [];
@@ -39,7 +39,7 @@ export function applySitemapFilters(entries: SitemapEntry[], filters?: SitemapFe
   });
 }
 
-export function sortSitemapEntries(entries: SitemapEntry[], sortOrder: SitemapFeedConfig["sortOrder"]): SitemapEntry[] {
+function sortSitemapEntries(entries: SitemapEntry[], sortOrder: SitemapFeedConfig["sortOrder"]): SitemapEntry[] {
   return [...entries].sort((a, b) => {
     if (sortOrder === "urlAsc") return a.loc.localeCompare(b.loc);
     if (sortOrder === "sitemapOrder") return a.order - b.order;

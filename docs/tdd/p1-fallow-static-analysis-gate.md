@@ -67,3 +67,70 @@ Three distinct categories inside the 22 unused files, established by source insp
 - [ ] `ignorePatterns`, baselines, and suppression comments are all bounded.
 - [ ] Roadmap-pending components are proven to still exist.
 - [ ] Targeted RED command and genuine failure breakdown are reported.
+
+---
+
+## Amendment 1 (product decision, supersedes requirements 4-7 above)
+
+The gate changes shape. Enforcing the full backlog was measured at roughly 300
+findings (82 dead-code, 49 clone groups, 173 health), and closing that with an
+exceptions file would produce governance theatre rather than a meaningful gate.
+
+**New direction: gate new code, fix the worst existing code, do not paper over
+either with exceptions.**
+
+### A. The CI gate judges changed code only
+
+- CI runs `fallow audit`, which fails only on findings a change introduces, so
+  the pre-existing backlog never blocks a pull request while new debt is
+  stopped at the door.
+- `bun run analyze` remains the full-pipeline local command and must keep
+  using a flag that genuinely fails on findings. Note that `fallow --ci` is
+  documented as equivalent to `--fail-on-issues` but was measured exiting 0
+  with 82 findings present; only `--fail-on-issues` actually gates. A test
+  must assert the gate command exits non-zero when findings exist, proving the
+  flag works rather than trusting its documentation.
+- The audit gate must not be weakened by `continue-on-error`, `|| true`, an
+  exit-code-discarding redirect, a `--gate` setting that excludes introduced
+  findings, or a base ref chosen to make the comparison empty.
+
+### B. Exceptions are the last resort, not the mechanism
+
+- `docs/security/static-analysis-exceptions.md` still exists and keeps its
+  contract, but the expected steady state is an empty array.
+- An exception is permitted only for a finding that is genuinely blocked on
+  another packet's work. It is not permitted for a file that is simply dead.
+
+### C. `ROADMAP_PENDING_PATHS` is over-broad and must be justified per file
+
+The accepted suite protects all eleven currently-unused files from deletion.
+That was a faithful reading of the original brief, but it is wrong: it
+protects genuinely dead files and makes green unreachable without exceptions.
+
+Split the list. A path may stay protected only with a cited reason — a V2
+finding id or an owning packet whose scope will consume it. Everything else is
+dead code and must be deleted, with the same "prove nothing imports it"
+standard already applied to the nine starter-config adapters.
+
+Provisional classification, to be verified rather than trusted:
+
+- **Protected, cited:** `CookiesManager.tsx` (V2-16), `KVEditor.tsx` (V2-02),
+  and the three `catalog/` components (Packet 8).
+- **Delete unless a citation is found:** `SectionHeader.tsx`,
+  `SectionPager.tsx`, `accordion.tsx`, `SettingsTab.tsx`,
+  `lib/analytics/types.ts`, `models/imapconfig.model.ts`. All six are
+  unreferenced anywhere in the repository outside the test that protects them.
+
+### D. Fix the worst existing findings rather than recording them
+
+In scope for this slice, because each is small, local, and owned by no other
+packet:
+
+- The `data-handler.utility.ts` to `rss-builder.utility.ts` circular
+  dependency, which fallow flags as an initialization and tree-shaking risk.
+- The unused exports fallow reports in first-party utilities, where removal is
+  provably safe.
+
+Complexity hotspots and clone groups inside surfaces owned by Packets 3 to 6
+remain out of scope and are not exception candidates either; the audit gate
+stops those surfaces getting worse.

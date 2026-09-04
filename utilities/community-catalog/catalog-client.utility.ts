@@ -46,7 +46,7 @@ export async function getCatalogManifest(options: CatalogClientOptions = {}): Pr
   return manifest;
 }
 
-export async function getCatalogEntry(id: string, options: CatalogClientOptions = {}): Promise<CatalogManifestEntry> {
+async function getCatalogEntry(id: string, options: CatalogClientOptions = {}): Promise<CatalogManifestEntry> {
   const manifest = await getCatalogManifest(options);
   const entry = manifest.feeds.find((feed) => feed.id === id);
   if (!entry) throw new Error(`Catalog feed not found: ${id}`);

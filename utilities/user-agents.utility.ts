@@ -42,7 +42,7 @@ export function getRandomUserAgent(): string {
  * @param randomize Whether to randomize the user agent (default: true)
  * @returns A user agent string
  */
-export function getUserAgent(randomize: boolean = true): string {
+function getUserAgent(randomize: boolean = true): string {
   if (!randomize) {
     return USER_AGENTS[0]; // Return first (default) user agent
   }

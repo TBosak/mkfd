@@ -22,13 +22,15 @@
     "verify:core": "bun run verify:static && bun run test && bun run validate:catalog && bun run build",
     "verify:full": "bun run verify:core && bun run test:e2e",
     "tdd:claude": "bun scripts/claude-test-author.ts",
-    "tdd:tests": "bun scripts/tdd-test-lock.ts"
+    "tdd:tests": "bun scripts/tdd-test-lock.ts",
+    "analyze": "bun x fallow --fail-on-issues"
   },
   "dependencies": {
     "@xmldom/xmldom": "^0.9.12",
     "axios": "^1.20.0",
     "cheerio": "^1.0.0",
     "dayjs": "^1.11.13",
+    "domhandler": "^5.0.3",
     "drizzle-orm": "^0.45.2",
     "feed": "^5.1.0",
     "hono": "^4.13.5",

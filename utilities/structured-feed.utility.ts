@@ -4,7 +4,7 @@ import type {
 } from "../models/graphql.model";
 import type { NormalizedFeedItem } from "../models/normalized-feed-item.model";
 
-export function getByPath(input: unknown, path?: string): unknown {
+function getByPath(input: unknown, path?: string): unknown {
 	if (!path) return undefined;
 	return path.split(".").reduce((value: any, part) => {
 		if (value === undefined || value === null) return undefined;
@@ -12,7 +12,7 @@ export function getByPath(input: unknown, path?: string): unknown {
 	}, input as any);
 }
 
-export function getArrayByPath(input: unknown, path: string): unknown[] {
+function getArrayByPath(input: unknown, path: string): unknown[] {
 	const value = getByPath(input, path);
 	if (Array.isArray(value)) return value.map((item) => item?.node ?? item);
 	return value ? [value] : [];
