@@ -1,17 +1,16 @@
 import * as cheerio from "cheerio";
+import type { Cheerio, CheerioAPI } from "cheerio";
+import type { AnyNode } from "domhandler";
 import { Feed } from "feed";
 import type CSSTarget from "../models/csstarget.model";
 import type { CSSTargetFields } from "../models/csstarget.model";
-import type {
-  RSSFeedOptions,
-  RSSItemOptions,
-} from "../models/rss-feed.model";
+import type { RSSFeedOptions, RSSItemOptions } from "../models/rss-feed.model";
 import type { ApiMapping } from "../models/api-mapping.model";
 import {
-  processDates,
-  processWords,
-  get,
-  resolveDrillChain,
+	processDates,
+	processWords,
+	get,
+	resolveDrillChain,
 } from "./data-handler.utility";
 import { sanitizeForXML, sanitizeURLForXML } from "./xml-sanitizer.utility";
 import type ApiConfig from "./../models/apiconfig.model";
@@ -21,1099 +20,1362 @@ import { extractJsonLdItemsFromHtml } from "./json-ld-extractor.utility";
 import { buildFeedFromNormalizedItems } from "./normalized-feed-builder.utility";
 
 export type BuildMetrics = {
-  itemCount: number;
-  selectorMatches: Record<string, number> | null;
-  dateFallbacks: number;
-  duplicateGuids: number;
+	itemCount: number;
+	selectorMatches: Record<string, number> | null;
+	dateFallbacks: number;
+	duplicateGuids: number;
 };
 
 export type BuildRSSResult = {
-  xml: string;
-  metrics: BuildMetrics;
+	xml: string;
+	metrics: BuildMetrics;
 };
 
 export type BuildFeedObjectResult = {
-  feed: Feed;
-  metrics: BuildMetrics;
+	feed: Feed;
+	metrics: BuildMetrics;
 };
 
-async function _buildFeedFromHtml(res: any, feedConfig: any, dateIndex?: Map<string, string>): Promise<BuildFeedObjectResult> {
-  const apiConfig: ApiConfig = feedConfig.config;
-  const article = feedConfig.article as CSSTargetFields;
-  const reverse: boolean = feedConfig.reverse || false;
-  const strict: boolean = feedConfig.strict || false;
-  const advanced: boolean = apiConfig.advanced || false;
-  const flaresolverr = feedConfig.flaresolverr;
-  const cookies = feedConfig.cookies;
-  const $ = cheerio.load(res);
-  const elements = $(article.iterator.selector).toArray();
+async function _buildFeedFromHtml(
+	res: any,
+	feedConfig: any,
+	dateIndex?: Map<string, string>,
+): Promise<BuildFeedObjectResult> {
+	const apiConfig: ApiConfig = feedConfig.config;
+	const article = feedConfig.article as CSSTargetFields;
+	const reverse: boolean = feedConfig.reverse || false;
+	const strict: boolean = feedConfig.strict || false;
+	const advanced: boolean = apiConfig.advanced || false;
+	const flaresolverr = feedConfig.flaresolverr;
+	const cookies = feedConfig.cookies;
+	const $ = cheerio.load(res);
+	const elements = $(article.iterator.selector).toArray();
 
-  if (article?.iterator?.selector) {
-    let dateFallbacks = 0;
-    var input = await Promise.all(
-      elements.map(async (el) => {
-        const itemData: RSSItemOptions = {
-          title: sanitizeForXML(
-            processWords(
-              await extractField($, el, article.title, advanced, false, false, flaresolverr, cookies),
-              article.title?.titleCase,
-              article.title?.stripHtml,
-            ),
-          ),
-          description: sanitizeForXML(
-            processWords(
-              await extractField($, el, article.description, advanced, false, false, flaresolverr, cookies),
-              article.description?.titleCase,
-              article.description?.stripHtml,
-            ),
-          ),
-          link: sanitizeURLForXML(
-            processLinksAbsolute(
-              await extractField($, el, article.link, advanced, false, true, flaresolverr, cookies),
-              article.link?.stripHtml,
-              article.link?.isRelative,
-              article.link?.baseUrl,
-            ),
-          ),
-          date: new Date(), // placeholder — overwritten below after stableKey is computed
-          guid: sanitizeForXML(
-            await extractField($, el, article.guid, advanced, false, false, flaresolverr, cookies),
-          ),
-        };
+	if (article?.iterator?.selector) {
+		let dateFallbacks = 0;
+		let input = await Promise.all(
+			elements.map(async (el) => {
+				const itemData: RSSItemOptions = {
+					title: sanitizeForXML(
+						processWords(
+							await extractField(
+								$,
+								el,
+								article.title,
+								advanced,
+								false,
+								false,
+								flaresolverr,
+								cookies,
+							),
+							article.title?.titleCase,
+							article.title?.stripHtml,
+						),
+					),
+					description: sanitizeForXML(
+						processWords(
+							await extractField(
+								$,
+								el,
+								article.description,
+								advanced,
+								false,
+								false,
+								flaresolverr,
+								cookies,
+							),
+							article.description?.titleCase,
+							article.description?.stripHtml,
+						),
+					),
+					link: sanitizeURLForXML(
+						processLinksAbsolute(
+							await extractField(
+								$,
+								el,
+								article.link,
+								advanced,
+								false,
+								true,
+								flaresolverr,
+								cookies,
+							),
+							article.link?.stripHtml,
+							article.link?.isRelative,
+							article.link?.baseUrl,
+						),
+					),
+					date: new Date(), // placeholder — overwritten below after stableKey is computed
+					guid: sanitizeForXML(
+						await extractField(
+							$,
+							el,
+							article.guid,
+							advanced,
+							false,
+							false,
+							flaresolverr,
+							cookies,
+						),
+					),
+				};
 
-        // Handle author (convert to Author array)
-        const authorName = sanitizeForXML(
-          processWords(
-            await extractField($, el, article.author, advanced, false, false, flaresolverr, cookies),
-            article.author?.titleCase,
-            article.author?.stripHtml,
-          ),
-        );
+				// Handle author (convert to Author array)
+				const authorName = sanitizeForXML(
+					processWords(
+						await extractField(
+							$,
+							el,
+							article.author,
+							advanced,
+							false,
+							false,
+							flaresolverr,
+							cookies,
+						),
+						article.author?.titleCase,
+						article.author?.stripHtml,
+					),
+				);
 
-        // Handle categories (convert to Category array)
-        const categoryNames = (
-          await extractField($, el, article.categories, advanced, false, false, flaresolverr, cookies)
-        )
-          ?.split(",")
-          .map((c) => c.trim())
-          .filter(Boolean);
-        if (categoryNames && categoryNames.length > 0) {
-          itemData.category = categoryNames.map((name) => ({
-            name: sanitizeForXML(name),
-          }));
-        }
+				// Handle categories (convert to Category array)
+				const categoryNames = (
+					await extractField(
+						$,
+						el,
+						article.categories,
+						advanced,
+						false,
+						false,
+						flaresolverr,
+						cookies,
+					)
+				)
+					?.split(",")
+					.map((c) => c.trim())
+					.filter(Boolean);
+				if (categoryNames && categoryNames.length > 0) {
+					itemData.category = categoryNames.map((name) => ({
+						name: sanitizeForXML(name),
+					}));
+				}
 
-        // Handle contributors (convert to Author array)
-        const contributorNames = (
-          await extractField($, el, article.contributors, advanced, false, false, flaresolverr, cookies)
-        )
-          ?.split(",")
-          .map((c) => c.trim())
-          .filter(Boolean);
-        if (contributorNames && contributorNames.length > 0) {
-          itemData.contributor = contributorNames.map((name) => ({
-            name: sanitizeForXML(name),
-          }));
-        }
+				// Handle contributors (convert to Author array)
+				const contributorNames = (
+					await extractField(
+						$,
+						el,
+						article.contributors,
+						advanced,
+						false,
+						false,
+						flaresolverr,
+						cookies,
+					)
+				)
+					?.split(",")
+					.map((c) => c.trim())
+					.filter(Boolean);
+				if (contributorNames && contributorNames.length > 0) {
+					itemData.contributor = contributorNames.map((name) => ({
+						name: sanitizeForXML(name),
+					}));
+				}
 
-        // Handle enclosure
-        const enclosure = await processEnclosure(
-          $,
-          el,
-          article.enclosure,
-          advanced,
-          article.enclosure?.baseUrl ||
-            apiConfig?.baseUrl ||
-            feedConfig?.feedUrl ||
-            "",
-          flaresolverr
-        );
-        if (enclosure) {
-          itemData.enclosure = enclosure;
-        }
+				// Handle enclosure
+				const enclosure = await processEnclosure(
+					$,
+					el,
+					article.enclosure,
+					advanced,
+					article.enclosure?.baseUrl ||
+						apiConfig?.baseUrl ||
+						feedConfig?.feedUrl ||
+						"",
+					flaresolverr,
+				);
+				if (enclosure) {
+					itemData.enclosure = enclosure;
+				}
 
-        // Handle content (now a standard field in feed package)
-        const content = sanitizeForXML(
-          processWords(
-            await extractField($, el, article.content, advanced, false, false, flaresolverr, cookies),
-            article.content?.titleCase,
-            article.content?.stripHtml,
-          ),
-        );
-        if (content) {
-          itemData.content = content;
-        }
+				// Handle content (now a standard field in feed package)
+				const content = sanitizeForXML(
+					processWords(
+						await extractField(
+							$,
+							el,
+							article.content,
+							advanced,
+							false,
+							false,
+							flaresolverr,
+							cookies,
+						),
+						article.content?.titleCase,
+						article.content?.stripHtml,
+					),
+				);
+				if (content) {
+					itemData.content = content;
+				}
 
-        // Handle content:encoded and other extensions
-        const extensions: any[] = [];
+				// Handle content:encoded and other extensions
+				const extensions: any[] = [];
 
-        // Handle author: use native RSS author field if email, otherwise use dc:creator
-        if (authorName) {
-          if (isEmailAddress(authorName)) {
-            itemData.author = [{ email: authorName }];
-          } else {
-            extensions.push({
-              name: "dc:creator",
-              objects: authorName,
-            });
-          }
-        }
+				// Handle author: use native RSS author field if email, otherwise use dc:creator
+				if (authorName) {
+					if (isEmailAddress(authorName)) {
+						itemData.author = [{ email: authorName }];
+					} else {
+						extensions.push({
+							name: "dc:creator",
+							objects: authorName,
+						});
+					}
+				}
 
-        const contentEncoded = sanitizeForXML(
-          processWords(
-            await extractField($, el, article.contentEncoded, advanced, false, false, flaresolverr, cookies),
-            article.contentEncoded?.titleCase,
-            article.contentEncoded?.stripHtml,
-          ),
-        );
-        if (contentEncoded) {
-          extensions.push({
-            name: "content:encoded",
-            objects: contentEncoded,
-          });
-        }
+				const contentEncoded = sanitizeForXML(
+					processWords(
+						await extractField(
+							$,
+							el,
+							article.contentEncoded,
+							advanced,
+							false,
+							false,
+							flaresolverr,
+							cookies,
+						),
+						article.contentEncoded?.titleCase,
+						article.contentEncoded?.stripHtml,
+					),
+				);
+				if (contentEncoded) {
+					extensions.push({
+						name: "content:encoded",
+						objects: contentEncoded,
+					});
+				}
 
-        const summary = sanitizeForXML(
-          processWords(
-            await extractField($, el, article.summary, advanced, false, false, flaresolverr, cookies),
-            article.summary?.titleCase,
-            article.summary?.stripHtml,
-          ),
-        );
-        if (summary) {
-          extensions.push({
-            name: "summary",
-            objects: summary,
-          });
-        }
+				const summary = sanitizeForXML(
+					processWords(
+						await extractField(
+							$,
+							el,
+							article.summary,
+							advanced,
+							false,
+							false,
+							flaresolverr,
+							cookies,
+						),
+						article.summary?.titleCase,
+						article.summary?.stripHtml,
+					),
+				);
+				if (summary) {
+					extensions.push({
+						name: "summary",
+						objects: summary,
+					});
+				}
 
-        if (article.source) {
-          const sourceUrl = await extractField(
-            $,
-            el,
-            article.source.url,
-            advanced,
-            false,
-            false,
-            flaresolverr
-          );
-          const sourceTitle = await extractField(
-            $,
-            el,
-            article.source.title,
-            advanced,
-            false,
-            false,
-            flaresolverr
-          );
-          if (sourceUrl || sourceTitle) {
-            extensions.push({
-              name: "source",
-              objects: { url: sourceUrl, title: sourceTitle },
-            });
-          }
-        }
+				if (article.source) {
+					const sourceUrl = await extractField(
+						$,
+						el,
+						article.source.url,
+						advanced,
+						false,
+						false,
+						flaresolverr,
+					);
+					const sourceTitle = await extractField(
+						$,
+						el,
+						article.source.title,
+						advanced,
+						false,
+						false,
+						flaresolverr,
+					);
+					if (sourceUrl || sourceTitle) {
+						extensions.push({
+							name: "source",
+							objects: { url: sourceUrl, title: sourceTitle },
+						});
+					}
+				}
 
-        if (extensions.length > 0) {
-          itemData.extensions = extensions;
-        }
+				if (extensions.length > 0) {
+					itemData.extensions = extensions;
+				}
 
-        const { date: rawDate, isFallback: dateFallback } = processDates(
-          await extractField($, el, article.date, advanced, false, false, flaresolverr, cookies),
-          article.date?.stripHtml,
-          article.date?.dateFormat,
-        );
-        itemData.date = rawDate;
-        if (dateFallback) dateFallbacks++;
+				const { date: rawDate, isFallback: dateFallback } = processDates(
+					await extractField(
+						$,
+						el,
+						article.date,
+						advanced,
+						false,
+						false,
+						flaresolverr,
+						cookies,
+					),
+					article.date?.stripHtml,
+					article.date?.dateFormat,
+				);
+				itemData.date = rawDate;
+				if (dateFallback) dateFallbacks++;
 
-        const stableKey = makeItemKey(itemData as Record<string, unknown>);
+				const stableKey = makeItemKey(itemData);
 
-        if (dateIndex) {
-          if (dateIndex.has(stableKey)) {
-            itemData.date = new Date(dateIndex.get(stableKey)!);
-          } else {
-            dateIndex.set(stableKey, rawDate.toISOString());
-          }
-        }
+				if (dateIndex) {
+					if (dateIndex.has(stableKey)) {
+						itemData.date = new Date(dateIndex.get(stableKey)!);
+					} else {
+						dateIndex.set(stableKey, rawDate.toISOString());
+					}
+				}
 
-        if (itemData.guid === undefined || itemData.guid === "") {
-          itemData.guid = stableKey;
-        }
+				if (itemData.guid === undefined || itemData.guid === "") {
+					itemData.guid = stableKey;
+				}
 
-        return itemData;
-      }),
-    );
+				return itemData;
+			}),
+		);
 
-    if (strict) {
-      input = filterStrictly(input);
-    }
+		if (strict) {
+			input = filterStrictly(input);
+		}
 
-    const selectorMatches: Record<string, number> = {
-      iterator: elements.length,
-      title: input.filter((i) => i.title && String(i.title).trim() !== "").length,
-      description: input.filter((i) => i.description && String(i.description).trim() !== "").length,
-      link: input.filter((i) => i.link && String(i.link).trim() !== "").length,
-      guid: input.filter((i) => i.guid && String(i.guid).trim() !== "").length,
-    };
+		const selectorMatches: Record<string, number> = {
+			iterator: elements.length,
+			title: input.filter((i) => i.title && String(i.title).trim() !== "")
+				.length,
+			description: input.filter(
+				(i) => i.description && String(i.description).trim() !== "",
+			).length,
+			link: input.filter((i) => i.link && String(i.link).trim() !== "").length,
+			guid: input.filter((i) => i.guid && String(i.guid).trim() !== "").length,
+		};
 
-    const guidCounts = new Map<string, number>();
-    for (const item of input) {
-      if (item.guid) guidCounts.set(String(item.guid), (guidCounts.get(String(item.guid)) ?? 0) + 1);
-    }
-    const duplicateGuids = [...guidCounts.values()].filter((c) => c > 1).length;
+		const guidCounts = new Map<string, number>();
+		for (const item of input) {
+			if (item.guid)
+				guidCounts.set(
+					String(item.guid),
+					(guidCounts.get(String(item.guid)) ?? 0) + 1,
+				);
+		}
+		const duplicateGuids = [...guidCounts.values()].filter((c) => c > 1).length;
 
-    if (reverse) {
-      input.reverse();
-    }
+		if (reverse) {
+			input.reverse();
+		}
 
-    const serverUrl =
-      feedConfig.serverUrl || process.env.SERVER_URL || "http://localhost:5000";
-    const feedOptions: RSSFeedOptions = {
-      id: sanitizeURLForXML(
-        `${serverUrl}/public/feeds/${feedConfig.feedId}.xml`,
-      ),
-      title: sanitizeForXML(
-        (await extractField($, null, article.feedTitle, advanced, false, false, flaresolverr, cookies)) ||
-          apiConfig?.title ||
-          $("title")?.first().text()?.trim() ||
-          "Untitled Feed",
-      ),
-      link: sanitizeURLForXML(apiConfig.baseUrl || ""),
-      description: sanitizeForXML(
-        (await extractField($, null, article.feedDescription, advanced, false, false, flaresolverr, cookies)) ||
-          $('meta[property="og:description"]').first().attr("content") ||
-          $('meta[name="description"]').first().attr("content") ||
-          "",
-      ),
-      generator: "Generated by mkfd",
-      language: sanitizeForXML(
-        (await extractField($, null, article.feedLanguage, advanced, false, false, flaresolverr, cookies)) ||
-          $("html").first().attr("lang") ||
-          undefined,
-      ),
-      copyright: sanitizeForXML(
-        (await extractField($, null, article.feedCopyright, advanced, false, false, flaresolverr, cookies)) || "",
-      ),
-      ttl: parseInt(
-        (await extractField($, null, article.feedTtl, advanced, false, false, flaresolverr, cookies)) || "60", 10
-      ), // Default to 60 minutes
-      updated: new Date(),
-      feedLinks: {
-        rss2: sanitizeURLForXML(`${serverUrl}/public/feeds/${feedConfig.feedId}.xml`),
-        atom: sanitizeURLForXML(`${serverUrl}/public/feeds/${feedConfig.feedId}.atom`),
-        json: sanitizeURLForXML(`${serverUrl}/public/feeds/${feedConfig.feedId}.json`),
-      },
-    };
+		const serverUrl =
+			feedConfig.serverUrl || process.env.SERVER_URL || "http://localhost:5000";
+		const feedOptions: RSSFeedOptions = {
+			id: sanitizeURLForXML(
+				`${serverUrl}/public/feeds/${feedConfig.feedId}.xml`,
+			),
+			title: sanitizeForXML(
+				(await extractField(
+					$,
+					null,
+					article.feedTitle,
+					advanced,
+					false,
+					false,
+					flaresolverr,
+					cookies,
+				)) ||
+					apiConfig?.title ||
+					$("title")?.first().text()?.trim() ||
+					"Untitled Feed",
+			),
+			link: sanitizeURLForXML(apiConfig.baseUrl || ""),
+			description: sanitizeForXML(
+				(await extractField(
+					$,
+					null,
+					article.feedDescription,
+					advanced,
+					false,
+					false,
+					flaresolverr,
+					cookies,
+				)) ||
+					$('meta[property="og:description"]').first().attr("content") ||
+					$('meta[name="description"]').first().attr("content") ||
+					"",
+			),
+			generator: "Generated by mkfd",
+			language: sanitizeForXML(
+				(await extractField(
+					$,
+					null,
+					article.feedLanguage,
+					advanced,
+					false,
+					false,
+					flaresolverr,
+					cookies,
+				)) ||
+					$("html").first().attr("lang") ||
+					undefined,
+			),
+			copyright: sanitizeForXML(
+				(await extractField(
+					$,
+					null,
+					article.feedCopyright,
+					advanced,
+					false,
+					false,
+					flaresolverr,
+					cookies,
+				)) || "",
+			),
+			ttl: parseInt(
+				(await extractField(
+					$,
+					null,
+					article.feedTtl,
+					advanced,
+					false,
+					false,
+					flaresolverr,
+					cookies,
+				)) || "60",
+				10,
+			), // Default to 60 minutes
+			updated: new Date(),
+			feedLinks: {
+				rss2: sanitizeURLForXML(
+					`${serverUrl}/public/feeds/${feedConfig.feedId}.xml`,
+				),
+				atom: sanitizeURLForXML(
+					`${serverUrl}/public/feeds/${feedConfig.feedId}.atom`,
+				),
+				json: sanitizeURLForXML(
+					`${serverUrl}/public/feeds/${feedConfig.feedId}.json`,
+				),
+			},
+		};
 
-    if (article.feedImage) {
-      const imageUrl = await extractField($, null, article.feedImage, advanced, false, false, flaresolverr, cookies);
-      if (imageUrl) {
-        feedOptions.image = sanitizeURLForXML(imageUrl);
-      }
-    }
+		if (article.feedImage) {
+			const imageUrl = await extractField(
+				$,
+				null,
+				article.feedImage,
+				advanced,
+				false,
+				false,
+				flaresolverr,
+				cookies,
+			);
+			if (imageUrl) {
+				feedOptions.image = sanitizeURLForXML(imageUrl);
+			}
+		}
 
-    const feed = new Feed(feedOptions);
+		const feed = new Feed(feedOptions);
 
-    // Add custom extensions for RSS 2.0 fields not natively supported by feed package
-    // These fields are valid RSS 2.0 elements but the feed package doesn't include them
-    // in its FeedOptions interface. We add them as extensions to maintain full RSS 2.0 compliance.
-    const managingEditor = sanitizeForXML(
-      await extractField($, null, article.feedManagingEditor, advanced, false, false, flaresolverr, cookies),
-    );
-    if (managingEditor) {
-      feed.addExtension({
-        name: "managingEditor",
-        objects: managingEditor,
-      });
-    }
+		// Add custom extensions for RSS 2.0 fields not natively supported by feed package
+		// These fields are valid RSS 2.0 elements but the feed package doesn't include them
+		// in its FeedOptions interface. We add them as extensions to maintain full RSS 2.0 compliance.
+		const managingEditor = sanitizeForXML(
+			await extractField(
+				$,
+				null,
+				article.feedManagingEditor,
+				advanced,
+				false,
+				false,
+				flaresolverr,
+				cookies,
+			),
+		);
+		if (managingEditor) {
+			feed.addExtension({
+				name: "managingEditor",
+				objects: { _text: managingEditor },
+			});
+		}
 
-    const webMaster = sanitizeForXML(
-      await extractField($, null, article.feedWebMaster, advanced, false, false, flaresolverr, cookies),
-    );
-    if (webMaster) {
-      feed.addExtension({
-        name: "webMaster",
-        objects: webMaster,
-      });
-    }
+		const webMaster = sanitizeForXML(
+			await extractField(
+				$,
+				null,
+				article.feedWebMaster,
+				advanced,
+				false,
+				false,
+				flaresolverr,
+				cookies,
+			),
+		);
+		if (webMaster) {
+			feed.addExtension({
+				name: "webMaster",
+				objects: { _text: webMaster },
+			});
+		}
 
-    const skipDays = await extractField(
-      $,
-      null,
-      article.feedSkipDays,
-      advanced,
-      false,
-      false,
-      flaresolverr
-    );
-    if (skipDays) {
-      feed.addExtension({
-        name: "skipDays",
-        objects: {
-          day: skipDays
-            .split(",")
-            .map((d) => sanitizeForXML(d.trim()))
-            .filter(Boolean),
-        },
-      });
-    }
+		const skipDays = await extractField(
+			$,
+			null,
+			article.feedSkipDays,
+			advanced,
+			false,
+			false,
+			flaresolverr,
+		);
+		if (skipDays) {
+			feed.addExtension({
+				name: "skipDays",
+				objects: {
+					day: skipDays
+						.split(",")
+						.map((d) => sanitizeForXML(d.trim()))
+						.filter(Boolean),
+				},
+			});
+		}
 
-    const skipHours = await extractField(
-      $,
-      null,
-      article.feedSkipHours,
-      advanced,
-      false,
-      false,
-      flaresolverr
-    );
-    if (skipHours) {
-      feed.addExtension({
-        name: "skipHours",
-        objects: {
-          hour: skipHours
-            .split(",")
-            .map((h) => sanitizeForXML(h.trim()))
-            .filter(Boolean),
-        },
-      });
-    }
+		const skipHours = await extractField(
+			$,
+			null,
+			article.feedSkipHours,
+			advanced,
+			false,
+			false,
+			flaresolverr,
+		);
+		if (skipHours) {
+			feed.addExtension({
+				name: "skipHours",
+				objects: {
+					hour: skipHours
+						.split(",")
+						.map((h) => sanitizeForXML(h.trim()))
+						.filter(Boolean),
+				},
+			});
+		}
 
-    for (const item of input) {
-      feed.addItem(item);
-    }
+		for (const item of input) {
+			feed.addItem(item);
+		}
 
-    return {
-      feed,
-      metrics: { itemCount: input.length, selectorMatches, dateFallbacks, duplicateGuids },
-    };
-  }
-  // Fallback if article or iterator is not defined
-  const serverUrl =
-    feedConfig.serverUrl || process.env.SERVER_URL || "http://localhost:5000";
-  const fallbackFeed = new Feed({
-    id: `${serverUrl}/public/feeds/${feedConfig.feedId}.xml`,
-    title: apiConfig?.title || "Error: Feed not configured correctly",
-    link: apiConfig.baseUrl || "",
-    copyright: "",
-  });
-  return {
-    feed: fallbackFeed,
-    metrics: { itemCount: 0, selectorMatches: null, dateFallbacks: 0, duplicateGuids: 0 },
-  };
+		return {
+			feed,
+			metrics: {
+				itemCount: input.length,
+				selectorMatches,
+				dateFallbacks,
+				duplicateGuids,
+			},
+		};
+	}
+	// Fallback if article or iterator is not defined
+	const serverUrl =
+		feedConfig.serverUrl || process.env.SERVER_URL || "http://localhost:5000";
+	const fallbackFeed = new Feed({
+		id: `${serverUrl}/public/feeds/${feedConfig.feedId}.xml`,
+		title: apiConfig?.title || "Error: Feed not configured correctly",
+		link: apiConfig.baseUrl || "",
+		copyright: "",
+	});
+	return {
+		feed: fallbackFeed,
+		metrics: {
+			itemCount: 0,
+			selectorMatches: null,
+			dateFallbacks: 0,
+			duplicateGuids: 0,
+		},
+	};
 }
 
-export async function buildFeedObject(res: any, feedConfig: any, dateIndex?: Map<string, string>): Promise<BuildFeedObjectResult> {
-  if (feedConfig.extraction?.mode && feedConfig.extraction.mode !== "cssSelectors") {
-    const extracted = extractJsonLdItemsFromHtml(String(res ?? ""), feedConfig.config?.baseUrl ?? "", feedConfig.extraction);
-    const feed = buildFeedFromNormalizedItems({
-      feedConfig,
-      items: extracted.items,
-      metadata: {
-        title: feedConfig.feedName,
-        description: feedConfig.feedDescription,
-        link: feedConfig.config?.baseUrl,
-      },
-    });
-    return {
-      feed,
-      metrics: {
-        itemCount: extracted.items.length,
-        selectorMatches: null,
-        dateFallbacks: extracted.items.filter((item) => !item.pubDate).length,
-        duplicateGuids: 0,
-      },
-    };
-  }
-  return _buildFeedFromHtml(res, feedConfig, dateIndex);
+export async function buildFeedObject(
+	res: any,
+	feedConfig: any,
+	dateIndex?: Map<string, string>,
+): Promise<BuildFeedObjectResult> {
+	if (
+		feedConfig.extraction?.mode &&
+		feedConfig.extraction.mode !== "cssSelectors"
+	) {
+		const extracted = extractJsonLdItemsFromHtml(
+			String(res ?? ""),
+			feedConfig.config?.baseUrl ?? "",
+			feedConfig.extraction,
+		);
+		const feed = buildFeedFromNormalizedItems({
+			feedId: feedConfig.feedId,
+			feedName: feedConfig.feedName,
+			serverUrl: feedConfig.serverUrl,
+			items: extracted.items,
+			metadata: {
+				title: feedConfig.feedName,
+				description: feedConfig.feedDescription,
+				link: feedConfig.config?.baseUrl,
+			},
+		});
+		return {
+			feed,
+			metrics: {
+				itemCount: extracted.items.length,
+				selectorMatches: null,
+				dateFallbacks: extracted.items.filter((item) => !item.pubDate).length,
+				duplicateGuids: 0,
+			},
+		};
+	}
+	return _buildFeedFromHtml(res, feedConfig, dateIndex);
 }
 
-export async function buildRSS(res: any, feedConfig: any, dateIndex?: Map<string, string>): Promise<BuildRSSResult> {
-  const { feed, metrics } = await _buildFeedFromHtml(res, feedConfig, dateIndex);
-  return { xml: injectDcNamespace(feed.rss2()), metrics };
+export async function buildRSS(
+	res: any,
+	feedConfig: any,
+	dateIndex?: Map<string, string>,
+): Promise<BuildRSSResult> {
+	const { feed, metrics } = await _buildFeedFromHtml(
+		res,
+		feedConfig,
+		dateIndex,
+	);
+	return { xml: injectDcNamespace(feed.rss2()), metrics };
 }
 
-function _buildFeedFromApiData(apiData: any, feedConfig: any, dateIndex?: Map<string, string>): BuildFeedObjectResult {
-  const mapping = feedConfig.apiMapping as ApiMapping;
-  const config = feedConfig.config as ApiConfig;
+function _buildFeedFromApiData(
+	apiData: any,
+	feedConfig: any,
+	dateIndex?: Map<string, string>,
+): BuildFeedObjectResult {
+	const mapping = feedConfig.apiMapping as ApiMapping;
+	const config = feedConfig.config as ApiConfig;
 
-  const serverUrl =
-    feedConfig.serverUrl || process.env.SERVER_URL || "http://localhost:5000";
-  const feedOptions: RSSFeedOptions = {
-    id: sanitizeURLForXML(`${serverUrl}/public/feeds/${feedConfig.feedId}.xml`),
-    title: sanitizeForXML(
-      get(apiData, mapping.feedTitle, "") || config.title || "API RSS Feed",
-    ),
-    link: sanitizeURLForXML(config.baseUrl || ""),
-    description: sanitizeForXML(
-      get(apiData, mapping.feedDescription, "RSS feed generated from API data"),
-    ),
-    generator: "Generated by mkfd",
-    language: sanitizeForXML(get(apiData, mapping.feedLanguage, "")),
-    copyright: sanitizeForXML(get(apiData, mapping.feedCopyright, "") || ""),
-    ttl: parseInt(get(apiData, mapping.feedTtl, "60") || "60", 10),
-    updated: new Date(get(apiData, mapping.feedPubDate, "") || Date.now()),
-    feedLinks: {
-      rss2: sanitizeURLForXML(`${serverUrl}/public/feeds/${feedConfig.feedId}.xml`),
-      atom: sanitizeURLForXML(`${serverUrl}/public/feeds/${feedConfig.feedId}.atom`),
-      json: sanitizeURLForXML(`${serverUrl}/public/feeds/${feedConfig.feedId}.json`),
-    },
-  };
+	const serverUrl =
+		feedConfig.serverUrl || process.env.SERVER_URL || "http://localhost:5000";
+	const feedOptions: RSSFeedOptions = {
+		id: sanitizeURLForXML(`${serverUrl}/public/feeds/${feedConfig.feedId}.xml`),
+		title: sanitizeForXML(
+			get(apiData, mapping.feedTitle, "") || config.title || "API RSS Feed",
+		),
+		link: sanitizeURLForXML(config.baseUrl || ""),
+		description: sanitizeForXML(
+			get(apiData, mapping.feedDescription, "RSS feed generated from API data"),
+		),
+		generator: "Generated by mkfd",
+		language: sanitizeForXML(get(apiData, mapping.feedLanguage, "")),
+		copyright: sanitizeForXML(get(apiData, mapping.feedCopyright, "") || ""),
+		ttl: parseInt(get(apiData, mapping.feedTtl, "60") || "60", 10),
+		updated: new Date(get(apiData, mapping.feedPubDate, "") || Date.now()),
+		feedLinks: {
+			rss2: sanitizeURLForXML(
+				`${serverUrl}/public/feeds/${feedConfig.feedId}.xml`,
+			),
+			atom: sanitizeURLForXML(
+				`${serverUrl}/public/feeds/${feedConfig.feedId}.atom`,
+			),
+			json: sanitizeURLForXML(
+				`${serverUrl}/public/feeds/${feedConfig.feedId}.json`,
+			),
+		},
+	};
 
-  if (mapping.feedImageUrl && get(apiData, mapping.feedImageUrl, "")) {
-    feedOptions.image = sanitizeURLForXML(
-      get(apiData, mapping.feedImageUrl, ""),
-    );
-  }
+	if (mapping.feedImageUrl && get(apiData, mapping.feedImageUrl, "")) {
+		feedOptions.image = sanitizeURLForXML(
+			get(apiData, mapping.feedImageUrl, ""),
+		);
+	}
 
-  const feed = new Feed(feedOptions);
+	const feed = new Feed(feedOptions);
 
-  // Add custom extensions for RSS 2.0 fields not natively supported by feed package
-  // These fields are valid RSS 2.0 elements but the feed package doesn't include them
-  // in its FeedOptions interface. We add them as extensions to maintain full RSS 2.0 compliance.
-  const managingEditor = sanitizeForXML(
-    get(apiData, mapping.feedManagingEditor, ""),
-  );
-  if (managingEditor) {
-    feed.addExtension({
-      name: "managingEditor",
-      objects: managingEditor,
-    });
-  }
+	// Add custom extensions for RSS 2.0 fields not natively supported by feed package
+	// These fields are valid RSS 2.0 elements but the feed package doesn't include them
+	// in its FeedOptions interface. We add them as extensions to maintain full RSS 2.0 compliance.
+	const managingEditor = sanitizeForXML(
+		get(apiData, mapping.feedManagingEditor, ""),
+	);
+	if (managingEditor) {
+		feed.addExtension({
+			name: "managingEditor",
+			objects: { _text: managingEditor },
+		});
+	}
 
-  const webMaster = sanitizeForXML(get(apiData, mapping.feedWebMaster, ""));
-  if (webMaster) {
-    feed.addExtension({
-      name: "webMaster",
-      objects: webMaster,
-    });
-  }
+	const webMaster = sanitizeForXML(get(apiData, mapping.feedWebMaster, ""));
+	if (webMaster) {
+		feed.addExtension({
+			name: "webMaster",
+			objects: { _text: webMaster },
+		});
+	}
 
-  const skipDays = get(apiData, mapping.feedSkipDays, "");
-  if (skipDays) {
-    feed.addExtension({
-      name: "skipDays",
-      objects: {
-        day: skipDays
-          .split(",")
-          .map((d: string) => sanitizeForXML(d.trim()))
-          .filter(Boolean),
-      },
-    });
-  }
+	const skipDays = get(apiData, mapping.feedSkipDays, "");
+	if (skipDays) {
+		feed.addExtension({
+			name: "skipDays",
+			objects: {
+				day: skipDays
+					.split(",")
+					.map((d: string) => sanitizeForXML(d.trim()))
+					.filter(Boolean),
+			},
+		});
+	}
 
-  const skipHours = get(apiData, mapping.feedSkipHours, "");
-  if (skipHours) {
-    feed.addExtension({
-      name: "skipHours",
-      objects: {
-        hour: skipHours
-          .split(",")
-          .map((h: string) => sanitizeForXML(h.trim()))
-          .filter(Boolean),
-      },
-    });
-  }
+	const skipHours = get(apiData, mapping.feedSkipHours, "");
+	if (skipHours) {
+		feed.addExtension({
+			name: "skipHours",
+			objects: {
+				hour: skipHours
+					.split(",")
+					.map((h: string) => sanitizeForXML(h.trim()))
+					.filter(Boolean),
+			},
+		});
+	}
 
-  const itemsPath = mapping.items || "";
-  var items: any[];
-  if (!itemsPath || itemsPath === "$" || itemsPath === ".") {
-    // When no items path is specified, treat the API response itself as the array
-    items = Array.isArray(apiData) ? apiData : [];
-  } else {
-    items = get(apiData, itemsPath, []);
-  }
+	const itemsPath = mapping.items || "";
+	var items: any[];
+	if (!itemsPath || itemsPath === "$" || itemsPath === ".") {
+		// When no items path is specified, treat the API response itself as the array
+		items = Array.isArray(apiData) ? apiData : [];
+	} else {
+		items = get(apiData, itemsPath, []);
+	}
 
-  if (feedConfig.strict) {
-    items = filterStrictly(items);
-  }
+	if (feedConfig.strict) {
+		items = filterStrictly(items);
+	}
 
-  if (feedConfig.reverse) {
-    items.reverse();
-  }
+	if (feedConfig.reverse) {
+		items.reverse();
+	}
 
-  let dateFallbacks = 0;
-  items.forEach((item: any) => {
-    const { date: rawDate, isFallback: dateFallback } = processDates(get(item, mapping.date, ""));
-    if (dateFallback) dateFallbacks++;
+	let dateFallbacks = 0;
+	items.forEach((item: any) => {
+		const { date: rawDate, isFallback: dateFallback } = processDates(
+			get(item, mapping.date, ""),
+		);
+		if (dateFallback) dateFallbacks++;
 
-    const itemData: RSSItemOptions = {
-      title: sanitizeForXML(get(item, mapping.title, "")),
-      description: sanitizeForXML(get(item, mapping.description, "")),
-      link: sanitizeURLForXML(get(item, mapping.link, "")),
-      date: rawDate,
-      guid: sanitizeForXML(get(item, mapping.guid, undefined)),
-    };
+		const itemData: RSSItemOptions = {
+			title: sanitizeForXML(get(item, mapping.title, "")),
+			description: sanitizeForXML(get(item, mapping.description, "")),
+			link: sanitizeURLForXML(get(item, mapping.link, "")),
+			date: rawDate,
+			guid: sanitizeForXML(get(item, mapping.guid, undefined)),
+		};
 
-    const stableKey = makeItemKey(itemData as Record<string, unknown>);
+		const stableKey = makeItemKey(itemData);
 
-    if (dateIndex) {
-      if (dateIndex.has(stableKey)) {
-        itemData.date = new Date(dateIndex.get(stableKey)!);
-      } else {
-        dateIndex.set(stableKey, rawDate.toISOString());
-      }
-    }
+		if (dateIndex) {
+			if (dateIndex.has(stableKey)) {
+				itemData.date = new Date(dateIndex.get(stableKey)!);
+			} else {
+				dateIndex.set(stableKey, rawDate.toISOString());
+			}
+		}
 
-    if (itemData.guid === undefined || itemData.guid === "") {
-      itemData.guid = stableKey;
-    }
+		if (itemData.guid === undefined || itemData.guid === "") {
+			itemData.guid = stableKey;
+		}
 
-    // Store authorName for later use in extensions
-    const authorName = sanitizeForXML(get(item, mapping.author, ""));
+		// Store authorName for later use in extensions
+		const authorName = sanitizeForXML(get(item, mapping.author, ""));
 
-    const categoryNames = get(item, mapping.categories, "")
-      .split(",")
-      .filter(Boolean)
-      .map((c: string) => c.trim());
-    if (categoryNames.length > 0) {
-      itemData.category = categoryNames.map((name) => ({
-        name: sanitizeForXML(name),
-      }));
-    }
+		const categoryNames = get(item, mapping.categories, "")
+			.split(",")
+			.filter(Boolean)
+			.map((c: string) => c.trim());
+		if (categoryNames.length > 0) {
+			itemData.category = categoryNames.map((name) => ({
+				name: sanitizeForXML(name),
+			}));
+		}
 
-    const contributorNames = get(item, mapping.contributors, "")
-      .split(",")
-      .filter(Boolean)
-      .map((c: string) => c.trim());
-    if (contributorNames.length > 0) {
-      itemData.contributor = contributorNames.map((name) => ({
-        name: sanitizeForXML(name),
-      }));
-    }
+		const contributorNames = get(item, mapping.contributors, "")
+			.split(",")
+			.filter(Boolean)
+			.map((c: string) => c.trim());
+		if (contributorNames.length > 0) {
+			itemData.contributor = contributorNames.map((name) => ({
+				name: sanitizeForXML(name),
+			}));
+		}
 
-    if (mapping.enclosure && get(item, mapping.enclosure.url, "")) {
-      itemData.enclosure = {
-        url: sanitizeURLForXML(get(item, mapping.enclosure.url, "")),
-        length: parseInt(get(item, mapping.enclosure.size, "0") || "0", 10),
-        type: sanitizeForXML(
-          get(item, mapping.enclosure.type, "application/octet-stream"),
-        ),
-      };
-    }
+		if (mapping.enclosure && get(item, mapping.enclosure.url, "")) {
+			itemData.enclosure = {
+				url: sanitizeURLForXML(get(item, mapping.enclosure.url, "")),
+				length: parseInt(get(item, mapping.enclosure.size, "0") || "0", 10),
+				type: sanitizeForXML(
+					get(item, mapping.enclosure.type, "application/octet-stream"),
+				),
+			};
+		}
 
-    const content = sanitizeForXML(get(item, mapping.content, ""));
-    if (content) {
-      itemData.content = content;
-    }
+		const content = sanitizeForXML(get(item, mapping.content, ""));
+		if (content) {
+			itemData.content = content;
+		}
 
-    const extensions: any[] = [];
+		const extensions: any[] = [];
 
-    // Handle author: use native RSS author field if email, otherwise use dc:creator
-    if (authorName) {
-      if (isEmailAddress(authorName)) {
-        itemData.author = [{ email: authorName }];
-      } else {
-        extensions.push({
-          name: "dc:creator",
-          objects: authorName,
-        });
-      }
-    }
+		// Handle author: use native RSS author field if email, otherwise use dc:creator
+		if (authorName) {
+			if (isEmailAddress(authorName)) {
+				itemData.author = [{ email: authorName }];
+			} else {
+				extensions.push({
+					name: "dc:creator",
+					objects: authorName,
+				});
+			}
+		}
 
-    const contentEncoded = sanitizeForXML(
-      get(item, mapping.contentEncoded, ""),
-    );
-    if (contentEncoded) {
-      extensions.push({
-        name: "content:encoded",
-        objects: contentEncoded,
-      });
-    }
+		const contentEncoded = sanitizeForXML(
+			get(item, mapping.contentEncoded, ""),
+		);
+		if (contentEncoded) {
+			extensions.push({
+				name: "content:encoded",
+				objects: contentEncoded,
+			});
+		}
 
-    const summary = sanitizeForXML(get(item, mapping.summary, ""));
-    if (summary) {
-      extensions.push({
-        name: "summary",
-        objects: summary,
-      });
-    }
+		const summary = sanitizeForXML(get(item, mapping.summary, ""));
+		if (summary) {
+			extensions.push({
+				name: "summary",
+				objects: summary,
+			});
+		}
 
-    if (mapping.source) {
-      const sourceUrl = sanitizeURLForXML(get(item, mapping.source.url, ""));
-      const sourceTitle = sanitizeForXML(get(item, mapping.source.title, ""));
-      if (sourceUrl || sourceTitle) {
-        extensions.push({
-          name: "source",
-          objects: { url: sourceUrl, title: sourceTitle },
-        });
-      }
-    }
+		if (mapping.source) {
+			const sourceUrl = sanitizeURLForXML(get(item, mapping.source.url, ""));
+			const sourceTitle = sanitizeForXML(get(item, mapping.source.title, ""));
+			if (sourceUrl || sourceTitle) {
+				extensions.push({
+					name: "source",
+					objects: { url: sourceUrl, title: sourceTitle },
+				});
+			}
+		}
 
-    if (mapping.customElements) {
-      Object.entries(mapping.customElements).forEach(([key, path]) => {
-        const value = sanitizeForXML(get(item, path as string, ""));
-        if (value) {
-          extensions.push({
-            name: key,
-            objects: value,
-          });
-        }
-      });
-    }
+		if (mapping.customElements) {
+			Object.entries(mapping.customElements).forEach(([key, path]) => {
+				const value = sanitizeForXML(get(item, path as string, ""));
+				if (value) {
+					extensions.push({
+						name: key,
+						objects: value,
+					});
+				}
+			});
+		}
 
-    if (extensions.length > 0) {
-      itemData.extensions = extensions;
-    }
+		if (extensions.length > 0) {
+			itemData.extensions = extensions;
+		}
 
-    feed.addItem(itemData);
-  });
+		feed.addItem(itemData);
+	});
 
-  const guidCounts = new Map<string, number>();
-  for (const item of items) {
-    if (item.guid) guidCounts.set(String(item.guid), (guidCounts.get(String(item.guid)) ?? 0) + 1);
-  }
-  const duplicateGuids = [...guidCounts.values()].filter((c) => c > 1).length;
+	const guidCounts = new Map<string, number>();
+	for (const item of items) {
+		if (item.guid)
+			guidCounts.set(
+				String(item.guid),
+				(guidCounts.get(String(item.guid)) ?? 0) + 1,
+			);
+	}
+	const duplicateGuids = [...guidCounts.values()].filter((c) => c > 1).length;
 
-  return {
-    feed,
-    metrics: { itemCount: items.length, selectorMatches: null, dateFallbacks, duplicateGuids },
-  };
+	return {
+		feed,
+		metrics: {
+			itemCount: items.length,
+			selectorMatches: null,
+			dateFallbacks,
+			duplicateGuids,
+		},
+	};
 }
 
-export function buildFeedObjectFromApiData(apiData: any, feedConfig: any, dateIndex?: Map<string, string>): BuildFeedObjectResult {
-  return _buildFeedFromApiData(apiData, feedConfig, dateIndex);
+export function buildFeedObjectFromApiData(
+	apiData: any,
+	feedConfig: any,
+	dateIndex?: Map<string, string>,
+): BuildFeedObjectResult {
+	return _buildFeedFromApiData(apiData, feedConfig, dateIndex);
 }
 
-export function buildRSSFromApiData(apiData: any, feedConfig: any, dateIndex?: Map<string, string>): BuildRSSResult {
-  const { feed, metrics } = _buildFeedFromApiData(apiData, feedConfig, dateIndex);
-  return { xml: injectDcNamespace(feed.rss2()), metrics };
+export function buildRSSFromApiData(
+	apiData: any,
+	feedConfig: any,
+	dateIndex?: Map<string, string>,
+): BuildRSSResult {
+	const { feed, metrics } = _buildFeedFromApiData(
+		apiData,
+		feedConfig,
+		dateIndex,
+	);
+	return { xml: injectDcNamespace(feed.rss2()), metrics };
 }
 
 async function processEnclosure(
-  $: cheerio.Root,
-  el: cheerio.Element | null,
-  enclosureTarget: CSSTarget | undefined,
-  advanced: boolean,
-  baseUrl: string,
-  flaresolverr?: {
-    enabled?: boolean;
-    serverUrl?: string;
-    timeout?: number;
-  }
+	$: CheerioAPI,
+	el: AnyNode | null,
+	enclosureTarget: CSSTarget | undefined,
+	advanced: boolean,
+	baseUrl: string,
+	flaresolverr?: {
+		enabled?: boolean;
+		serverUrl?: string;
+		timeout?: number;
+	},
 ): Promise<RSSItemOptions["enclosure"] | undefined> {
-  if (!enclosureTarget || !el) return undefined;
+	if (!enclosureTarget || !el) return undefined;
 
-  const rawUrl = await extractField(
-    $,
-    el,
-    enclosureTarget,
-    advanced,
-    true,
-    false,
-    flaresolverr
-  );
-  let isEnclosureRelative = enclosureTarget.isRelative;
-  let enclosureBaseUrl = enclosureTarget.baseUrl;
-  if (isEnclosureRelative === undefined && !enclosureBaseUrl) {
-    isEnclosureRelative = rawUrl && isRelativeUrl(rawUrl);
-    enclosureBaseUrl = isEnclosureRelative
-      ? extractRootUrl(baseUrl)
-      : undefined;
-  }
-  const url = processLinksAbsolute(
-    rawUrl,
-    enclosureTarget.stripHtml,
-    isEnclosureRelative,
-    enclosureBaseUrl,
-  );
+	const rawUrl = await extractField(
+		$,
+		el,
+		enclosureTarget,
+		advanced,
+		true,
+		false,
+		flaresolverr,
+	);
+	let isEnclosureRelative = enclosureTarget.isRelative;
+	let enclosureBaseUrl = enclosureTarget.baseUrl;
+	if (isEnclosureRelative === undefined && !enclosureBaseUrl) {
+		isEnclosureRelative = Boolean(rawUrl && isRelativeUrl(rawUrl));
+		enclosureBaseUrl = isEnclosureRelative
+			? extractRootUrl(baseUrl)
+			: undefined;
+	}
+	const url = processLinksAbsolute(
+		rawUrl,
+		enclosureTarget.stripHtml,
+		isEnclosureRelative,
+		enclosureBaseUrl,
+	);
 
-  if (!url) return undefined;
+	if (!url) return undefined;
 
-  const fetchUrl = url.startsWith("//") ? `http:${url}` : url;
-  const enclosure: RSSItemOptions["enclosure"] = {
-    url: sanitizeURLForXML(fetchUrl),
-    length: 0,
-    type: "application/octet-stream",
-  };
+	const fetchUrl = url.startsWith("//") ? `http:${url}` : url;
+	const enclosure: RSSItemOptions["enclosure"] = {
+		url: sanitizeURLForXML(fetchUrl),
+		length: 0,
+		type: "application/octet-stream",
+	};
 
-  try {
-    const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 10000); // 10s timeout
-    const response = await fetch(fetchUrl, { signal: controller.signal });
-    clearTimeout(timeout);
-    if (response.ok) {
-      const contentLength = response.headers.get("content-length");
-      if (contentLength && parseInt(contentLength, 10) > 2 * 1024 * 1024) {
-        console.warn("Enclosure too large, skipping:", fetchUrl);
-        return undefined;
-      }
-      const contentType = response.headers.get("content-type");
-      enclosure.length = parseInt(contentLength || "0", 10);
-      enclosure.type = contentType || "application/octet-stream";
-    }
-  } catch (err) {
-    console.error("Failed to fetch enclosure:", fetchUrl, err);
-  }
+	try {
+		const controller = new AbortController();
+		const timeout = setTimeout(() => controller.abort(), 10000); // 10s timeout
+		const response = await fetch(fetchUrl, { signal: controller.signal });
+		clearTimeout(timeout);
+		if (response.ok) {
+			const contentLength = response.headers.get("content-length");
+			if (contentLength && parseInt(contentLength, 10) > 2 * 1024 * 1024) {
+				console.warn("Enclosure too large, skipping:", fetchUrl);
+				return undefined;
+			}
+			const contentType = response.headers.get("content-type");
+			enclosure.length = parseInt(contentLength || "0", 10);
+			enclosure.type = contentType || "application/octet-stream";
+		}
+	} catch (err) {
+		console.error("Failed to fetch enclosure:", fetchUrl, err);
+	}
 
-  return enclosure;
+	return enclosure;
 }
 
 function getNonNullProps(item: any): Set<string> {
-  const nonNull = new Set<string>();
-  for (const [key, val] of Object.entries(item)) {
-    if (key === "enclosure") {
-      const eUrl = (val as any)?.url;
-      if (eUrl !== null && eUrl !== undefined && eUrl !== "") {
-        nonNull.add("enclosure");
-      }
-    } else if (val !== null && val !== undefined && val !== "") {
-      nonNull.add(key);
-    }
-  }
-  return nonNull;
+	const nonNull = new Set<string>();
+	for (const [key, val] of Object.entries(item)) {
+		if (key === "enclosure") {
+			const eUrl = (val as any)?.url;
+			if (eUrl !== null && eUrl !== undefined && eUrl !== "") {
+				nonNull.add("enclosure");
+			}
+		} else if (val !== null && val !== undefined && val !== "") {
+			nonNull.add(key);
+		}
+	}
+	return nonNull;
 }
 
 /**
  * Fix 5: Normalize URL by stripping fragments and known tracking params
  */
 function normalizeUrl(url: string): string {
-  if (!url) return "";
+	if (!url) return "";
 
-  try {
-    const urlObj = new URL(url);
+	try {
+		const urlObj = new URL(url);
 
-    // Strip fragment
-    urlObj.hash = "";
+		// Strip fragment
+		urlObj.hash = "";
 
-    // Strip common tracking parameters
-    const trackingParams = [
-      'utm_source', 'utm_medium', 'utm_campaign', 'utm_term', 'utm_content',
-      'fbclid', 'gclid', 'msclkid', '_ga', 'mc_cid', 'mc_eid'
-    ];
+		// Strip common tracking parameters
+		const trackingParams = [
+			"utm_source",
+			"utm_medium",
+			"utm_campaign",
+			"utm_term",
+			"utm_content",
+			"fbclid",
+			"gclid",
+			"msclkid",
+			"_ga",
+			"mc_cid",
+			"mc_eid",
+		];
 
-    trackingParams.forEach(param => {
-      urlObj.searchParams.delete(param);
-    });
+		trackingParams.forEach((param) => {
+			urlObj.searchParams.delete(param);
+		});
 
-    return urlObj.toString();
-  } catch {
-    // If URL parsing fails, just strip fragment manually
-    return url.split('#')[0];
-  }
+		return urlObj.toString();
+	} catch {
+		// If URL parsing fails, just strip fragment manually
+		return url.split("#")[0];
+	}
 }
 
 function filterStrictly(items: any[]): any[] {
-  if (!items || items.length === 0) return [];
+	if (!items || items.length === 0) return [];
 
-  // Fix 5: First filter - require valid title and link
-  const validItems = items.filter(item => {
-    const hasTitle = item.title && item.title.trim().length > 0;
-    const hasLink = item.link && item.link.trim().length > 0;
+	// Fix 5: First filter - require valid title and link
+	const validItems = items.filter((item) => {
+		const hasTitle = item.title && item.title.trim().length > 0;
+		const hasLink = item.link && item.link.trim().length > 0;
 
-    if (!hasLink) {
-      return hasTitle && false;
-    }
+		if (!hasLink) {
+			return hasTitle && false;
+		}
 
-    const normalizedLink = item.link.trim().toLowerCase();
-    const isFragmentOnly = normalizedLink.startsWith('#');
-    const hasDangerousScheme =
-      normalizedLink.startsWith('javascript:') ||
-      normalizedLink.startsWith('data:') ||
-      normalizedLink.startsWith('vbscript:');
+		const normalizedLink = item.link.trim().toLowerCase();
+		const isFragmentOnly = normalizedLink.startsWith("#");
+		const hasDangerousScheme =
+			normalizedLink.startsWith("javascript:") ||
+			normalizedLink.startsWith("data:") ||
+			normalizedLink.startsWith("vbscript:");
 
-    return hasTitle && !isFragmentOnly && !hasDangerousScheme;
-  });
+		return hasTitle && !isFragmentOnly && !hasDangerousScheme;
+	});
 
-  if (validItems.length === 0) return [];
+	if (validItems.length === 0) return [];
 
-  const itemPropsSets = validItems.map((item) => getNonNullProps(item));
-  if (itemPropsSets.length === 0) return [];
+	const itemPropsSets = validItems.map((item) => getNonNullProps(item));
+	if (itemPropsSets.length === 0) return [];
 
-  const maxSize = Math.max(...itemPropsSets.map((s) => s.size), 0);
-  if (maxSize === 0 && validItems.length > 0) return validItems; // All items are empty, return them all
+	const maxSize = Math.max(...itemPropsSets.map((s) => s.size), 0);
+	if (maxSize === 0 && validItems.length > 0) return validItems; // All items are empty, return them all
 
-  const topIndices = itemPropsSets
-    .map((propsSet, i) => (propsSet.size === maxSize ? i : -1))
-    .filter((i) => i !== -1);
+	const topIndices = itemPropsSets
+		.map((propsSet, i) => (propsSet.size === maxSize ? i : -1))
+		.filter((i) => i !== -1);
 
-  if (topIndices.length === 0) return []; // No items have the max number of properties
+	if (topIndices.length === 0) return []; // No items have the max number of properties
 
-  let intersect: Set<string> = new Set(itemPropsSets[topIndices[0]] ?? []);
-  for (let i = 1; i < topIndices.length; i++) {
-    const s = itemPropsSets[topIndices[i]];
-    const temp = new Set<string>();
-    intersect.forEach((prop) => {
-      if (s.has(prop)) {
-        temp.add(prop);
-      }
-    });
-    intersect = temp;
-  }
-  const requiredProps = intersect;
-  if (requiredProps.size === 0 && validItems.length > 0 && maxSize > 0) {
-    // If intersection is empty but there were items with properties, it implies no common ground at the max level.
-    // This state might be undesired. Depending on strictness, could return items with maxSize or empty.
-    // For now, let's return items that have the maxSize of properties.
-    return validItems.filter((_, idx) => itemPropsSets[idx].size === maxSize);
-  }
+	let intersect: Set<string> = new Set(itemPropsSets[topIndices[0]] ?? []);
+	for (let i = 1; i < topIndices.length; i++) {
+		const s = itemPropsSets[topIndices[i]];
+		const temp = new Set<string>();
+		intersect.forEach((prop) => {
+			if (s.has(prop)) {
+				temp.add(prop);
+			}
+		});
+		intersect = temp;
+	}
+	const requiredProps = intersect;
+	if (requiredProps.size === 0 && validItems.length > 0 && maxSize > 0) {
+		// If intersection is empty but there were items with properties, it implies no common ground at the max level.
+		// This state might be undesired. Depending on strictness, could return items with maxSize or empty.
+		// For now, let's return items that have the maxSize of properties.
+		return validItems.filter((_, idx) => itemPropsSets[idx].size === maxSize);
+	}
 
-  const filteredItems = validItems.filter((_, idx) => {
-    const itemSet = itemPropsSets[idx];
-    for (const prop of requiredProps) {
-      if (!itemSet.has(prop)) {
-        return false;
-      }
-    }
-    return true;
-  });
+	const filteredItems = validItems.filter((_, idx) => {
+		const itemSet = itemPropsSets[idx];
+		for (const prop of requiredProps) {
+			if (!itemSet.has(prop)) {
+				return false;
+			}
+		}
+		return true;
+	});
 
-  // Fix 5: Deduplicate by normalized link (primary) and title+description (secondary)
-  const seenLinks = new Set<string>();
-  const seenTitleDesc = new Set<string>();
-  const deduplicatedItems = [];
+	// Fix 5: Deduplicate by normalized link (primary) and title+description (secondary)
+	const seenLinks = new Set<string>();
+	const seenTitleDesc = new Set<string>();
+	const deduplicatedItems = [];
 
-  for (const item of filteredItems) {
-    const normalizedLink = normalizeUrl(item.link || "");
-    const title = item.title || "";
-    const description = item.description || "";
-    const titleDescKey = `${title}|||${description}`;
+	for (const item of filteredItems) {
+		const normalizedLink = normalizeUrl(item.link || "");
+		const title = item.title || "";
+		const description = item.description || "";
+		const titleDescKey = `${title}|||${description}`;
 
-    // Skip if we've seen this normalized link or this exact title+description
-    if (seenLinks.has(normalizedLink) || seenTitleDesc.has(titleDescKey)) {
-      continue;
-    }
+		// Skip if we've seen this normalized link or this exact title+description
+		if (seenLinks.has(normalizedLink) || seenTitleDesc.has(titleDescKey)) {
+			continue;
+		}
 
-    seenLinks.add(normalizedLink);
-    seenTitleDesc.add(titleDescKey);
-    deduplicatedItems.push(item);
-  }
+		seenLinks.add(normalizedLink);
+		seenTitleDesc.add(titleDescKey);
+		deduplicatedItems.push(item);
+	}
 
-  return deduplicatedItems;
+	return deduplicatedItems;
 }
 
 async function extractField(
-  $: cheerio.Root,
-  el: cheerio.Element | null,
-  field: CSSTarget | undefined,
-  advanced: boolean = false,
-  forEnclosure: boolean = false,
-  forLink: boolean = false,
-  flaresolverr?: {
-    enabled?: boolean;
-    serverUrl?: string;
-    timeout?: number;
-  },
-  cookies?: Array<{ name: string; value: string }>
+	$: CheerioAPI,
+	el: AnyNode | null,
+	field: CSSTarget | undefined,
+	advanced: boolean = false,
+	forEnclosure: boolean = false,
+	forLink: boolean = false,
+	flaresolverr?: {
+		enabled?: boolean;
+		serverUrl?: string;
+		timeout?: number;
+	},
+	cookies?: Array<{ name: string; value: string }>,
 ): Promise<string> {
-  if (!field?.selector) return "";
-  const context = el ? $(el) : $;
+	if (!field?.selector) return "";
+	const context = el ? $(el) : $;
 
-  if (field.drillChain?.length) {
-    const startHtml = el ? $.html(el) : $.html();
-    const mappedDrillChain = field.drillChain.map((step) => ({
-      selector: step.selector,
-      attribute: step.attribute || "",
-      isRelative: step.isRelative === undefined ? false : step.isRelative,
-      baseUrl: step.baseUrl || "",
-      stripHtml: step.stripHtml === undefined ? false : step.stripHtml,
-    }));
-    return await resolveDrillChain(
-      startHtml,
-      mappedDrillChain,
-      advanced,
-      forLink || forEnclosure,
-      flaresolverr,
-      cookies
-    );
-  }
+	if (field.drillChain?.length) {
+		const startHtml = el ? $.html(el) : $.html();
+		const mappedDrillChain = field.drillChain.map((step) => ({
+			selector: step.selector,
+			attribute: step.attribute || "",
+			isRelative: step.isRelative === undefined ? false : step.isRelative,
+			baseUrl: step.baseUrl || "",
+			stripHtml: step.stripHtml === undefined ? false : step.stripHtml,
+		}));
+		return await resolveDrillChain(
+			startHtml,
+			mappedDrillChain,
+			advanced,
+			forLink || forEnclosure,
+			flaresolverr,
+			cookies,
+		);
+	}
 
-  const target: cheerio.Cheerio = el
-    ? (context as cheerio.Cheerio).find(field.selector)
-    : $(field.selector);
+	const target: Cheerio<AnyNode> = el
+		? (context as Cheerio<AnyNode>).find(field.selector)
+		: $(field.selector);
 
-  if (field.attribute) {
-    const rawAttr = target.first().attr(field.attribute);
-    if (rawAttr) return rawAttr.trim();
-  }
+	if (field.attribute) {
+		const rawAttr = target.first().attr(field.attribute);
+		if (rawAttr) return rawAttr.trim();
+	}
 
-  let rawText = field.stripHtml ? target.first().text() : target.first().html();
-  rawText = rawText?.trim() || "";
+	let rawText = field.stripHtml ? target.first().text() : target.first().html();
+	rawText = rawText?.trim() || "";
 
-  if (/^https?:\/\//i.test(rawText)) {
-    return rawText;
-  }
+	if (/^https?:\/\//i.test(rawText)) {
+		return rawText;
+	}
 
-  if (!forEnclosure && !forLink) {
-    return rawText;
-  }
+	if (!forEnclosure && !forLink) {
+		return rawText;
+	}
 
-  // For links and enclosures, try to find a URL more explicitly if rawText isn't one
-  if (forLink || forEnclosure) {
-    const foundUrl = discoverUrl($, target.first() as cheerio.Cheerio);
-    if (foundUrl) return foundUrl.trim();
-  }
+	// For links and enclosures, try to find a URL more explicitly if rawText isn't one
+	if (forLink || forEnclosure) {
+		const foundUrl = discoverUrl($, target.first() as Cheerio<AnyNode>);
+		if (foundUrl) return foundUrl.trim();
+	}
 
-  return rawText; // Return rawText if no specific URL found for link/enclosure, or if it's a non-URL field
+	return rawText; // Return rawText if no specific URL found for link/enclosure, or if it's a non-URL field
 }
 
 export function looksLikeUrl(str: string): boolean {
-  if (!str) return false;
-  return /^https?:\/\//i.test(str) || str.startsWith("//");
+	if (!str) return false;
+	return /^https?:\/\//i.test(str) || str.startsWith("//");
 }
 
-export function discoverUrl($: cheerio.Root, target: cheerio.Cheerio): string {
-  if (!target.length) return "";
+export function discoverUrl($: CheerioAPI, target: Cheerio<AnyNode>): string {
+	if (!target.length) return "";
 
-  let urlToTest;
+	let urlToTest: string | undefined;
 
-  // 1. Direct attributes (most reliable for explicit links/media)
-  urlToTest = target.attr("href") || target.attr("src");
-  if (urlToTest && looksLikeUrl(urlToTest))
-    return decodeURIComponent(urlToTest.split(/[,\s]+/)[0].trim());
+	// 1. Direct attributes (most reliable for explicit links/media)
+	urlToTest = target.attr("href") || target.attr("src");
+	if (urlToTest && looksLikeUrl(urlToTest))
+		return decodeURIComponent(urlToTest.split(/[,\s]+/)[0].trim());
 
-  urlToTest = target.attr("data-src");
-  if (urlToTest && looksLikeUrl(urlToTest))
-    return decodeURIComponent(urlToTest.split(/[,\s]+/)[0].trim());
+	urlToTest = target.attr("data-src");
+	if (urlToTest && looksLikeUrl(urlToTest))
+		return decodeURIComponent(urlToTest.split(/[,\s]+/)[0].trim());
 
-  urlToTest = target.attr("srcset");
-  if (urlToTest && looksLikeUrl(urlToTest.split(/[,\s]+/)[0]))
-    return decodeURIComponent(urlToTest.split(/[,\s]+/)[0].trim());
+	urlToTest = target.attr("srcset");
+	if (urlToTest && looksLikeUrl(urlToTest.split(/[,\s]+/)[0]))
+		return decodeURIComponent(urlToTest.split(/[,\s]+/)[0].trim());
 
-  // 2. Schema.org / LD+JSON
-  const ldScript = target
-    .find('script[type="application/ld+json"]')
-    .first()
-    .html();
-  if (ldScript) {
-    try {
-      const data = JSON.parse(ldScript);
-      urlToTest =
-        data?.contentUrl ||
-        data?.thumbnailUrl ||
-        (Array.isArray(data?.image)
-          ? data.image[0]?.url || data.image[0]
-          : data?.image?.url || data?.image);
-      if (urlToTest && looksLikeUrl(urlToTest) && looksLikeMedia(urlToTest))
-        return decodeURIComponent(urlToTest.trim());
-    } catch {
-      /* ignore bad JSON */
-    }
-  }
+	// 2. Schema.org / LD+JSON
+	const ldScript = target
+		.find('script[type="application/ld+json"]')
+		.first()
+		.html();
+	if (ldScript) {
+		try {
+			const data = JSON.parse(ldScript);
+			urlToTest =
+				data?.contentUrl ||
+				data?.thumbnailUrl ||
+				(Array.isArray(data?.image)
+					? data.image[0]?.url || data.image[0]
+					: data?.image?.url || data?.image);
+			if (urlToTest && looksLikeUrl(urlToTest) && looksLikeMedia(urlToTest))
+				return decodeURIComponent(urlToTest.trim());
+		} catch {
+			/* ignore bad JSON */
+		}
+	}
 
-  // 3. OpenGraph meta tags (usually in <head>, but let's check if target is <html> or <body>)
-  let searchContext: cheerio.Cheerio = target;
-  if (target.is("html") || target.is("body")) {
-    searchContext = $.root(); // search globally using root
-  }
-  urlToTest =
-    searchContext.find('meta[property="og:image"]').attr("content") ||
-    searchContext.find('meta[property="og:video"]').attr("content") ||
-    searchContext.find('meta[property="og:audio"]').attr("content");
-  if (urlToTest && looksLikeUrl(urlToTest) && looksLikeMedia(urlToTest))
-    return decodeURIComponent(urlToTest.trim());
+	// 3. OpenGraph meta tags (usually in <head>, but let's check if target is <html> or <body>)
+	let searchContext: Cheerio<AnyNode> = target;
+	if (target.is("html") || target.is("body")) {
+		searchContext = $.root(); // search globally using root
+	}
+	urlToTest =
+		searchContext.find('meta[property="og:image"]').attr("content") ||
+		searchContext.find('meta[property="og:video"]').attr("content") ||
+		searchContext.find('meta[property="og:audio"]').attr("content");
+	if (urlToTest && looksLikeUrl(urlToTest) && looksLikeMedia(urlToTest))
+		return decodeURIComponent(urlToTest.trim());
 
-  // 4. Inline style background-image
-  const inlineStyle = target.attr("style");
-  if (inlineStyle) {
-    const styleMatch = inlineStyle.match(
-      /background(?:-image)?:\s*url\(['"]?(.*?)['"]?\)/i,
-    );
-    if (
-      styleMatch?.[1] &&
-      looksLikeUrl(styleMatch[1]) &&
-      looksLikeMedia(styleMatch[1])
-    )
-      return decodeURIComponent(styleMatch[1].trim());
-  }
+	// 4. Inline style background-image
+	const inlineStyle = target.attr("style");
+	if (inlineStyle) {
+		const styleMatch = inlineStyle.match(
+			/background(?:-image)?:\s*url\(['"]?(.*?)['"]?\)/i,
+		);
+		if (
+			styleMatch?.[1] &&
+			looksLikeUrl(styleMatch[1]) &&
+			looksLikeMedia(styleMatch[1])
+		)
+			return decodeURIComponent(styleMatch[1].trim());
+	}
 
-  // 5. Nested <img>, <video>, <audio> src attributes
-  const nestedMedia = target.find("img, video, audio");
-  for (let i = 0; i < nestedMedia.length; i++) {
-    urlToTest = $(nestedMedia[i]).attr("src");
-    if (urlToTest && looksLikeUrl(urlToTest) && looksLikeMedia(urlToTest))
-      return decodeURIComponent(urlToTest.trim());
-  }
+	// 5. Nested <img>, <video>, <audio> src attributes
+	const nestedMedia = target.find("img, video, audio");
+	for (let i = 0; i < nestedMedia.length; i++) {
+		urlToTest = $(nestedMedia[i]).attr("src");
+		if (urlToTest && looksLikeUrl(urlToTest) && looksLikeMedia(urlToTest))
+			return decodeURIComponent(urlToTest.trim());
+	}
 
-  // 6. Nested <a> href for links
-  const nestedLink = target.find("a");
-  for (let i = 0; i < nestedLink.length; i++) {
-    urlToTest = $(nestedLink[i]).attr("href");
-    if (urlToTest && looksLikeUrl(urlToTest))
-      return decodeURIComponent(urlToTest.trim());
-  }
+	// 6. Nested <a> href for links
+	const nestedLink = target.find("a");
+	for (let i = 0; i < nestedLink.length; i++) {
+		urlToTest = $(nestedLink[i]).attr("href");
+		if (urlToTest && looksLikeUrl(urlToTest))
+			return decodeURIComponent(urlToTest.trim());
+	}
 
-  // 7. Fallback: Any plausible URL in outerHTML (less reliable)
-  const html = $.html(target);
-  if (html) {
-    urlToTest = nextUsefulAbs(html);
-    if (urlToTest && looksLikeMedia(urlToTest))
-      return decodeURIComponent(urlToTest.trim()); // Prioritize media-like URLs from HTML
-    if (urlToTest) return decodeURIComponent(urlToTest.trim()); // Or any URL if that's all
-  }
+	// 7. Fallback: Any plausible URL in outerHTML (less reliable)
+	const html = $.html(target);
+	if (html) {
+		urlToTest = nextUsefulAbs(html);
+		if (urlToTest && looksLikeMedia(urlToTest))
+			return decodeURIComponent(urlToTest.trim()); // Prioritize media-like URLs from HTML
+		if (urlToTest) return decodeURIComponent(urlToTest.trim()); // Or any URL if that's all
+	}
 
-  return "";
+	return "";
 }
 
 const ABS_URL_RE = /https?:\/\/[^\s"'<>]+/gi;
 const BORING = /^https?:\/\/(?:schema\.org|www\.w3\.org)\b/i;
 
 function nextUsefulAbs(html: string): string {
-  let m: RegExpExecArray | null;
-  ABS_URL_RE.lastIndex = 0; // Reset regex state
-  while ((m = ABS_URL_RE.exec(html))) {
-    const u = decodeURIComponent(m[0].trim());
-    if (!BORING.test(u)) return u; // Return first non-boring absolute URL
-  }
-  return "";
+	ABS_URL_RE.lastIndex = 0; // Reset regex state
+	let match = ABS_URL_RE.exec(html);
+	while (match) {
+		const u = decodeURIComponent(match[0].trim());
+		if (!BORING.test(u)) return u; // Return first non-boring absolute URL
+		match = ABS_URL_RE.exec(html);
+	}
+	return "";
 }
 
 function looksLikeMedia(url: string): boolean {
-  if (!url) return false;
-  return /\.(jpeg|jpg|png|gif|webp|bmp|svg|mp4|m4v|mov|webm|m3u8|mp3|aac|ogg|wav)(\?|$)/i.test(
-    url.split("?")[0],
-  );
+	if (!url) return false;
+	return /\.(jpeg|jpg|png|gif|webp|bmp|svg|mp4|m4v|mov|webm|m3u8|mp3|aac|ogg|wav)(\?|$)/i.test(
+		url.split("?")[0],
+	);
 }
 
 // Add a simple HTML tag stripper if not present
 function stripHtmlTags(input: string): string {
-  return striptags(input);
+	return striptags(input);
 }
 
 // Updated function to avoid import conflict
 export function processLinksAbsolute(
-  value: string,
-  stripHtml: boolean,
-  isRelative?: boolean,
-  baseUrl?: string,
+	value: string,
+	stripHtml?: boolean,
+	isRelative?: boolean,
+	baseUrl?: string,
 ): string {
-  let url = value?.trim() || "";
-  if (stripHtml && url) {
-    url = stripHtmlTags(url);
-  }
-  if (isRelative && url && !/^https?:\/\//i.test(url) && baseUrl) {
-    url = `${baseUrl.replace(/\/+$/, "")}/${url.replace(/^\/+/, "")}`;
-  }
-  return url;
+	let url = value?.trim() || "";
+	if (stripHtml && url) {
+		url = stripHtmlTags(url);
+	}
+	if (isRelative && url && !/^https?:\/\//i.test(url) && baseUrl) {
+		url = `${baseUrl.replace(/\/+$/, "")}/${url.replace(/^\/+/, "")}`;
+	}
+	return url;
 }
 
 function isRelativeUrl(url: string): boolean {
-  if (!url) return false;
-  return !/^https?:\/\//i.test(url) && !url.startsWith("//");
+	if (!url) return false;
+	return !/^https?:\/\//i.test(url) && !url.startsWith("//");
 }
 
 function extractRootUrl(baseUrl: string): string | undefined {
-  if (!baseUrl) return undefined;
-  const parts = baseUrl.split("/");
-  return `${parts[0]}/${parts[1]}/${parts[2]}`;
+	if (!baseUrl) return undefined;
+	const parts = baseUrl.split("/");
+	return `${parts[0]}/${parts[1]}/${parts[2]}`;
 }
 
 function injectDcNamespace(rssXml: string): string {
-  // Add xmlns:dc to the <rss> tag if not already present
-  if (!rssXml.includes('xmlns:dc=')) {
-    rssXml = rssXml.replace(
-      /<rss\s+([^>]*?)>/i,
-      '<rss $1 xmlns:dc="http://purl.org/dc/elements/1.1/">'
-    );
-  }
-  return rssXml;
+	// Add xmlns:dc to the <rss> tag if not already present
+	if (!rssXml.includes("xmlns:dc=")) {
+		rssXml = rssXml.replace(
+			/<rss\s+([^>]*?)>/i,
+			'<rss $1 xmlns:dc="http://purl.org/dc/elements/1.1/">',
+		);
+	}
+	return rssXml;
 }
 
 /**
  * Checks if a string looks like an email address
  */
 function isEmailAddress(value: string): boolean {
-  if (!value) return false;
-  // Simple email pattern - checks for basic email structure
-  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
+	if (!value) return false;
+	// Simple email pattern - checks for basic email structure
+	return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value.trim());
 }

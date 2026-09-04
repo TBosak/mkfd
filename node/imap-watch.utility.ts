@@ -5,121 +5,132 @@ import Imap from "node-imap";
 import libmime from "libmime";
 import minimist from "minimist";
 import { Feed } from "feed";
-import { existsSync, readFileSync, writeFileSync, mkdirSync, readdirSync, unlinkSync } from "node:fs";
+import {
+	existsSync,
+	readFileSync,
+	writeFileSync,
+	mkdirSync,
+	readdirSync,
+	unlinkSync,
+} from "node:fs";
 import { createHash } from "node:crypto";
 import { simpleParser } from "mailparser";
 import { decrypt } from "../utilities/security.utility.ts";
-import { isProtectedValue, resolveProtectedValue } from "../utilities/protected-values.utility";
+import {
+	isProtectedValue,
+	resolveProtectedValue,
+} from "../utilities/protected-values.utility";
 import { fileURLToPath } from "node:url";
 import { dirname } from "node:path";
 import * as cheerio from "cheerio";
+import { stripInvalidXmlControlCharacters } from "../utilities/xml-sanitizer.utility";
 
 // Type definitions (inline to avoid ES module issues in Node.js worker)
 interface Author {
-  name?: string;
-  email?: string;
-  link?: string;
-  avatar?: string;
+	name?: string;
+	email?: string;
+	link?: string;
+	avatar?: string;
 }
 
 interface Category {
-  name?: string;
-  domain?: string;
-  scheme?: string;
-  term?: string;
+	name?: string;
+	domain?: string;
+	scheme?: string;
+	term?: string;
 }
 
 interface Enclosure {
-  url: string;
-  type?: string;
-  length?: number;
-  title?: string;
-  duration?: number;
+	url: string;
+	type?: string;
+	length?: number;
+	title?: string;
+	duration?: number;
 }
 
 interface Extension {
-  name: string;
-  objects: any;
+	name: string;
+	objects: any;
 }
 
 interface RSSItemOptions {
-  title: string;
-  id?: string;
-  link: string;
-  date: Date;
-  description?: string;
-  content?: string;
-  category?: Category[];
-  guid?: string;
-  image?: string | Enclosure;
-  audio?: string | Enclosure;
-  video?: string | Enclosure;
-  enclosure?: Enclosure;
-  author?: Author[];
-  contributor?: Author[];
-  published?: Date;
-  copyright?: string;
-  extensions?: Extension[];
+	title: string;
+	id?: string;
+	link: string;
+	date: Date;
+	description?: string;
+	content?: string;
+	category?: Category[];
+	guid?: string;
+	image?: string | Enclosure;
+	audio?: string | Enclosure;
+	video?: string | Enclosure;
+	enclosure?: Enclosure;
+	author?: Author[];
+	contributor?: Author[];
+	published?: Date;
+	copyright?: string;
+	extensions?: Extension[];
 }
 
 interface RSSFeedOptions {
-  feedId?: string;
-  feedName?: string;
-  feedType?: string;
-  config?: any;
-  webhook?: any;
-  refreshTime?: number;
-  reverse?: boolean;
-  strict?: boolean;
-  advanced?: boolean;
-  headers?: any;
-  cookies?: any;
-  article?: any;
-  apiMapping?: any;
-  serverUrl?: string;
-    id: string;
-  title: string;
-  updated?: Date;
-  generator?: string;
-  language?: string;
-  ttl?: number;
-  feed?: string;
-  feedLinks?: any;
-  hub?: string;
-  docs?: string;
-  podcast?: boolean;
-  category?: string;
-  author?: Author;
-  link?: string;
-  description?: string;
-  image?: string;
-  favicon?: string;
-  copyright: string;
+	feedId?: string;
+	feedName?: string;
+	feedType?: string;
+	config?: any;
+	webhook?: any;
+	refreshTime?: number;
+	reverse?: boolean;
+	strict?: boolean;
+	advanced?: boolean;
+	headers?: any;
+	cookies?: any;
+	article?: any;
+	apiMapping?: any;
+	serverUrl?: string;
+	id: string;
+	title: string;
+	updated?: Date;
+	generator?: string;
+	language?: string;
+	ttl?: number;
+	feed?: string;
+	feedLinks?: any;
+	hub?: string;
+	docs?: string;
+	podcast?: boolean;
+	category?: string;
+	author?: Author;
+	link?: string;
+	description?: string;
+	image?: string;
+	favicon?: string;
+	copyright: string;
 }
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 export interface Email {
-  UID: number;
-  messageId?: string;
-  subject?: string;
-  from?: string;
-  to?: string | Array<string>;
-  cc?: string | Array<string>;
-  bcc?: string | Array<string>;
-  date?: string;
-  textBody?: string;
-  htmlBody?: string;
-  attachments?: Array<{
-    filename?: string;
-    contentType?: string;
-    size?: number;
-    content?: Buffer;
-    contentId?: string;
-    related?: boolean;
-  }>;
-  headers?: Map<string, string | string[]>;
+	UID: number;
+	messageId?: string;
+	subject?: string;
+	from?: string;
+	to?: string | Array<string>;
+	cc?: string | Array<string>;
+	bcc?: string | Array<string>;
+	date?: string;
+	textBody?: string;
+	htmlBody?: string;
+	attachments?: Array<{
+		filename?: string;
+		contentType?: string;
+		size?: number;
+		content?: Buffer;
+		contentId?: string;
+		related?: boolean;
+	}>;
+	headers?: Map<string, unknown>;
 }
 
 // Helper: build a self-contained HTML page for a single email.
@@ -131,20 +142,31 @@ export interface Email {
 // `sanitizeEmailHtmlForPage` (which strips dangerous tags/attrs) and we
 // further constrain execution via a strict Content-Security-Policy meta tag.
 function buildEmailItemHtml(
-  subject: string,
-  from: string,
-  date: Date | undefined,
-  bodyHtml: string,
+	subject: string,
+	from: string,
+	date: Date | undefined,
+	bodyHtml: string,
 ): string {
-  const esc = (s: string) =>
-    s.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]!));
-  const subjectEsc = esc(subject || "(No Subject)");
-  const fromEsc = from ? esc(from) : "";
-  const dateStr = date ? esc(date.toUTCString()) : "";
-  // CSP: no scripts, no plugins, no frames, only http(s)/data images, only
-  // inline style (needed for our own <style> block and email inline styles).
-  const csp = "default-src 'none'; img-src https: http: data: cid:; style-src 'unsafe-inline'; font-src https: data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
-  return `<!doctype html>
+	const esc = (s: string) =>
+		s.replace(
+			/[&<>"']/g,
+			(c) =>
+				({
+					"&": "&amp;",
+					"<": "&lt;",
+					">": "&gt;",
+					'"': "&quot;",
+					"'": "&#39;",
+				})[c]!,
+		);
+	const subjectEsc = esc(subject || "(No Subject)");
+	const fromEsc = from ? esc(from) : "";
+	const dateStr = date ? esc(date.toUTCString()) : "";
+	// CSP: no scripts, no plugins, no frames, only http(s)/data images, only
+	// inline style (needed for our own <style> block and email inline styles).
+	const csp =
+		"default-src 'none'; img-src https: http: data: cid:; style-src 'unsafe-inline'; font-src https: data:; base-uri 'none'; form-action 'none'; frame-ancestors 'none'";
+	return `<!doctype html>
 <html lang="en">
 <head>
 <meta charset="utf-8">
@@ -187,674 +209,818 @@ function buildEmailItemHtml(
 // Strip dangerous constructs from email HTML before embedding it in a page
 // served from our own origin. Defense-in-depth alongside the page's CSP.
 function sanitizeEmailHtmlForPage(html: string): string {
-  if (!html) return "";
-  const $ = cheerio.load(html, {}, false);
-  // Remove tags that can execute or otherwise mis-direct navigation.
-  $("script, style, link, iframe, object, embed, form, base, meta, svg, math, frame, frameset, applet, audio, video, source, track").remove();
-  $("*").each((_i, el: any) => {
-    if (!el?.attribs) return;
-    for (const attr of Object.keys(el.attribs)) {
-      const lower = attr.toLowerCase();
-      // Strip all event handlers.
-      if (lower.startsWith("on")) {
-        delete el.attribs[attr];
-        continue;
-      }
-      // Strip dangerous URL schemes from anything that navigates or fetches.
-      if (lower === "href" || lower === "src" || lower === "action" || lower === "formaction" || lower === "xlink:href") {
-        const v = String(el.attribs[attr] || "").trim();
-        // Allow only http(s), mailto, tel, cid, data:image/* (images use CSP),
-        // protocol-relative, and same-doc fragments/relative paths.
-        const isSafe =
-          v === "" ||
-          /^(https?:|mailto:|tel:|cid:|#|\/|\.{0,2}\/)/i.test(v) ||
-          /^data:image\//i.test(v);
-        if (!isSafe) delete el.attribs[attr];
-      }
-    }
-  });
-  return $.html();
+	if (!html) return "";
+	const $ = cheerio.load(html, {}, false);
+	// Remove tags that can execute or otherwise mis-direct navigation.
+	$(
+		"script, style, link, iframe, object, embed, form, base, meta, svg, math, frame, frameset, applet, audio, video, source, track",
+	).remove();
+	$("*").each((_i, el: any) => {
+		if (!el?.attribs) return;
+		for (const attr of Object.keys(el.attribs)) {
+			const lower = attr.toLowerCase();
+			// Strip all event handlers.
+			if (lower.startsWith("on")) {
+				delete el.attribs[attr];
+				continue;
+			}
+			// Strip dangerous URL schemes from anything that navigates or fetches.
+			if (
+				lower === "href" ||
+				lower === "src" ||
+				lower === "action" ||
+				lower === "formaction" ||
+				lower === "xlink:href"
+			) {
+				const v = String(el.attribs[attr] || "").trim();
+				// Allow only http(s), mailto, tel, cid, data:image/* (images use CSP),
+				// protocol-relative, and same-doc fragments/relative paths.
+				const isSafe =
+					v === "" ||
+					/^(https?:|mailto:|tel:|cid:|#|\/|\.{0,2}\/)/i.test(v) ||
+					/^data:image\//i.test(v);
+				if (!isSafe) delete el.attribs[attr];
+			}
+		}
+	});
+	return $.html();
 }
 
 // Compute a filesystem-safe, stable, opaque ID for an email.
 function emailItemId(email: Email): string {
-  const seed = email.messageId || `uid:${email.UID}`;
-  return createHash("sha256").update(seed).digest("hex").slice(0, 16);
+	const seed = email.messageId || `uid:${email.UID}`;
+	return createHash("sha256").update(seed).digest("hex").slice(0, 16);
 }
 
 // Validate a path component (we use feedId as a directory name). feedIds
 // are uuidv4() in the main process, but defense-in-depth in case future
 // callers pass something else.
 function isSafePathComponent(s: string | undefined): s is string {
-  return !!s && /^[A-Za-z0-9._-]{1,128}$/.test(s) && s !== "." && s !== "..";
+	return !!s && /^[A-Za-z0-9._-]{1,128}$/.test(s) && s !== "." && s !== "..";
 }
 
 export interface BuildRSSResult {
-  feed: Feed;
-  /** Call AFTER the feed has been durably written to disk. Deletes
-   * per-item HTML files no longer referenced by the new feed. Safe to call
-   * multiple times; safe to skip on failure (stale files just linger). */
-  commit: () => void;
+	feed: Feed;
+	/** Call AFTER the feed has been durably written to disk. Deletes
+	 * per-item HTML files no longer referenced by the new feed. Safe to call
+	 * multiple times; safe to skip on failure (stale files just linger). */
+	commit: () => void;
 }
 
-export function buildRSSFromEmailFolder(emails: Email[], feedSetup: RSSFeedOptions): BuildRSSResult {
-  const feed = new Feed({
-    id: feedSetup.id,
-    title: feedSetup.feedName || feedSetup.title || "Email Feed",
-    link: feedSetup.link || feedSetup.id,
-    description: feedSetup.description || `Email feed from ${feedSetup.config?.folder || 'folder'}`,
-    image: feedSetup.image,
-    language: feedSetup.language || "en",
-    updated: new Date(),
-    copyright: feedSetup.copyright || '',
-    generator: feedSetup.generator || "Mkfd IMAP Email Watcher",
-    ttl: feedSetup.ttl,
-    feedLinks: {
-      rss: feedSetup.id
-    }
-  });
+export function buildRSSFromEmailFolder(
+	emails: Email[],
+	feedSetup: RSSFeedOptions,
+): BuildRSSResult {
+	const feed = new Feed({
+		id: feedSetup.id,
+		title: feedSetup.feedName || feedSetup.title || "Email Feed",
+		link: feedSetup.link || feedSetup.id,
+		description:
+			feedSetup.description ||
+			`Email feed from ${feedSetup.config?.folder || "folder"}`,
+		image: feedSetup.image,
+		language: feedSetup.language || "en",
+		updated: new Date(),
+		copyright: feedSetup.copyright || "",
+		generator: feedSetup.generator || "Mkfd IMAP Email Watcher",
+		ttl: feedSetup.ttl,
+		feedLinks: {
+			rss: feedSetup.id,
+		},
+	});
 
-  // Helper function to sanitize content for XML/RSS
-  const sanitizeForXML = (content: string): string => {
-    if (!content) return content;
-    return content
-      .replace(/]]>/g, ']]&gt;') // Escape CDATA closing sequence
-      .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '') // Remove invalid XML characters
-      .replace(/&(?!(?:amp|lt|gt|quot|apos|nbsp);)/g, '&amp;'); // Escape unescaped ampersands
-  };
+	// Helper function to sanitize content for XML/RSS
+	const sanitizeForXML = (content: string): string => {
+		if (!content) return content;
+		return stripInvalidXmlControlCharacters(content.replace(/]]>/g, "]]&gt;")) // Escape CDATA closing sequence and remove invalid XML characters
+			.replace(/&(?!(?:amp|lt|gt|quot|apos|nbsp);)/g, "&amp;"); // Escape unescaped ampersands
+	};
 
-  // Per-item HTML page setup. We write a static .html per email under
-  // public/feeds/<feedId>/ so the <link> can be a real http(s) URL instead
-  // of an unsupported `mailto:` scheme. Falls back to a relative URL if
-  // SERVER_URL isn't explicitly configured.
-  const feedId = feedSetup.feedId;
-  const safeFeedId = isSafePathComponent(feedId) ? feedId : null;
-  const itemsDir = safeFeedId ? path.join(__dirname, "../public/feeds", safeFeedId) : null;
-  const explicitBase = (feedSetup.serverUrl || "").replace(/\/+$/, "");
-  if (itemsDir) {
-    try {
-      mkdirSync(itemsDir, { recursive: true });
-    } catch (e: any) {
-      console.error(`[IMAP] Could not create items dir ${itemsDir}:`, e?.message);
-    }
-  }
-  const writtenIds = new Set<string>();
+	// Per-item HTML page setup. We write a static .html per email under
+	// public/feeds/<feedId>/ so the <link> can be a real http(s) URL instead
+	// of an unsupported `mailto:` scheme. Falls back to a relative URL if
+	// SERVER_URL isn't explicitly configured.
+	const feedId = feedSetup.feedId;
+	const safeFeedId = isSafePathComponent(feedId) ? feedId : null;
+	const itemsDir = safeFeedId
+		? path.join(__dirname, "../public/feeds", safeFeedId)
+		: null;
+	const explicitBase = (feedSetup.serverUrl || "").replace(/\/+$/, "");
+	if (itemsDir) {
+		try {
+			mkdirSync(itemsDir, { recursive: true });
+		} catch (e: any) {
+			console.error(
+				`[IMAP] Could not create items dir ${itemsDir}:`,
+				e?.message,
+			);
+		}
+	}
+	const writtenIds = new Set<string>();
 
-  emails.forEach((email) => {
-    let descriptionText: string | undefined = email.textBody;
-    let contentEncodedHtml: string | undefined = email.htmlBody || email.textBody;
+	emails.forEach((email) => {
+		let descriptionText: string | undefined = email.textBody;
+		let contentEncodedHtml: string | undefined =
+			email.htmlBody || email.textBody;
 
-    if (email.htmlBody) {
-      const $ = cheerio.load(email.htmlBody);
-      // Remove script, style tags, and linked stylesheets
-      $('script, style, link[rel="stylesheet"]').remove();
+		if (email.htmlBody) {
+			const $ = cheerio.load(email.htmlBody);
+			// Remove script, style tags, and linked stylesheets
+			$('script, style, link[rel="stylesheet"]').remove();
 
-      // For descriptionText, if email.textBody was not good:
-      if (!descriptionText || descriptionText.trim() === "") {
-        // Prefer text from <body>, fallback to :root
-        const textSource = $('body').length ? $('body') : $(':root');
-        const extractedText = textSource.text();
+			// For descriptionText, if email.textBody was not good:
+			if (!descriptionText || descriptionText.trim() === "") {
+				// Prefer text from <body>, fallback to :root
+				const textSource = $("body").length ? $("body") : $(":root");
+				const extractedText = textSource.text();
 
-        // Normalize all whitespace (including newlines) to single spaces and trim
-        descriptionText = extractedText.replace(/\s+/g, ' ').trim();
-      }
+				// Normalize all whitespace (including newlines) to single spaces and trim
+				descriptionText = extractedText.replace(/\s+/g, " ").trim();
+			}
 
-      // For contentEncodedHtml, get the HTML content after removals
-      // Prefer HTML from <body>, fallback to :root
-      contentEncodedHtml = ($('body').length ? $('body') : $(':root')).html() || $.html();
-    }
+			// For contentEncodedHtml, get the HTML content after removals
+			// Prefer HTML from <body>, fallback to :root
+			contentEncodedHtml =
+				($("body").length ? $("body") : $(":root")).html() || $.html();
+		}
 
-    // Fallback for descriptionText if it's still empty after all attempts
-    if (!descriptionText || descriptionText.trim() === "") {
-      descriptionText = "(No descriptive content)";
-    }
+		// Fallback for descriptionText if it's still empty after all attempts
+		if (!descriptionText || descriptionText.trim() === "") {
+			descriptionText = "(No descriptive content)";
+		}
 
-    // Keep a copy of the (cleaned but not XML-escaped) HTML for the per-item
-    // page. The XML sanitizer escapes ampersands etc. for embedding inside
-    // CDATA; for a standalone HTML file we want the original markup.
-    const itemPageHtml = contentEncodedHtml || "";
+		// Keep a copy of the (cleaned but not XML-escaped) HTML for the per-item
+		// page. The XML sanitizer escapes ampersands etc. for embedding inside
+		// CDATA; for a standalone HTML file we want the original markup.
+		const itemPageHtml = contentEncodedHtml || "";
 
-    // Sanitize both description and content for XML
-    descriptionText = sanitizeForXML(descriptionText || "");
-    contentEncodedHtml = sanitizeForXML(contentEncodedHtml || "");
+		// Sanitize both description and content for XML
+		descriptionText = sanitizeForXML(descriptionText || "");
+		contentEncodedHtml = sanitizeForXML(contentEncodedHtml || "");
 
-    // Write the per-item HTML page and compute its link.
-    const itemId = emailItemId(email);
-    let itemLink = "";
-    if (itemsDir && safeFeedId) {
-      try {
-        const safeBody = sanitizeEmailHtmlForPage(itemPageHtml);
-        const pageHtml = buildEmailItemHtml(
-          email.subject || "",
-          email.from || "",
-          email.date ? new Date(email.date) : undefined,
-          safeBody,
-        );
-        writeFileSync(path.join(itemsDir, `${itemId}.html`), pageHtml, "utf8");
-        writtenIds.add(`${itemId}.html`);
-        const relPath = `/public/feeds/${safeFeedId}/${itemId}.html`;
-        itemLink = explicitBase ? `${explicitBase}${relPath}` : relPath;
-      } catch (e: any) {
-        console.error(`[IMAP] Failed to write item page for ${itemId}:`, e?.message);
-      }
-    }
+		// Write the per-item HTML page and compute its link.
+		const itemId = emailItemId(email);
+		let itemLink = "";
+		if (itemsDir && safeFeedId) {
+			try {
+				const safeBody = sanitizeEmailHtmlForPage(itemPageHtml);
+				const pageHtml = buildEmailItemHtml(
+					email.subject || "",
+					email.from || "",
+					email.date ? new Date(email.date) : undefined,
+					safeBody,
+				);
+				writeFileSync(path.join(itemsDir, `${itemId}.html`), pageHtml, "utf8");
+				writtenIds.add(`${itemId}.html`);
+				const relPath = `/public/feeds/${safeFeedId}/${itemId}.html`;
+				itemLink = explicitBase ? `${explicitBase}${relPath}` : relPath;
+			} catch (e: any) {
+				console.error(
+					`[IMAP] Failed to write item page for ${itemId}:`,
+					e?.message,
+				);
+			}
+		}
 
-    const itemOptions: RSSItemOptions = {
-      title: sanitizeForXML(email.subject || "(No Subject)"),
-      description: descriptionText,
-      date: email.date ? new Date(email.date) : new Date(),
-      guid: email.messageId || email.UID.toString(), // Use Message-ID as GUID, fallback to UID
-      link: itemLink, // http(s) (or relative) link to the per-item page; readers reject `mailto:`
-      content: contentEncodedHtml, // Content is now a standard field
-    };
+		const itemOptions: RSSItemOptions = {
+			title: sanitizeForXML(email.subject || "(No Subject)"),
+			description: descriptionText,
+			date: email.date ? new Date(email.date) : new Date(),
+			guid: email.messageId || email.UID.toString(), // Use Message-ID as GUID, fallback to UID
+			link: itemLink, // http(s) (or relative) link to the per-item page; readers reject `mailto:`
+			content: contentEncodedHtml, // Content is now a standard field
+		};
 
-    // Handle author (convert to Author array)
-    const authorName = sanitizeForXML(email.from || "");
-    if (authorName) {
-      itemOptions.author = [{ name: authorName }];
-    }
+		// Handle author (convert to Author array)
+		const authorName = sanitizeForXML(email.from || "");
+		if (authorName) {
+			itemOptions.author = [{ name: authorName }];
+		}
 
-    // Handle categories (convert to Category array)
-    const keywords = email.headers?.get('keywords') ? String(email.headers.get('keywords')).split(',').map(k => sanitizeForXML(k.trim())) : [];
-    if (keywords.length > 0) {
-      itemOptions.category = keywords.map(name => ({ name }));
-    }
+		// Handle categories (convert to Category array)
+		const keywords = email.headers?.get("keywords")
+			? String(email.headers.get("keywords"))
+					.split(",")
+					.map((k) => sanitizeForXML(k.trim()))
+			: [];
+		if (keywords.length > 0) {
+			itemOptions.category = keywords.map((name) => ({ name }));
+		}
 
-    // Add enclosure if present
-    if (email.attachments && email.attachments.length > 0 && email.attachments[0].content && email.attachments[0].size && email.attachments[0].contentType) {
-      const enclosureUrl = email.attachments[0].filename ? `cid:${sanitizeForXML(email.attachments[0].filename)}` : (email.attachments[0].contentId ? `cid:${sanitizeForXML(email.attachments[0].contentId)}` : undefined);
-      if (enclosureUrl) {
-        itemOptions.enclosure = {
-          url: enclosureUrl,
-          length: email.attachments[0].size,
-          type: email.attachments[0].contentType,
-        };
-      }
-    }
+		// Add enclosure if present
+		if (
+			email.attachments &&
+			email.attachments.length > 0 &&
+			email.attachments[0].content &&
+			email.attachments[0].size &&
+			email.attachments[0].contentType
+		) {
+			const enclosureUrl = email.attachments[0].filename
+				? `cid:${sanitizeForXML(email.attachments[0].filename)}`
+				: email.attachments[0].contentId
+					? `cid:${sanitizeForXML(email.attachments[0].contentId)}`
+					: undefined;
+			if (enclosureUrl) {
+				itemOptions.enclosure = {
+					url: enclosureUrl,
+					length: email.attachments[0].size,
+					type: email.attachments[0].contentType,
+				};
+			}
+		}
 
-    feed.addItem(itemOptions);
-  });
+		feed.addItem(itemOptions);
+	});
 
-  // Pruning is deferred: we only want to delete stale per-item pages once
-  // the new feed XML is durably on disk. Otherwise a write failure could
-  // leave the existing XML referencing files we just deleted.
-  const commit = () => {
-    if (!itemsDir) return;
-    try {
-      for (const name of readdirSync(itemsDir)) {
-        if (name.endsWith(".html") && !writtenIds.has(name)) {
-          try { unlinkSync(path.join(itemsDir, name)); } catch { /* ignore */ }
-        }
-      }
-    } catch {
-      // Directory may not exist yet on a brand-new feed; that's fine.
-    }
-  };
+	// Pruning is deferred: we only want to delete stale per-item pages once
+	// the new feed XML is durably on disk. Otherwise a write failure could
+	// leave the existing XML referencing files we just deleted.
+	const commit = () => {
+		if (!itemsDir) return;
+		try {
+			for (const name of readdirSync(itemsDir)) {
+				if (name.endsWith(".html") && !writtenIds.has(name)) {
+					try {
+						unlinkSync(path.join(itemsDir, name));
+					} catch {
+						/* ignore */
+					}
+				}
+			}
+		} catch {
+			// Directory may not exist yet on a brand-new feed; that's fine.
+		}
+	};
 
-  return { feed, commit };
+	return { feed, commit };
 }
 
 export interface EmailItemSnapshot {
-  id: string;
-  date: string;
-  title?: string;
-  link?: string;
-  description?: string;
-  content?: string;
-  author?: Array<{ name?: string; email?: string; link?: string }>;
-  category?: Array<{ name?: string }>;
-  enclosure?: { url: string; type?: string; length?: number };
+	id: string;
+	date: string;
+	title?: string;
+	link?: string;
+	description?: string;
+	content?: string;
+	author?: Array<{ name?: string; email?: string; link?: string }>;
+	category?: Array<{ name?: string }>;
+	enclosure?: { url: string; type?: string; length?: number };
 }
 
 export function extractEmailItems(feed: Feed): EmailItemSnapshot[] {
-  return feed.items.map((item: any) => ({
-    id: item.guid ?? item.id ?? "",
-    date: (item.date instanceof Date ? item.date : new Date(item.date ?? Date.now())).toISOString(),
-    title: item.title,
-    link: item.link,
-    description: item.description,
-    content: item.content,
-    author: item.author,
-    category: item.category,
-    enclosure: item.enclosure,
-  }));
+	return feed.items.map((item: any) => ({
+		id: item.guid ?? item.id ?? "",
+		date: (item.date instanceof Date
+			? item.date
+			: new Date(item.date ?? Date.now())
+		).toISOString(),
+		title: item.title,
+		link: item.link,
+		description: item.description,
+		content: item.content,
+		author: item.author,
+		category: item.category,
+		enclosure: item.enclosure,
+	}));
 }
 
 export interface EmailFeedMessage {
-  type: "feed_ready";
-  feedId: string;
-  feedMeta: {
-    id: string;
-    title: string;
-    link: string;
-    description: string;
-    language?: string;
-    copyright?: string;
-    generator?: string;
-    image?: string;
-    ttl?: number;
-    updated: string;
-  };
-  items: EmailItemSnapshot[];
-  webhookConfig?: {
-    enabled: boolean;
-    url?: string;
-    format?: "xml" | "json";
-    newItemsOnly?: boolean;
-  };
+	type: "feed_ready";
+	feedId: string;
+	feedMeta: {
+		id: string;
+		title: string;
+		link: string;
+		description: string;
+		language?: string;
+		copyright?: string;
+		generator?: string;
+		image?: string;
+		ttl?: number;
+		updated: string;
+	};
+	items: EmailItemSnapshot[];
+	webhookConfig?: {
+		enabled: boolean;
+		url?: string;
+		format?: "xml" | "json";
+		newItemsOnly?: boolean;
+	};
 }
 
 export function sendFeedReady(feed: Feed, config: RSSFeedOptions): void {
-  const message: EmailFeedMessage = {
-    type: "feed_ready",
-    feedId: config.feedId!,
-    feedMeta: {
-      id:          config.id,
-      title:       config.title || config.feedName || "Email Feed",
-      link:        config.link || config.id,
-      description: config.description || "",
-      language:    config.language,
-      copyright:   config.copyright,
-      generator:   config.generator,
-      image:       config.image,
-      ttl:         config.ttl,
-      updated:     new Date().toISOString(),
-    },
-    items: extractEmailItems(feed),
-    webhookConfig: config.webhook ? {
-      enabled:      config.webhook.enabled,
-      url:          config.webhook.url,
-      format:       config.webhook.format,
-      newItemsOnly: config.webhook.newItemsOnly,
-    } : undefined,
-  };
-  process.stdout.write(JSON.stringify(message) + "\n");
+	const message: EmailFeedMessage = {
+		type: "feed_ready",
+		feedId: config.feedId!,
+		feedMeta: {
+			id: config.id,
+			title: config.title || config.feedName || "Email Feed",
+			link: config.link || config.id,
+			description: config.description || "",
+			language: config.language,
+			copyright: config.copyright,
+			generator: config.generator,
+			image: config.image,
+			ttl: config.ttl,
+			updated: new Date().toISOString(),
+		},
+		items: extractEmailItems(feed),
+		webhookConfig: config.webhook
+			? {
+					enabled: config.webhook.enabled,
+					url: config.webhook.url,
+					format: config.webhook.format,
+					newItemsOnly: config.webhook.newItemsOnly,
+				}
+			: undefined,
+	};
+	process.stdout.write(JSON.stringify(message) + "\n");
 }
 
 if (import.meta.main) {
+	const args = minimist(process.argv.slice(2));
+	const encryptionKey: string = args.key || "";
+	const configHash: string = args.hash || "";
 
-const args = minimist(process.argv.slice(2));
-const encryptionKey: string = args.key || "";
-const configHash: string = args.hash || "";
+	if (!encryptionKey || !configHash) {
+		console.error(
+			"[IMAP Node Watcher] Usage: node imap-watcher.service.ts --key=<encryptionKey> --hash=<configHash>",
+		);
+		process.exit(1);
+	}
 
-if (!encryptionKey || !configHash) {
-  console.error(
-    "[IMAP Node Watcher] Usage: node imap-watcher.service.ts --key=<encryptionKey> --hash=<configHash>",
-  );
-  process.exit(1);
-}
+	console.log(
+		`[IMAP Node Watcher] Process started for hash: ${configHash} with key: ${encryptionKey}`,
+	);
 
-console.log(`[IMAP Node Watcher] Process started for hash: ${configHash} with key: ${encryptionKey}`);
+	const yamlPath: string = path.join(
+		__dirname,
+		"../configs",
+		`${configHash}.yaml`,
+	);
 
-const yamlPath: string = path.join(
-  __dirname,
-  "../configs",
-  `${configHash}.yaml`,
-);
+	console.log(`[IMAP Node Watcher] Attempting to load YAML from: ${yamlPath}`);
 
-console.log(`[IMAP Node Watcher] Attempting to load YAML from: ${yamlPath}`);
+	if (!existsSync(yamlPath)) {
+		console.error(`[IMAP Node Watcher] YAML config not found at: ${yamlPath}`);
+		process.exit(1);
+	}
 
-if (!existsSync(yamlPath)) {
-  console.error(`[IMAP Node Watcher] YAML config not found at: ${yamlPath}`);
-  process.exit(1);
-}
+	const fileContents = readFileSync(yamlPath, "utf8");
+	const rawConfig: any = yaml.load(fileContents);
 
-const fileContents = readFileSync(yamlPath, "utf8");
-const rawConfig: any = yaml.load(fileContents);
+	console.log(
+		"[IMAP Node Watcher] Loaded rawConfig:",
+		JSON.stringify(
+			{
+				feedId: rawConfig.feedId,
+				feedName: rawConfig.feedName,
+				feedType: rawConfig.feedType,
+				configHost: rawConfig.config?.host,
+				configPort: rawConfig.config?.port,
+				configUser: rawConfig.config?.user,
+				configFolder: rawConfig.config?.folder,
+			},
+			null,
+			2,
+		),
+	);
 
-console.log("[IMAP Node Watcher] Loaded rawConfig:", JSON.stringify({
-    feedId: rawConfig.feedId,
-    feedName: rawConfig.feedName,
-    feedType: rawConfig.feedType,
-    configHost: rawConfig.config?.host,
-    configPort: rawConfig.config?.port,
-    configUser: rawConfig.config?.user,
-    configFolder: rawConfig.config?.folder
-}, null, 2));
+	const rawPassword =
+		rawConfig.config?.password ?? rawConfig.config?.encryptedPassword;
+	const imapOriginalConfig = {
+		host: rawConfig.config?.host,
+		port: rawConfig.config?.port,
+		user: rawConfig.config?.user,
+		password: (() => {
+			if (isProtectedValue(rawPassword))
+				return resolveProtectedValue(rawPassword, encryptionKey);
+			if (typeof rawPassword === "string")
+				return decrypt(rawPassword, encryptionKey);
+			return undefined;
+		})(),
+		folder: rawConfig.config?.folder || "INBOX",
+		emailCount: rawConfig.config?.emailCount || 10,
+	};
 
-const rawPassword = rawConfig.config?.password ?? rawConfig.config?.encryptedPassword;
-const imapOriginalConfig = {
-  host: rawConfig.config?.host,
-  port: rawConfig.config?.port,
-  user: rawConfig.config?.user,
-  password: (() => {
-    if (isProtectedValue(rawPassword)) return resolveProtectedValue(rawPassword, encryptionKey);
-    if (typeof rawPassword === "string") return decrypt(rawPassword, encryptionKey);
-    return undefined;
-  })(),
-  folder: rawConfig.config?.folder || "INBOX",
-  emailCount: rawConfig.config?.emailCount || 10,
-};
+	if (!imapOriginalConfig.password) {
+		console.error(
+			`[IMAP Node Watcher] Password for ${imapOriginalConfig.user} is missing or decryption failed. Ensure password or encryptedPassword is present in YAML and key is correct.`,
+		);
+	}
 
-if (!imapOriginalConfig.password) {
-    console.error(`[IMAP Node Watcher] Password for ${imapOriginalConfig.user} is missing or decryption failed. Ensure password or encryptedPassword is present in YAML and key is correct.`);
-}
+	class ImapWatcher {
+		private config: RSSFeedOptions;
+		private imap: Imap;
 
-class ImapWatcher {
-  private config: RSSFeedOptions;
-  private imap: Imap;
+		constructor(passedConfig: RSSFeedOptions) {
+			this.config = passedConfig;
 
-  constructor(passedConfig: RSSFeedOptions) {
-    this.config = passedConfig;
+			const imapConnectionDetails = this.config.config;
 
-    const imapConnectionDetails = this.config.config;
+			if (!imapConnectionDetails?.host || !imapConnectionDetails.port) {
+				console.error(
+					"[IMAP Node Watcher] CRITICAL: IMAP connection details (host, port) are missing in the processed config for feedId:",
+					this.config.feedId,
+				);
+			}
 
-    if (!imapConnectionDetails?.host || !imapConnectionDetails.port) {
-        console.error("[IMAP Node Watcher] CRITICAL: IMAP connection details (host, port) are missing in the processed config for feedId:", this.config.feedId);
-    }
+			this.imap = new Imap({
+				user: imapConnectionDetails?.user,
+				password: imapConnectionDetails?.password,
+				host: imapConnectionDetails?.host,
+				port: imapConnectionDetails?.port,
+				tls: true,
+			});
+		}
 
-    this.imap = new Imap({
-      user: imapConnectionDetails?.user,
-      password: imapConnectionDetails?.password,
-      host: imapConnectionDetails?.host,
-      port: imapConnectionDetails?.port,
-      tls: true,
-    });
-  }
+		async start(): Promise<void> {
+			try {
+				await this.connect();
+				await this.openBox(this.config.config?.folder || "INBOX");
+				this.fetchRecentStartupEmails();
+				this.imap.removeAllListeners("mail");
+				this.imap.removeAllListeners("close");
+				this.imap.removeAllListeners("error");
+				this.imap.setMaxListeners(20);
 
-  async start(): Promise<void> {
-    try {
-      await this.connect();
-      await this.openBox(this.config.config?.folder || "INBOX");
-      this.fetchRecentStartupEmails();
-      this.imap.removeAllListeners("mail");
-      this.imap.removeAllListeners("close");
-      this.imap.removeAllListeners("error");
-      this.imap.setMaxListeners(20);
+				this.imap.on("mail", (n) => {
+					console.log(
+						`[IMAP] New mail event received for feed ${this.config.feedId}: ${n} new email(s)`,
+					);
+					this.fetchNewEmails();
+				});
 
-      this.imap.on("mail", (n) => {
-        console.log(`[IMAP] New mail event received for feed ${this.config.feedId}: ${n} new email(s)`);
-        this.fetchNewEmails();
-      });
+				this.imap.on("close", () => this.reconnect());
+				this.imap.on("error", () => this.reconnect());
+			} catch (err) {
+				console.error("[IMAP] Failed to start:", err);
+				this.reconnect();
+			}
+		}
 
-      this.imap.on("close", () => this.reconnect());
-      this.imap.on("error", () => this.reconnect());
-    } catch (err) {
-      console.error("[IMAP] Failed to start:", err);
-      this.reconnect();
-    }
-  }
+		private connect(): Promise<void> {
+			return new Promise((resolve, reject) => {
+				this.imap.once("ready", () => {
+					console.log("[IMAP] Connected");
+					resolve();
+				});
+				this.imap.once("error", reject);
+				this.imap.connect();
+			});
+		}
 
-  private connect(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      this.imap.once("ready", () => {
-        console.log("[IMAP] Connected");
-        resolve();
-      });
-      this.imap.once("error", reject);
-      this.imap.connect();
-    });
-  }
+		private openBox(boxName: string): Promise<void> {
+			return new Promise((resolve, reject) => {
+				this.imap.openBox(boxName, false, (err) => {
+					if (err) return reject(err);
+					console.log(`[IMAP] Box "${boxName}" opened`);
+					resolve();
+				});
+			});
+		}
 
-  private openBox(boxName: string): Promise<void> {
-    return new Promise((resolve, reject) => {
-      this.imap.openBox(boxName, false, (err) => {
-        if (err) return reject(err);
-        console.log(`[IMAP] Box "${boxName}" opened`);
-        resolve();
-      });
-    });
-  }
+		private fetchRecentStartupEmails(): void {
+			console.log("[IMAP] Fetching emails...");
+			const twoDaysAgo = new Date();
+			twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
 
-  private fetchRecentStartupEmails(): void {
-    console.log("[IMAP] Fetching emails...");
-    const twoDaysAgo = new Date();
-    twoDaysAgo.setDate(twoDaysAgo.getDate() - 2);
+			this.imap.search(
+				[["SINCE", twoDaysAgo.toUTCString()]],
+				(err, results) => {
+					if (err || !results || results.length === 0) {
+						console.log("[IMAP] No recent emails found on startup.");
+						return;
+					}
 
-    this.imap.search([["SINCE", twoDaysAgo.toUTCString()]], (err, results) => {
-      if (err || !results || results.length === 0) {
-        console.log("[IMAP] No recent emails found on startup.");
-        return;
-      }
+					const emailLimit = this.config.config?.emailCount || 10;
+					const recentUids = results
+						.sort((a: number, b: number) => a - b)
+						.slice(-emailLimit);
+					const fetch = this.imap.fetch(recentUids, {
+						bodies: [""],
+						struct: true,
+					});
+					const tasks: Promise<Email>[] = [];
 
-      const emailLimit = this.config.config?.emailCount || 10;
-      const recentUids = results
-        .sort((a: number, b: number) => a - b)
-        .slice(-emailLimit);
-      const fetch = this.imap.fetch(recentUids, { bodies: [""], struct: true });
-      const tasks: Promise<Email>[] = [];
+					fetch.on("message", (msg, seqno) => {
+						const chunks: Buffer[] = [];
+						msg.on("body", (stream) => {
+							stream.on("data", (chunk: Buffer | string) => {
+								if (typeof chunk === "string") {
+									chunks.push(Buffer.from(chunk, "utf-8"));
+								} else {
+									chunks.push(chunk);
+								}
+							});
+						});
 
-      fetch.on("message", (msg, seqno) => {
-        const chunks: Buffer[] = [];
-        msg.on("body", (stream) => {
-          stream.on("data", (chunk: Buffer | string) => {
-            if (typeof chunk === "string") {
-              chunks.push(Buffer.from(chunk, "utf-8"));
-            } else {
-              chunks.push(chunk);
-            }
-          });
-        });
+						const task = new Promise<Email>((resolveTask, rejectTask) => {
+							msg.once("end", async () => {
+								try {
+									const raw = Buffer.concat(chunks);
+									const parsed = await simpleParser(raw);
 
-        const task = new Promise<Email>((resolveTask, rejectTask) => {
-          msg.once("end", async () => {
-            try {
-              const raw = Buffer.concat(chunks);
-              const parsed = await simpleParser(raw);
+									const parsedHeaders = new Map<string, unknown>();
+									if (
+										parsed.headers &&
+										typeof parsed.headers.forEach === "function"
+									) {
+										parsed.headers.forEach((value, key) => {
+											parsedHeaders.set(key, value);
+										});
+									}
 
-              const parsedHeaders = new Map<string, string | string[]>();
-              if (parsed.headers && typeof parsed.headers.forEach === 'function') {
-                parsed.headers.forEach((value, key) => parsedHeaders.set(key, value));
-              }
+									const extractAddresses = (
+										field: any,
+									): string | string[] | undefined => {
+										if (!field) return undefined;
+										if (typeof field.text === "string")
+											return libmime.decodeWords(field.text);
+										if (Array.isArray(field.value)) {
+											return field.value
+												.map((addr: any) =>
+													libmime.decodeWords(addr.text || addr.address || ""),
+												)
+												.filter(Boolean);
+										}
+										return undefined;
+									};
 
-              const extractAddresses = (field: any): string | string[] | undefined => {
-                if (!field) return undefined;
-                if (typeof field.text === 'string') return libmime.decodeWords(field.text);
-                if (Array.isArray(field.value)) {
-                  return field.value.map((addr: any) => libmime.decodeWords(addr.text || addr.address || '')).filter(Boolean);
-                }
-                return undefined;
-              };
+									const email: Email = {
+										UID: seqno,
+										messageId: parsed.messageId,
+										subject: parsed.subject
+											? libmime.decodeWords(parsed.subject)
+											: "(No Subject)",
+										from: parsed.from?.text
+											? libmime.decodeWords(parsed.from.text)
+											: "(Unknown Sender)",
+										to: extractAddresses(parsed.to),
+										cc: extractAddresses(parsed.cc),
+										bcc: extractAddresses(parsed.bcc),
+										date:
+											parsed.date?.toISOString() || new Date().toISOString(),
+										textBody: parsed.text,
+										htmlBody: parsed.html || undefined,
+										attachments: parsed.attachments?.map((att) => ({
+											filename: att.filename,
+											contentType: att.contentType,
+											size: att.size,
+											content: Buffer.isBuffer(att.content)
+												? att.content
+												: undefined,
+											contentId: att.contentId,
+											related: att.related,
+										})),
+										headers: parsedHeaders,
+									};
+									resolveTask(email);
+								} catch (parseErr) {
+									console.error(
+										`[IMAP] Failed to parse message ${seqno}:`,
+										parseErr,
+									);
+									rejectTask(parseErr);
+								}
+							});
+						});
+						tasks.push(task);
+					});
 
-              const email: Email = {
-                UID: seqno,
-                messageId: parsed.messageId,
-                subject: parsed.subject ? libmime.decodeWords(parsed.subject) : "(No Subject)",
-                from: parsed.from?.text ? libmime.decodeWords(parsed.from.text) : "(Unknown Sender)",
-                to: extractAddresses(parsed.to),
-                cc: extractAddresses(parsed.cc),
-                bcc: extractAddresses(parsed.bcc),
-                date: parsed.date?.toISOString() || new Date().toISOString(),
-                textBody: parsed.text,
-                htmlBody: parsed.html || undefined,
-                attachments: parsed.attachments?.map(att => ({
-                  filename: att.filename,
-                  contentType: att.contentType,
-                  size: att.size,
-                  content: Buffer.isBuffer(att.content) ? att.content : undefined,
-                  contentId: att.contentId,
-                  related: att.related,
-                })),
-                headers: parsedHeaders,
-              };
-              resolveTask(email);
-            } catch (parseErr) {
-              console.error(
-                `[IMAP] Failed to parse message ${seqno}:`,
-                parseErr,
-              );
-              rejectTask(parseErr);
-            }
-          });
-        });
-        tasks.push(task);
-      });
+					fetch.once("end", async () => {
+						await Promise.allSettled(tasks).then((results) => {
+							const emails = results
+								.filter((result) => result.status === "fulfilled")
+								.map(
+									(result) => (result as PromiseFulfilledResult<Email>).value,
+								);
 
-      fetch.once("end", async () => {
-        await Promise.allSettled(tasks).then((results) => {
-          const emails = results
-            .filter((result) => result.status === "fulfilled")
-            .map((result) => (result as PromiseFulfilledResult<Email>).value);
+							if (emails.length > 0) {
+								console.log("[IMAP] Startup emails fetched");
+								const { feed, commit } = buildRSSFromEmailFolder(
+									emails,
+									this.config,
+								);
+								sendFeedReady(feed, this.config);
+								commit(); // prune stale per-item HTML files now that XML is durable
+								console.log("[IMAP] RSS Feed generated");
+							} else {
+								console.log("[IMAP] No valid emails found.");
+							}
+						});
+						console.log("[IMAP] Finished processing emails.");
+					});
 
-          if (emails.length > 0) {
-            console.log("[IMAP] Startup emails fetched");
-            const { feed, commit } = buildRSSFromEmailFolder(emails, this.config);
-            sendFeedReady(feed, this.config);
-            commit(); // prune stale per-item HTML files now that XML is durable
-            console.log("[IMAP] RSS Feed generated");
-          } else {
-            console.log("[IMAP] No valid emails found.");
-          }
-        });
-        console.log("[IMAP] Finished processing emails.");
-      });
+					fetch.once("error", (fetchErr) => {
+						console.error("[IMAP] Startup fetch error:", fetchErr);
+					});
+				},
+			);
+		}
 
-      fetch.once("error", (fetchErr) => {
-        console.error("[IMAP] Startup fetch error:", fetchErr);
-      });
-    });
-  }
+		private fetchNewEmails(): void {
+			console.log("[IMAP] Fetching emails...");
 
-  private fetchNewEmails(): void {
-    console.log("[IMAP] Fetching emails...");
+			this.imap.search(["ALL"], (err, results) => {
+				if (err || !results || results.length === 0) {
+					console.log(
+						"[IMAP] No emails found:",
+						err?.message || "Empty mailbox",
+					);
+					return;
+				}
 
-    this.imap.search(["ALL"], (err, results) => {
-      if (err || !results || results.length === 0) {
-        console.log("[IMAP] No emails found:", err?.message || "Empty mailbox");
-        return;
-      }
+				const emailLimit = this.config.config?.emailCount || 10;
+				const recentUids = results
+					.sort((a, b) => b - a)
+					.slice(0, emailLimit)
+					.reverse();
+				const fetch = this.imap.fetch(recentUids, {
+					bodies: [""],
+					struct: true,
+				});
+				const tasks: Promise<Email>[] = [];
 
-      const emailLimit = this.config.config?.emailCount || 10;
-      const recentUids = results.sort((a, b) => b - a).slice(0, emailLimit).reverse();
-      const fetch = this.imap.fetch(recentUids, { bodies: [""], struct: true });
-      const tasks: Promise<Email>[] = [];
+				fetch.on("message", (msg, seqno) => {
+					const chunks: Buffer[] = [];
+					msg.on("body", (stream) => {
+						stream.on("data", (chunk: Buffer | string) => {
+							if (typeof chunk === "string") {
+								chunks.push(Buffer.from(chunk, "utf-8"));
+							} else {
+								chunks.push(chunk);
+							}
+						});
+					});
 
-      fetch.on("message", (msg, seqno) => {
-        const chunks: Buffer[] = [];
-        msg.on("body", (stream) => {
-          stream.on("data", (chunk: Buffer | string) => {
-            if (typeof chunk === "string") {
-              chunks.push(Buffer.from(chunk, "utf-8"));
-            } else {
-              chunks.push(chunk);
-            }
-          });
-        });
+					const task = new Promise<Email>((resolveTask, rejectTask) => {
+						msg.once("end", async () => {
+							try {
+								const raw = Buffer.concat(chunks);
+								const parsed = await simpleParser(raw);
 
-        const task = new Promise<Email>((resolveTask, rejectTask) => {
-          msg.once("end", async () => {
-            try {
-              const raw = Buffer.concat(chunks);
-              const parsed = await simpleParser(raw);
+								const parsedHeaders = new Map<string, unknown>();
+								if (
+									parsed.headers &&
+									typeof parsed.headers.forEach === "function"
+								) {
+									parsed.headers.forEach((value, key) => {
+										parsedHeaders.set(key, value);
+									});
+								}
 
-              const parsedHeaders = new Map<string, string | string[]>();
-              if (parsed.headers && typeof parsed.headers.forEach === 'function') {
-                parsed.headers.forEach((value, key) => parsedHeaders.set(key, value));
-              }
+								const extractAddresses = (
+									field: any,
+								): string | string[] | undefined => {
+									if (!field) return undefined;
+									if (typeof field.text === "string")
+										return libmime.decodeWords(field.text);
+									if (Array.isArray(field.value)) {
+										return field.value
+											.map((addr: any) =>
+												libmime.decodeWords(addr.text || addr.address || ""),
+											)
+											.filter(Boolean);
+									}
+									return undefined;
+								};
 
-              const extractAddresses = (field: any): string | string[] | undefined => {
-                if (!field) return undefined;
-                if (typeof field.text === 'string') return libmime.decodeWords(field.text);
-                if (Array.isArray(field.value)) {
-                  return field.value.map((addr: any) => libmime.decodeWords(addr.text || addr.address || '')).filter(Boolean);
-                }
-                return undefined;
-              };
+								const email: Email = {
+									UID: seqno,
+									messageId: parsed.messageId,
+									subject: parsed.subject
+										? libmime.decodeWords(parsed.subject)
+										: "(No Subject)",
+									from: parsed.from?.text
+										? libmime.decodeWords(parsed.from.text)
+										: "(Unknown Sender)",
+									to: extractAddresses(parsed.to),
+									cc: extractAddresses(parsed.cc),
+									bcc: extractAddresses(parsed.bcc),
+									date: parsed.date?.toISOString() || new Date().toISOString(),
+									textBody: parsed.text,
+									htmlBody: parsed.html || undefined,
+									attachments: parsed.attachments?.map((att) => ({
+										filename: att.filename,
+										contentType: att.contentType,
+										size: att.size,
+										content: Buffer.isBuffer(att.content)
+											? att.content
+											: undefined,
+										contentId: att.contentId,
+										related: att.related,
+									})),
+									headers: parsedHeaders,
+								};
+								resolveTask(email);
+							} catch (parseErr) {
+								console.error(
+									`[IMAP] Failed to parse message ${seqno}:`,
+									parseErr,
+								);
+								rejectTask(parseErr);
+							}
+						});
+					});
+					tasks.push(task);
+				});
 
-              const email: Email = {
-                UID: seqno,
-                messageId: parsed.messageId,
-                subject: parsed.subject ? libmime.decodeWords(parsed.subject) : "(No Subject)",
-                from: parsed.from?.text ? libmime.decodeWords(parsed.from.text) : "(Unknown Sender)",
-                to: extractAddresses(parsed.to),
-                cc: extractAddresses(parsed.cc),
-                bcc: extractAddresses(parsed.bcc),
-                date: parsed.date?.toISOString() || new Date().toISOString(),
-                textBody: parsed.text,
-                htmlBody: parsed.html || undefined,
-                attachments: parsed.attachments?.map(att => ({
-                  filename: att.filename,
-                  contentType: att.contentType,
-                  size: att.size,
-                  content: Buffer.isBuffer(att.content) ? att.content : undefined,
-                  contentId: att.contentId,
-                  related: att.related,
-                })),
-                headers: parsedHeaders,
-              };
-              resolveTask(email);
-            } catch (parseErr) {
-              console.error(
-                `[IMAP] Failed to parse message ${seqno}:`,
-                parseErr,
-              );
-              rejectTask(parseErr);
-            }
-          });
-        });
-        tasks.push(task);
-      });
+				fetch.once("end", async () => {
+					await Promise.allSettled(tasks).then((results) => {
+						const emails = results
+							.filter((result) => result.status === "fulfilled")
+							.map((result) => (result as PromiseFulfilledResult<Email>).value);
 
-      fetch.once("end", async () => {
-        await Promise.allSettled(tasks).then((results) => {
-          const emails = results
-            .filter((result) => result.status === "fulfilled")
-            .map((result) => (result as PromiseFulfilledResult<Email>).value);
+						if (emails.length > 0) {
+							console.log(
+								`[IMAP] Recent emails fetched for feed ${this.config.feedId}, updating RSS with ${emails.length} emails...`,
+							);
+							const { feed, commit } = buildRSSFromEmailFolder(
+								emails,
+								this.config,
+							);
+							sendFeedReady(feed, this.config);
+							commit(); // prune stale per-item HTML files now that XML is durable
+							console.log(
+								`[IMAP] RSS Feed regenerated for feed ${this.config.feedId}`,
+							);
+						} else {
+							console.log(
+								`[IMAP] No valid emails found for feed ${this.config.feedId}`,
+							);
+						}
+					});
+					console.log("[IMAP] Completed processing new emails.");
+				});
 
-          if (emails.length > 0) {
-            console.log(`[IMAP] Recent emails fetched for feed ${this.config.feedId}, updating RSS with ${emails.length} emails...`);
-            const { feed, commit } = buildRSSFromEmailFolder(emails, this.config);
-            sendFeedReady(feed, this.config);
-            commit(); // prune stale per-item HTML files now that XML is durable
-            console.log(`[IMAP] RSS Feed regenerated for feed ${this.config.feedId}`);
-          } else {
-            console.log(`[IMAP] No valid emails found for feed ${this.config.feedId}`);
-          }
-        });
-        console.log("[IMAP] Completed processing new emails.");
-      });
+				fetch.once("error", (fetchErr) => {
+					console.error("[IMAP] Error fetching new emails:", fetchErr);
+				});
+			});
+		}
 
-      fetch.once("error", (fetchErr) => {
-        console.error("[IMAP] Error fetching new emails:", fetchErr);
-      });
-    });
-  }
+		private reconnect(): void {
+			console.log("[IMAP] Reconnecting in 10s...");
+			setTimeout(() => this.start(), 10000);
+		}
 
-  private reconnect(): void {
-    console.log("[IMAP] Reconnecting in 10s...");
-    setTimeout(() => this.start(), 10000);
-  }
+		public stop(): void {
+			if (this.imap) {
+				console.log("[IMAP] Stopping watcher...");
+				this.imap.end();
+			}
+		}
+	}
 
-  public stop(): void {
-    if (this.imap) {
-      console.log("[IMAP] Stopping watcher...");
-      this.imap.end();
-    }
-  }
+	const explicitServerUrl = (
+		rawConfig.serverUrl ||
+		process.env.SERVER_URL ||
+		""
+	).replace(/\/+$/, "");
+	const serverUrl = explicitServerUrl || "http://localhost:5000";
+	const completeFeedConfig: RSSFeedOptions = {
+		id: `${serverUrl}/public/feeds/${rawConfig.feedId}.xml`,
+		serverUrl: explicitServerUrl, // empty => per-item links use relative URLs
+		link: rawConfig.link || `mailto:${imapOriginalConfig.user || ""}`,
+		title: rawConfig.feedName || `Email Feed: ${imapOriginalConfig.folder}`,
+		description:
+			rawConfig.description ||
+			`Emails from ${imapOriginalConfig.user || "unknown user"}/${imapOriginalConfig.folder}`,
+		copyright: rawConfig.copyright || "",
+		feedId: rawConfig.feedId,
+		feedName: rawConfig.feedName,
+		feedType: rawConfig.feedType,
+		language: rawConfig.language,
+		updated: rawConfig.updated || new Date(),
+		ttl: rawConfig.ttl,
+		image: rawConfig.image,
+		generator: rawConfig.generator,
+		config: imapOriginalConfig,
+		webhook: rawConfig.webhook, // Pass through webhook configuration
+	};
 
-}
+	console.log(
+		"[IMAP Node Watcher] ImapWatcher will attempt to connect to host:",
+		completeFeedConfig.config?.host,
+		"port:",
+		completeFeedConfig.config?.port,
+	);
+	console.log(
+		"[IMAP Node Watcher] Webhook configuration:",
+		JSON.stringify(
+			{
+				enabled: completeFeedConfig.webhook?.enabled,
+				url: completeFeedConfig.webhook?.url ? "[REDACTED]" : undefined,
+				format: completeFeedConfig.webhook?.format,
+				newItemsOnly: completeFeedConfig.webhook?.newItemsOnly,
+			},
+			null,
+			2,
+		),
+	);
 
-const explicitServerUrl = (rawConfig.serverUrl || process.env.SERVER_URL || '').replace(/\/+$/, '');
-const serverUrl = explicitServerUrl || 'http://localhost:5000';
-const completeFeedConfig: RSSFeedOptions = {
-    id: `${serverUrl}/public/feeds/${rawConfig.feedId}.xml`,
-    serverUrl: explicitServerUrl, // empty => per-item links use relative URLs
-    link: rawConfig.link || `mailto:${imapOriginalConfig.user || ''}`,
-    title: rawConfig.feedName || `Email Feed: ${imapOriginalConfig.folder}`,
-    description: rawConfig.description || `Emails from ${imapOriginalConfig.user || 'unknown user'}/${imapOriginalConfig.folder}`,
-    copyright: rawConfig.copyright || '',
-    feedId: rawConfig.feedId,
-    feedName: rawConfig.feedName,
-    feedType: rawConfig.feedType,
-    language: rawConfig.language,
-    updated: rawConfig.updated || new Date(),
-    ttl: rawConfig.ttl,
-    image: rawConfig.image,
-    generator: rawConfig.generator,
-    config: imapOriginalConfig,
-    webhook: rawConfig.webhook, // Pass through webhook configuration
-};
+	const watcher = new ImapWatcher(completeFeedConfig);
 
-console.log("[IMAP Node Watcher] ImapWatcher will attempt to connect to host:", completeFeedConfig.config?.host, "port:", completeFeedConfig.config?.port);
-console.log("[IMAP Node Watcher] Webhook configuration:", JSON.stringify({
-    enabled: completeFeedConfig.webhook?.enabled,
-    url: completeFeedConfig.webhook?.url ? '[REDACTED]' : undefined,
-    format: completeFeedConfig.webhook?.format,
-    newItemsOnly: completeFeedConfig.webhook?.newItemsOnly
-}, null, 2));
-
-const watcher = new ImapWatcher(completeFeedConfig);
-
-watcher.start();
-
+	watcher.start();
 } // end if (import.meta.main)

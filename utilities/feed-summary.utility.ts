@@ -1,4 +1,4 @@
-import type { FeedSummary, FeedStatus, FeedType } from "../frontend/src/types/feed-summary";
+import type { FeedSummary, FeedStatus, FeedType } from "../models/feed-summary.model";
 import { detectPlainSensitive } from "./config-metadata.utility";
 
 const FEED_TYPE_MAP: Record<string, FeedType> = {

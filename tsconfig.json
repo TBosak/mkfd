@@ -3,13 +3,16 @@
     "lib": ["dom","ESNext"],
     "module": "esnext",
     "target": "esnext",
-    "moduleResolution": "node",
-    "typeRoots": ["node_modules/@types"],
+    "moduleResolution": "bundler",
     "allowSyntheticDefaultImports": true,
     "allowImportingTsExtensions": true,
     "resolveJsonModule": true,
     "noEmit": true,
     "allowJs": true,
-    "types": ["bun-types", "cheerio"]
-  }
+    "strict": true,
+    "skipLibCheck": true,
+    "types": ["bun", "cheerio"]
+  },
+  "include": ["**/*.ts", "**/*.tsx"],
+  "exclude": ["frontend", "node_modules", "public", "tests"]
 }

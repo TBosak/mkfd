@@ -1,0 +1,8 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "types": ["node"]
+  },
+  "include": ["playwright.config.ts", "e2e/**/*.ts"],
+  "exclude": ["node_modules", "playwright-report", "test-results"]
+}

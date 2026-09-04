@@ -25,9 +25,9 @@ export function ToastProvider({ children }: { children: React.ReactNode }) {
             <div>
               <strong style={{ display: "block", marginBottom: 2 }}>{t.title}</strong>
               {t.body && <span style={{ color: "rgba(255,255,255,0.7)", fontSize: 12 }}>{t.body}</span>}
-              {t.action && (<button onClick={() => { t.action!.onClick(); dismiss(t.id); }} style={{ marginTop: 6, background: "rgba(255,255,255,0.15)", border: 0, color: "#fff", fontSize: 12, padding: "4px 9px", borderRadius: 6, cursor: "pointer", fontWeight: 500 }}>{t.action.label}</button>)}
+              {t.action && (<button type="button" onClick={() => { t.action!.onClick(); dismiss(t.id); }} style={{ marginTop: 6, background: "rgba(255,255,255,0.15)", border: 0, color: "#fff", fontSize: 12, padding: "4px 9px", borderRadius: 6, cursor: "pointer", fontWeight: 500 }}>{t.action.label}</button>)}
             </div>
-            <button onClick={() => dismiss(t.id)} style={{ background: "transparent", border: 0, color: "rgba(255,255,255,0.5)", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: "0 4px", alignSelf: "start" }}>×</button>
+            <button type="button" onClick={() => dismiss(t.id)} style={{ background: "transparent", border: 0, color: "rgba(255,255,255,0.5)", cursor: "pointer", fontSize: 18, lineHeight: 1, padding: "0 4px", alignSelf: "start" }}>×</button>
           </div>
         ))}
       </div>
