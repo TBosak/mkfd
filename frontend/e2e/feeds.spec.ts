@@ -1,4 +1,13 @@
 import { test, expect } from './fixtures';
+import type { Page } from '@playwright/test';
+
+// Below the `lg:` Tailwind breakpoint (1024px), Sidebar.tsx is CSS-hidden and
+// BottomNav.tsx renders instead - with a differently-labeled "My Feeds" link
+// (Sidebar uses exact "Feeds").
+async function isMobileViewport(page: Page): Promise<boolean> {
+  const size = page.viewportSize();
+  return !!size && size.width < 1024;
+}
 
 test.describe('Feeds Management', () => {
   test('can start creating a web scraping feed', async ({ authenticatedPage }) => {
@@ -24,7 +33,10 @@ test.describe('Feeds Management', () => {
   });
 
   test('can see my feeds list', async ({ authenticatedPage }) => {
-    await authenticatedPage.getByRole('link', { name: 'Feeds', exact: true }).click();
+    const feedsLink = (await isMobileViewport(authenticatedPage))
+      ? authenticatedPage.getByRole('link', { name: 'My Feeds', exact: true })
+      : authenticatedPage.getByRole('link', { name: 'Feeds', exact: true });
+    await feedsLink.click();
     await expect(authenticatedPage.getByRole('heading', { name: 'Feeds', exact: true })).toBeVisible();
   });
 });

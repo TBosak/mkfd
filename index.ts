@@ -6,7 +6,7 @@ import { except } from "hono/combine";
 import minimist from "minimist";
 import { join } from "node:path";
 import { CookieStore, sessionMiddleware } from "hono-sessions";
-import { createInterface } from "readline";
+import { createInterface } from "node:readline";
 import { EventEmitter } from "node:events";
 import {
   initDb,

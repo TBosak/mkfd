@@ -31,7 +31,7 @@ function SourceBadge({ source }: { source: SettingSource }) {
     source === "db"
       ? { background: "hsl(var(--primary) / 0.12)", color: "hsl(var(--primary))", border: "1px solid hsl(var(--primary) / 0.3)" }
       : source === "env"
-      ? { background: "color-mix(in srgb, var(--wb-warning) 15%, transparent)", color: "var(--wb-warning)", border: "1px solid color-mix(in srgb, var(--wb-warning) 40%, transparent)" }
+      ? { background: "color-mix(in srgb, var(--wb-warning) 15%, transparent)", color: "var(--wb-warning-ink)", border: "1px solid color-mix(in srgb, var(--wb-warning) 40%, transparent)" }
       : { background: "hsl(var(--muted))", color: "hsl(var(--muted-foreground))", border: "1px solid hsl(var(--border))" };
 
   return (
@@ -148,15 +148,17 @@ export function SettingRow({
   const isReadOnly = setting.class === "C";
   const isMasked = setting.masked;
 
-  // Class C: env-managed, read-only masked display
+  // Class C: env-managed, read-only masked display.
+  // Deliberately no blanket row opacity. Dimming the row blends its text *and*
+  // its badge backgrounds toward the card, which collapsed contrast to
+  // 2.3-4.5:1 and made axe report 15 serious color-contrast nodes. No opacity
+  // below 1.0 clears AA, because foreground and background fade together.
+  // Read-only status is already stated explicitly by the source badge ("ENV")
+  // and the "Env-managed" badge, so the opacity was redundant signalling that
+  // only cost legibility.
   if (isReadOnly) {
     return (
-      <div
-        className={cn(
-          "flex items-start justify-between gap-4 py-3",
-          "opacity-60"
-        )}
-      >
+      <div className={cn("flex items-start justify-between gap-4 py-3")}>
         <div className="min-w-0 flex-1">
           <div className="flex flex-wrap items-center gap-1.5 mb-0.5">
             <Label className="text-sm font-medium">{label}</Label>

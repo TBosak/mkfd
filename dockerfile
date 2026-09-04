@@ -19,7 +19,7 @@ RUN ARCH=$(dpkg --print-architecture) && \
 WORKDIR /app
 
 COPY package.json bun.lock* ./
-RUN bun install
+RUN bun install --frozen-lockfile
 
 RUN set -eux; \
   ok=0; \

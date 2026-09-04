@@ -15,7 +15,13 @@
         --secondary: 22 33% 47%;
         --secondary-foreground: 0 0% 100%;
         --muted: 210 9% 96%;
-        --muted-foreground: 204 9% 47%;
+        /* 47% lightness measured 4.03:1 on --muted, 4.22:1 on --background and
+           4.41:1 on white, all below the 4.5:1 WCAG AA threshold for normal
+           text. This token carries the sidebar and bottom-nav labels, so axe
+           reported it as a serious color-contrast violation. 42% clears AA on
+           every surface it is used against (4.85 / 5.07 / 5.31) while staying
+           clearly muted against --foreground. */
+        --muted-foreground: 204 9% 42%;
         --accent: 210 9% 93%;
         --accent-foreground: 202 8% 28%;
         --destructive: 0 75% 42%;
@@ -42,6 +48,12 @@
         --wb-secondary: #a06a51;
         --wb-success: #7a8a5f;
         --wb-warning: #8c7f50;
+        /* Text-safe companion to --wb-warning. The base tone is a fill/dot
+           colour: as 10px text on its own 15% tint it measures 3.37:1 and on
+           white 3.99:1, both under AA. This darker ink measures 5.13:1 and
+           6.34:1 while reading as the same olive-amber. Use --wb-warning for
+           fills and this for any warning-coloured text. */
+        --wb-warning-ink: #695f3c;
         --wb-error: #b25555;
         --wb-console: #2e3132;
         --wb-console-ink: #f0f1f2;

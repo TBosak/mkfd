@@ -1,4 +1,4 @@
-import { DOMParser } from "xmldom";
+import { DOMParser, type Document as XmlDocument, type Element as XmlElement } from "@xmldom/xmldom";
 import type { FeedTransformerSourceFormat } from "../models/feed-transformer.model";
 import type { NormalizedFeedItem } from "../models/normalized-feed-item.model";
 import { getGlobalFetchPolicyOptions, type OutboundFetchPolicyOptions } from "./outbound-fetch-policy.utility";
@@ -78,13 +78,28 @@ export function parseExistingFeedContent(input: {
   const format = detectFormat(input.format, input.contentType ?? "", trimmed);
 
   if (format === "jsonFeed") return parseJsonFeed(trimmed, warnings);
-  const doc = new DOMParser().parseFromString(trimmed, "text/xml");
+  const doc = parseXmlDocument(trimmed, warnings);
   const root = doc.documentElement;
   if (!root) throw new Error("Existing feed XML has no root element");
   const rootName = root.localName || root.nodeName;
   if (format === "rss" || rootName.toLowerCase() === "rss") return parseRss(root, warnings);
   if (format === "atom" || rootName.toLowerCase() === "feed") return parseAtom(root, warnings);
   throw new Error(`Unsupported existing feed format for ${input.url}`);
+}
+
+/**
+ * Parses XML with the maintained `@xmldom/xmldom` parser. Recoverable parse
+ * problems are reported through `onError` rather than `console.error`, so a
+ * malformed document surfaces a warning instead of silently yielding a
+ * clean-looking but wrong result. A `fatalError` still throws a `ParseError`.
+ */
+function parseXmlDocument(content: string, warnings: string[]): XmlDocument {
+  return new DOMParser({
+    onError: (level, message) => {
+      if (level === "warning") return;
+      warnings.push(`XML parse error (${level}): ${message}`);
+    },
+  }).parseFromString(content, "text/xml");
 }
 
 function detectFormat(
@@ -135,7 +150,7 @@ function parseJsonFeed(content: string, warnings: string[]): ParsedExistingFeed 
   };
 }
 
-function parseRss(root: Element, warnings: string[]): ParsedExistingFeed {
+function parseRss(root: XmlElement, warnings: string[]): ParsedExistingFeed {
   const channel = firstElement(root, "channel") ?? root;
   const items = elements(channel, "item").map((item) => ({
     guid: text(item, "guid"),
@@ -169,7 +184,7 @@ function parseRss(root: Element, warnings: string[]): ParsedExistingFeed {
   };
 }
 
-function parseAtom(root: Element, warnings: string[]): ParsedExistingFeed {
+function parseAtom(root: XmlElement, warnings: string[]): ParsedExistingFeed {
   const entries = elements(root, "entry").map((entry) => ({
     guid: text(entry, "id"),
     title: text(entry, "title") || "(no title)",
@@ -197,28 +212,28 @@ function parseAtom(root: Element, warnings: string[]): ParsedExistingFeed {
   };
 }
 
-function elements(parent: Element, name: string): Element[] {
+function elements(parent: XmlElement, name: string): XmlElement[] {
   return Array.from(parent.getElementsByTagName("*")).filter((el) => {
     const local = (el.localName || el.nodeName).toLowerCase();
     return local === name.toLowerCase() || el.nodeName.toLowerCase() === name.toLowerCase();
-  }) as Element[];
+  }) as XmlElement[];
 }
 
-function firstElement(parent: Element | null | undefined, name: string): Element | undefined {
+function firstElement(parent: XmlElement | null | undefined, name: string): XmlElement | undefined {
   if (!parent) return undefined;
   return elements(parent, name)[0];
 }
 
-function text(parent: Element | null | undefined, name: string): string | undefined {
+function text(parent: XmlElement | null | undefined, name: string): string | undefined {
   const el = firstElement(parent, name);
   return el ? textNode(el) : undefined;
 }
 
-function textNode(el: Element): string {
+function textNode(el: XmlElement): string {
   return (el.textContent ?? "").trim();
 }
 
-function enclosureFromElement(el: Element | undefined) {
+function enclosureFromElement(el: XmlElement | undefined) {
   if (!el) return undefined;
   const url = el.getAttribute("url");
   if (!url) return undefined;
@@ -230,12 +245,12 @@ function enclosureFromElement(el: Element | undefined) {
   };
 }
 
-function atomLink(parent: Element, rel: string): string | undefined {
+function atomLink(parent: XmlElement, rel: string): string | undefined {
   const links = elements(parent, "link");
   return links.find((link) => (link.getAttribute("rel") || "alternate") === rel)?.getAttribute("href") ?? undefined;
 }
 
-function atomEnclosure(parent: Element) {
+function atomEnclosure(parent: XmlElement) {
   const link = elements(parent, "link").find((el) => el.getAttribute("rel") === "enclosure");
   if (!link) return undefined;
   const url = link.getAttribute("href");

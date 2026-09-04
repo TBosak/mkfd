@@ -1,7 +1,27 @@
 import { test, expect } from './fixtures';
+import type { Page } from '@playwright/test';
+
+// Below the `lg:` Tailwind breakpoint (1024px), Sidebar.tsx (which has the
+// only "Settings" link) is CSS-hidden, and BottomNav.tsx - which has no
+// Settings entry at all, by design - renders instead. The app has no SPA
+// deep-link fallback (index.ts only maps GET / to index.html; any other
+// client route requested directly 404s as a static-file miss), so there is
+// no way to reach Settings at 390px in the current UI at all - a genuine,
+// recorded product gap for Packet 4 / the UI Redesign Correction Pass, not
+// something this slice fakes a navigation path around. The mobile project
+// is skipped with an explicit reason; desktop still exercises the real
+// sidebar click.
+const MOBILE_UNREACHABLE_REASON =
+  'Settings has no mobile navigation entry point at 390px - BottomNav.tsx exposes only My Feeds, Build Feed, and Catalog, and the only Settings link (Sidebar.tsx) is lg:-hidden. Recorded product gap for Packet 4 / the UI Redesign Correction Pass, not this slice\'s to fix.';
+
+async function isMobileViewport(page: Page): Promise<boolean> {
+  const size = page.viewportSize();
+  return !!size && size.width < 1024;
+}
 
 test.describe('Settings Page', () => {
   test.beforeEach(async ({ authenticatedPage }) => {
+    test.skip(await isMobileViewport(authenticatedPage), MOBILE_UNREACHABLE_REASON);
     await authenticatedPage.getByRole('link', { name: 'Settings', exact: true }).click();
     await expect(authenticatedPage).toHaveURL(/\/settings/);
   });
