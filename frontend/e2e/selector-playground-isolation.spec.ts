@@ -45,6 +45,61 @@ async function routeProxyWith(page: Page, body: string) {
 
 const MINIMAL_TARGET_DOC = '<!DOCTYPE html><html><body>minimal target document</body></html>';
 
+/**
+ * Deliberately transport-agnostic: the requirements brief does not specify
+ * how the parent hands the per-session nonce to the playground document, and
+ * the lead's ruling is explicit that the tests must observe the contract,
+ * not the transport. This document reports every plausible carrier back to
+ * the test via window.__mkfdCaptureNonceCandidate:
+ *   - a same-request query-string parameter whose key contains "nonce"
+ *     (extracted server-side, from the intercepted request, and embedded
+ *     here) — the "the parent... delivers it when it creates the iframe"
+ *     path, since the src URL is the only channel available at creation
+ *     time before the child has loaded and could receive a handshake;
+ *   - any parent -> child postMessage received after load, whether it is a
+ *     bare string or an object carrying a "nonce"-ish key — the handshake
+ *     path.
+ * Either transport (or both) will surface a candidate here.
+ */
+function nonceCaptureDocument(nonceFromUrl: string | null): string {
+  return `<!DOCTYPE html><html><body>nonce-capture target document
+    <script>
+      (function () {
+        var urlNonce = ${JSON.stringify(nonceFromUrl)};
+        if (urlNonce) window.__mkfdCaptureNonceCandidate(urlNonce);
+        window.addEventListener('message', function (event) {
+          var data = event.data;
+          var candidate = null;
+          if (typeof data === 'string') {
+            candidate = data;
+          } else if (data && typeof data === 'object') {
+            if (typeof data.nonce === 'string') {
+              candidate = data.nonce;
+            } else {
+              for (var key in data) {
+                if (/nonce/i.test(key) && typeof data[key] === 'string') {
+                  candidate = data[key];
+                  break;
+                }
+              }
+            }
+          }
+          if (candidate) window.__mkfdCaptureNonceCandidate(candidate);
+        });
+      })();
+    </script>
+  </body></html>`;
+}
+
+/** Extracts the first query-string value whose key contains "nonce", case-insensitively. */
+function nonceQueryParam(requestUrl: string): string | null {
+  const params = new URL(requestUrl).searchParams;
+  for (const [key, value] of params.entries()) {
+    if (/nonce/i.test(key)) return value;
+  }
+  return null;
+}
+
 test.describe('Selector Playground iframe origin isolation (requirement 1)', () => {
   test('the iframe sandbox grants allow-scripts but withholds allow-same-origin', async ({ authenticatedPage }) => {
     await routeProxyWith(authenticatedPage, MINIMAL_TARGET_DOC);
@@ -197,6 +252,73 @@ test.describe('Selector Playground postMessage authentication (requirement 5)', 
     }, oversized);
     const afterOversizedPayload = await itemSelectorValue(authenticatedPage);
     expect(afterOversizedPayload).not.toBe(oversized);
+  });
+
+  test('a legitimately nonced message from the real iframe is accepted and can be applied to a destination (positive round-trip)', async ({ authenticatedPage }) => {
+    const capturedNonces: string[] = [];
+    await authenticatedPage.exposeFunction('__mkfdCaptureNonceCandidate', (candidate: string) => {
+      capturedNonces.push(candidate);
+    });
+    await authenticatedPage.route('**/proxy**', (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: 'text/html',
+        body: nonceCaptureDocument(nonceQueryParam(route.request().url())),
+      });
+    });
+
+    await fillBasicAndReachSelectorsStep(authenticatedPage, 'Nonce Round Trip Test Feed');
+    await openPlayground(authenticatedPage);
+
+    await expect.poll(
+      () => capturedNonces.length,
+      {
+        timeout: 10000,
+        message:
+          'no nonce was observable via the iframe src query string or a parent -> child ' +
+          'handshake postMessage — the positive nonce path could not be exercised',
+      },
+    ).toBeGreaterThan(0);
+    const sessionNonce = capturedNonces[0];
+
+    await authenticatedPage.evaluate((nonce) => {
+      const el = document.querySelector('iframe[title="Selector Playground"]') as HTMLIFrameElement | null;
+      el?.contentWindow?.postMessage({ type: 'selectorUpdated', selector: '.legit-choice', nonce }, '*');
+    }, sessionNonce);
+
+    expect(await itemSelectorValue(authenticatedPage)).toBe('.legit-choice');
+  });
+
+  test('a nonce captured from a previous playground session is rejected after the playground is closed and reopened (stale nonce)', async ({ authenticatedPage }) => {
+    const capturedNonces: string[] = [];
+    await authenticatedPage.exposeFunction('__mkfdCaptureNonceCandidate', (candidate: string) => {
+      capturedNonces.push(candidate);
+    });
+    await authenticatedPage.route('**/proxy**', (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: 'text/html',
+        body: nonceCaptureDocument(nonceQueryParam(route.request().url())),
+      });
+    });
+
+    await fillBasicAndReachSelectorsStep(authenticatedPage, 'Stale Nonce Test Feed');
+    await openPlayground(authenticatedPage);
+    await expect.poll(() => capturedNonces.length, { timeout: 10000 }).toBeGreaterThan(0);
+    const staleNonce = capturedNonces[0];
+
+    await authenticatedPage.getByRole('button', { name: 'Close', exact: true }).click();
+    await expect(authenticatedPage.locator('iframe[title="Selector Playground"]')).toHaveCount(0);
+
+    await openPlayground(authenticatedPage);
+    await expect.poll(() => capturedNonces.length, { timeout: 10000 }).toBeGreaterThan(1);
+
+    await authenticatedPage.evaluate((nonce) => {
+      const el = document.querySelector('iframe[title="Selector Playground"]') as HTMLIFrameElement | null;
+      el?.contentWindow?.postMessage({ type: 'selectorUpdated', selector: '.stale-nonce-selector', nonce }, '*');
+    }, staleNonce);
+
+    expect(await itemSelectorValue(authenticatedPage)).not.toBe('.stale-nonce-selector');
   });
 });
 
