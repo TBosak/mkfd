@@ -213,11 +213,42 @@ function isCrossOriginStateChange(c: Context): boolean {
   if (SAFE_METHODS.has(c.req.method)) return false;
   const origin = c.req.header("origin");
   if (!origin) return false;
+
+  let originHost: string;
   try {
-    return new URL(origin).host !== new URL(c.req.url).host;
+    originHost = new URL(origin).host;
   } catch {
     return true;
   }
+
+  // Compare against every host the client could legitimately have addressed,
+  // not just the URL this process happens to see. Behind a reverse proxy the
+  // browser sends the public origin while the app is reached on an internal
+  // host, and in development Vite proxies :5173 to :5000 — comparing only
+  // against the internal host rejects both, which would make every
+  // state-changing request fail for anyone not talking to the port directly.
+  //
+  // X-Forwarded-Host is safe to consult here specifically: a cross-site form
+  // post cannot set it, and a fetch that tries would require a CORS preflight
+  // this app never approves. It only ever widens the accepted set to hosts a
+  // proxy in front of us claims, never to an attacker-chosen origin.
+  const candidateHosts = new Set<string>();
+  try {
+    candidateHosts.add(new URL(c.req.url).host);
+  } catch {
+    /* url unparseable; the header candidates below still apply */
+  }
+  const hostHeader = c.req.header("host");
+  if (hostHeader) candidateHosts.add(hostHeader);
+  const forwardedHost = c.req.header("x-forwarded-host");
+  if (forwardedHost) {
+    for (const entry of forwardedHost.split(",")) {
+      const trimmed = entry.trim();
+      if (trimmed) candidateHosts.add(trimmed);
+    }
+  }
+
+  return !candidateHosts.has(originHost);
 }
 
 /**
@@ -292,6 +323,11 @@ const authMiddleware = async (c: Context, next: () => Promise<void>) => {
     if (passkeyMatches(body.passkey)) {
       loginFailures.delete(throttleKey);
       session.set("authenticated", true);
+      // NOTE: two accepted test locks disagree about this target. The auth
+      // suite asserts exactly "/", while frontend/e2e/fixtures.ts waits for
+      // "**/public/" after login. Both were locked before login could
+      // actually run, so the contradiction was latent. Left as "/" to keep
+      // the auth lock green; see CF-09 in the ledger.
       return c.redirect("/");
     }
     recordLoginFailure(throttleKey);

@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { UseFormSetValue } from "react-hook-form";
 import { FeedFormData, FlareSolverrConfig } from "@/types/feed";
 import { Button } from "@/components/ui/button";
@@ -13,40 +13,52 @@ interface SelectorPlaygroundProps {
 export const SelectorPlayground = ({
 	feedUrl,
 	setValue,
-	flaresolverr,
 }: SelectorPlaygroundProps) => {
 	const [isPlaygroundOpen, setIsPlaygroundOpen] = useState(false);
 	const [showSelectorActions, setShowSelectorActions] = useState(false);
 	const [currentSelector, setCurrentSelector] = useState<string | null>(null);
+	// Regenerated every time the playground opens, so a nonce captured from a
+	// previous session cannot drive a later one.
+	const [sessionNonce, setSessionNonce] = useState<string>("");
+	const iframeRef = useRef<HTMLIFrameElement | null>(null);
 
 	const buildProxyUrl = () => {
 		const params = new URLSearchParams({ url: feedUrl || "" });
-		if (flaresolverr?.enabled && flaresolverr?.serverUrl) {
-			params.set("flaresolverrEnabled", "true");
-			params.set("flaresolverrUrl", flaresolverr.serverUrl);
-			if (flaresolverr.timeout) {
-				params.set("flaresolverrTimeout", flaresolverr.timeout.toString());
-			}
-		}
+		if (sessionNonce) params.set("nonce", sessionNonce);
+		// FlareSolverr configuration deliberately does not travel in this URL:
+		// it would leak an internal service address into browser history,
+		// referrer headers and logs, and let any caller redirect the server.
 		return `/proxy?${params.toString()}`;
 	};
 
 	useEffect(() => {
 		const handleMessage = (event: MessageEvent) => {
-			if (!event.data) return;
-			if (event.data.type === "selectorUpdated") {
-				setCurrentSelector(event.data.selector);
-			}
+			// Bound to the exact window we created. The iframe is opaque-origin,
+			// so event.origin is "null" and cannot be compared usefully; identity
+			// of the source window is what actually distinguishes our playground
+			// from any other frame or popup on the page.
+			if (event.source !== iframeRef.current?.contentWindow) return;
+			const data = event.data as { type?: unknown; selector?: unknown; nonce?: unknown } | null;
+			if (data?.type !== "selectorUpdated") return;
+			// The nonce ties the message to this playground session, so one
+			// captured from an earlier session is refused.
+			if (typeof data.nonce !== "string" || !sessionNonce || data.nonce !== sessionNonce) return;
+			if (typeof data.selector !== "string") return;
+			const selector = data.selector.trim();
+			if (!selector || selector.length > 512) return;
+			setCurrentSelector(selector);
 		};
 		window.addEventListener("message", handleMessage);
 		return () => window.removeEventListener("message", handleMessage);
-	}, []);
+	}, [sessionNonce]);
 
 	const handleOpenPlayground = () => {
 		if (!feedUrl) {
 			alert("Please enter a target URL on the Basic tab first.");
 			return;
 		}
+		setSessionNonce(crypto.randomUUID().replace(/-/g, ""));
+		setCurrentSelector(null);
 		setIsPlaygroundOpen(true);
 		setShowSelectorActions(true);
 	};
@@ -54,6 +66,7 @@ export const SelectorPlayground = ({
 	const handleClosePlayground = () => {
 		setIsPlaygroundOpen(false);
 		setShowSelectorActions(false);
+		setSessionNonce("");
 	};
 
 	const handleSetSelector = (fieldName: string) => {
@@ -148,7 +161,11 @@ export const SelectorPlayground = ({
 							<iframe
 								src={buildProxyUrl()}
 								className="w-full h-full border-0"
-								sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-modals"
+								ref={iframeRef}
+								// Opaque origin on purpose. Granting same-origin here would let
+								// any script in the proxied page act as the app: read storage
+								// and call authenticated APIs with the operator's session.
+								sandbox="allow-scripts"
 								title="Selector Playground"
 							/>
 						</div>

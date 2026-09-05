@@ -11,6 +11,10 @@
  */
 
 import { Hono } from "hono";
+import * as cheerio from "cheerio";
+import type { Element } from "domhandler";
+import { createHash, randomUUID } from "node:crypto";
+import { readFileSync } from "node:fs";
 import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { basename, join } from "node:path";
@@ -36,61 +40,178 @@ import * as yaml from "js-yaml";
 // Internal helpers
 // ---------------------------------------------------------------------------
 
-function injectSelectorGadget(html: string): string {
+// ---------------------------------------------------------------------------
+// Selector Playground isolation (A1)
+// ---------------------------------------------------------------------------
+
+/** Elements that can execute or redirect, removed wholesale from proxied HTML. */
+const ACTIVE_ELEMENTS = [
+  "script",
+  "object",
+  "embed",
+  "applet",
+  "base",
+  "form",
+  "noscript",
+  "template",
+] as const;
+
+/** Attributes carrying a URL that could be a javascript: payload. */
+const URL_ATTRIBUTES = ["href", "src", "action", "formaction", "xlink:href", "data"] as const;
+
+/**
+ * Strips executable and navigational content from an untrusted upstream
+ * document before it is served from this origin.
+ *
+ * Parsing with Cheerio rather than pattern-matching the raw text is the point:
+ * a regex strip is defeated by case variation, split or nested tags, and
+ * entity encoding, and one accepted test constructs exactly that. Re-parsing
+ * and re-serialising normalises all of it, and the loop below re-runs until
+ * the output is stable so a payload that only becomes a tag after one pass
+ * cannot survive.
+ */
+function sanitizeUntrustedHtml(html: string): string {
+  let current = html;
+
+  for (let pass = 0; pass < 5; pass++) {
+    const $ = cheerio.load(current);
+
+    $(ACTIVE_ELEMENTS.join(",")).remove();
+
+    $("*").each((_, node) => {
+      // Cheerio yields AnyNode; only element nodes carry attributes, and the
+      // narrowing keeps this honest without an unsafe cast.
+      if (!isTagNode(node)) return;
+      const element = node;
+      const attribs = element.attribs ?? {};
+      for (const name of Object.keys(attribs)) {
+        const lower = name.toLowerCase();
+
+        // Event handlers execute directly; there is no safe form of them here.
+        if (lower.startsWith("on")) {
+          $(element).removeAttr(name);
+          continue;
+        }
+
+        // srcdoc is a whole nested document, so sanitising it is equivalent to
+        // sanitising an untrusted page; dropping it is simpler and safe.
+        if (lower === "srcdoc") {
+          $(element).removeAttr(name);
+          continue;
+        }
+
+        if (URL_ATTRIBUTES.includes(lower as (typeof URL_ATTRIBUTES)[number])) {
+          if (isExecutableUrl(attribs[name] ?? "")) $(element).removeAttr(name);
+        }
+      }
+    });
+
+    const next = $.html();
+    if (next === current) break;
+    current = next;
+  }
+
+  return current;
+}
+
+/**
+ * True for URLs that execute rather than navigate. Entities are decoded and
+ * control characters stripped first, because `java&#115;cript:` and
+ * `java\tscript:` are both live in browsers but invisible to a literal check.
+ */
+/** Narrows a Cheerio AnyNode to an element node that actually has attributes. */
+function isTagNode(node: unknown): node is Element {
+  return typeof node === "object" && node !== null && "attribs" in node && "tagName" in node;
+}
+
+function isExecutableUrl(value: string): boolean {
+  const decoded = value
+    .replace(/&#x([0-9a-f]+);?/gi, (_m, hex) => String.fromCharCode(Number.parseInt(hex, 16)))
+    .replace(/&#(\d+);?/g, (_m, dec) => String.fromCharCode(Number.parseInt(dec, 10)))
+    // Whitespace and control characters are removed by code point rather than
+    // a control-character regex literal, which Biome rejects as an error.
+    .split("")
+    .filter((ch) => ch.charCodeAt(0) > 0x20)
+    .join("")
+    .toLowerCase();
+  return decoded.startsWith("javascript:") || decoded.startsWith("vbscript:") || decoded.startsWith("data:text/html");
+}
+
+/** Vendored SelectorGadget, served from this origin instead of two CDNs. */
+const SELECTORGADGET_DIR = join(process.cwd(), "public", "vendor", "selectorgadget");
+const SELECTORGADGET_PATH = "/vendor/selectorgadget/selectorgadget.js";
+
+/**
+ * Integrity digest computed from the bytes actually served, not hardcoded, so
+ * the pin cannot drift away from the file it is meant to pin.
+ */
+function selectorGadgetIntegrity(): string {
+  const bytes = readFileSync(join(SELECTORGADGET_DIR, "selectorgadget.js"));
+  return `sha256-${createHash("sha256").update(bytes).digest("base64")}`;
+}
+
+/**
+ * Content-Security-Policy for the playground document. Scripts may only come
+ * from this origin, which is what makes the vendoring meaningful: even if
+ * sanitisation missed something, a third-party script URL still cannot load.
+ * 'unsafe-inline' is not granted; the injected bootstrap carries a nonce.
+ */
+function playgroundCsp(nonce: string): string {
+  return [
+    "default-src 'self'",
+    `script-src 'self' 'nonce-${nonce}'`,
+    "style-src 'self' 'unsafe-inline'",
+    "img-src 'self' data: blob:",
+    "font-src 'self' data:",
+    "connect-src 'self'",
+    "frame-src 'none'",
+    "object-src 'none'",
+    "base-uri 'none'",
+    "form-action 'none'",
+  ].join("; ");
+}
+
+function injectSelectorGadget(html: string, nonce: string): string {
+  const integrity = selectorGadgetIntegrity();
   const SG_SCRIPT = `
-    <script>
+    <script nonce="${nonce}">
       (function() {
-        let loadingDiv = document.createElement("div");
-        loadingDiv.innerHTML = "Loading SelectorGadget...";
-        loadingDiv.style.color = "black";
-        loadingDiv.style.padding = "20px";
-        loadingDiv.style.position = "fixed";
-        loadingDiv.style.zIndex = "9999";
-        loadingDiv.style.fontSize = "1.5em";
-        loadingDiv.style.border = "2px solid black";
-        loadingDiv.style.right = "40px";
-        loadingDiv.style.top = "40px";
-        loadingDiv.style.background = "white";
+        var loadingDiv = document.createElement("div");
+        loadingDiv.textContent = "Loading SelectorGadget...";
+        loadingDiv.style.cssText = "color:black;padding:20px;position:fixed;z-index:9999;font-size:1.5em;border:2px solid black;right:40px;top:40px;background:white";
         document.body.appendChild(loadingDiv);
 
-        let sgScript = document.createElement("script");
+        var sgScript = document.createElement("script");
         sgScript.type = "text/javascript";
-        sgScript.src = "https://dv0akt2986vzh.cloudfront.net/stable/lib/selectorgadget.js";
+        sgScript.src = "${SELECTORGADGET_PATH}";
+        sgScript.integrity = "${integrity}";
         document.body.appendChild(sgScript);
 
-        let gadgetInterval = setInterval(() => {
-          if (
-            window.SelectorGadget &&
-            window.SelectorGadget.prototype &&
-            window.SelectorGadget.prototype.setPath
-          ) {
+        var gadgetInterval = setInterval(function() {
+          if (window.SelectorGadget && window.SelectorGadget.prototype && window.SelectorGadget.prototype.setPath) {
             clearInterval(gadgetInterval);
             loadingDiv.remove();
-
-            const original = window.SelectorGadget.prototype.setPath;
+            var original = window.SelectorGadget.prototype.setPath;
             window.SelectorGadget.prototype.setPath = function(prediction) {
-              console.log("Intercepted setPath:", prediction);
-              window.parent.postMessage({ type: "selectorUpdated", selector: prediction }, "*");
+              // The nonce proves the message came from the document the parent
+              // created for this session. The parent also checks event.source,
+              // so another window cannot forge one even knowing the nonce.
+              window.parent.postMessage(
+                { type: "selectorUpdated", selector: prediction, nonce: "${nonce}" },
+                "*"
+              );
               return original.call(this, prediction);
             };
-
-            let sg = new window.SelectorGadget();
+            var sg = new window.SelectorGadget();
             sg.makeInterface();
-            sg.setMode('interactive');
-            console.log("SelectorGadget loaded and patched!");
+            sg.setMode("interactive");
           }
-        }, 1000);
+        }, 100);
       })();
-    </script>
-  `;
+    </script>`;
 
-  let modified = html;
-  if (modified.includes("</body>")) {
-    modified = modified.replace("</body>", `${SG_SCRIPT}\n</body>`);
-  } else {
-    modified += SG_SCRIPT;
-  }
-  return modified;
+  if (html.includes("</body>")) return html.replace("</body>", `${SG_SCRIPT}</body>`);
+  return html + SG_SCRIPT;
 }
 
 // ---------------------------------------------------------------------------
@@ -108,18 +229,37 @@ export function utilsRouter(deps: {
   // GET /proxy
   // -------------------------------------------------------------------------
 
+  // Serve the vendored SelectorGadget bundle from this origin. Mounted here,
+  // beside the route that injects it, so the slice stays self-contained:
+  // /configs/* static serving and the app-wide header work are separate
+  // Packet 2 slices.
+  app.get("/vendor/selectorgadget/:file", async (ctx) => {
+    const requested = basename(ctx.req.param("file"));
+    const full = join(SELECTORGADGET_DIR, requested);
+    if (!existsSync(full)) return ctx.text("Not found", 404);
+    const body = await readFile(full);
+    const type = requested.endsWith(".css") ? "text/css" : "application/javascript";
+    return new Response(body, {
+      status: 200,
+      headers: { "Content-Type": `${type}; charset=utf-8`, "Cache-Control": "public, max-age=31536000, immutable" },
+    });
+  });
+
   app.get("/proxy", async (ctx) => {
     const targetUrl = ctx.req.query("url");
     if (!targetUrl) {
       return ctx.text('Missing "url" parameter', 400);
     }
 
-    const flaresolverrEnabled = ctx.req.query("flaresolverrEnabled") === "true";
-    const flaresolverrUrl = normalizeUrl(ctx.req.query("flaresolverrUrl") || "");
-    const flaresolverrTimeout = parseInt(
-      ctx.req.query("flaresolverrTimeout") || "60000",
-      10,
-    );
+    // FlareSolverr configuration is deliberately NOT read from the query
+    // string. Putting an internal service URL there leaks it into browser
+    // history, referrer headers and request logs, and lets any caller point
+    // the server at an arbitrary host. The playground uses the direct fetch
+    // path; a configured FlareSolverr integration belongs behind the shared
+    // adapter, not a URL parameter.
+    const flaresolverrEnabled = false;
+    const flaresolverrUrl = "";
+    const flaresolverrTimeout = 60000;
 
     const proxyPolicyOptions = getGlobalFetchPolicyOptions();
     try {
@@ -175,9 +315,21 @@ export function utilsRouter(deps: {
         html = response.data;
       }
 
-      html = injectSelectorGadget(html);
-      return ctx.html(html);
+      const nonce = randomUUID().replace(/-/g, "");
+      html = injectSelectorGadget(sanitizeUntrustedHtml(html), nonce);
+      return ctx.html(html, 200, {
+        "Content-Security-Policy": playgroundCsp(nonce),
+        "X-Content-Type-Options": "nosniff",
+        "Referrer-Policy": "no-referrer",
+      });
     } catch (error) {
+      // A policy rejection discovered mid-redirect is a refusal, not a fault.
+      // Surfacing it as 500 would hide a security decision behind a generic
+      // error and make it indistinguishable from an upstream failure.
+      const message = error instanceof Error ? error.message : String(error);
+      if (/blocked|not allowed|policy|denied|refus/i.test(message)) {
+        return ctx.text(message, 403);
+      }
       console.error("Error fetching remote URL:", error);
       return ctx.text("Could not fetch the target URL", 500);
     }
