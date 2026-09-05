@@ -107,3 +107,22 @@ This round fixed a defect in the suite, not the implementation. Independent resu
 Verified independently rather than from the report: zero Biome warnings on all three files, and `static-diagnostics-cleanup-architecture.test.ts` holds at 545 warnings / 13 infos.
 
 **The lock was refreshed after implementation.** This is normally forbidden, and the justification is narrow: the change corrected a helper that made three tests incapable of detecting what they asserted — each failed with a 302 that is indistinguishable from the redirect an unauthenticated request receives anyway, so they were a false negative then and a latent false positive later. No assertion was relaxed, no expectation was adjusted, and no requirement changed. The implementation was written before this round and was not modified to suit it.
+
+## Round 4 scrutiny and slice closure
+
+`ACCEPTED` — delta in `p2-auth-trust-boundary-review-round4.md`.
+
+Independent verification, all measured rather than taken from the report:
+
+- `bun test tests/auth-connection-info-boundary.test.ts tests/feed-history.test.ts` → **20/20** (was 15 pass / 4 fail).
+- `bun test tests/` → **1220 pass / 0 fail** (was 1215 / 4; pre-slice baseline was 1186 / 0).
+- Slice files → **34/34** (a containment-proof test was added, so the count rose from 33).
+- Zero Biome warnings on all three files; `static-diagnostics-cleanup-architecture` holds at 545 warnings / 13 infos.
+
+The containment restores the feed-history singleton to `null`, which is the utility's genuine pre-import state rather than a guessed sentinel — its `if (_store)` branches fall through to file-based behaviour when falsy, and nothing before this file's imports ever sets a store. Claude verified that rather than assuming it, and added a test proving the restoration works so the leak cannot silently return.
+
+The lock was refreshed a second time, again for a test-defect fix with no assertion relaxed and no requirement changed. Both refreshes are recorded in the ledger's decisions section.
+
+### Slice closed
+
+All ten required observable behaviours are implemented and covered. Two accepted limitations carry forward, both recorded rather than worked around: "login remains possible after the lockout window" is untested (it needs a fake clock across a spawned-process boundary or a real wait, and the brief excludes both), and the trusted-proxy path is proven only negatively, since no trusted-proxy configuration surface exists yet. The positive case belongs to whichever slice introduces it.

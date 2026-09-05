@@ -12,9 +12,30 @@
 // control is the second argument (`env`), which is exactly what Hono's
 // `getConnInfo(c)` reads via `hono/bun`'s adapter to determine the peer
 // address — the same shape Bun's own server object has.
-import { beforeAll, describe, expect, test } from "bun:test";
+//
+// Importing ../index.ts also runs its module-scope startup code, which
+// calls setFeedHistoryStore(createFeedHistoryStore(runtimeDb)) as a side
+// effect of wiring up the exported app. Since Bun's test runner loads every
+// test file into one shared process, that swaps the process-wide
+// feed-history singleton (utilities/feed-history.utility.ts) from its
+// default file-based behavior to a DB-backed store pointed at this file's
+// throwaway RUNTIME_DB_PATH — for every test file that runs afterwards, not
+// just this one. The last describe block below restores it.
+import { afterAll, beforeAll, describe, expect, test } from "bun:test";
+import { loadDateIndex, setFeedHistoryStore } from "../utilities/feed-history.utility";
+import type { FeedHistoryStore } from "../lib/analytics/db";
 
 type FetchHandler = (req: Request, env?: unknown) => Promise<Response>;
+
+// feed-history.utility.ts has no exported getter or reset function — only
+// the setter used above to explain the leak. `null` is that module's own
+// initial value (file-based behavior; see its `if (_store) {...}` branches),
+// and nothing prior to this file's imports ever sets a store, so it is the
+// correct — not merely convenient — restoration target, not a guess at
+// "whatever it was before". The cast is required because the exported
+// setter's parameter type does not admit `null`, even though the module's
+// own internal state does.
+const FILE_BASED_FEED_HISTORY_STORE = null as unknown as FeedHistoryStore;
 
 let appFetch: FetchHandler;
 
@@ -195,5 +216,29 @@ describe("session cookie Secure attribute derives from the request, not the SSL 
 
     expect(withoutOutcome).toBe(false);
     expect(withOutcome).toBe(false);
+  });
+});
+
+describe("importing the real entry point does not leak the feed-history store to other test files", () => {
+  // Guaranteed backstop: runs even if the assertion below never executes,
+  // and is the only thing this file does after it, so by the time control
+  // returns to Bun's shared test process for the next file, the singleton
+  // is back to its pre-import state regardless of what happens above.
+  afterAll(() => {
+    setFeedHistoryStore(FILE_BASED_FEED_HISTORY_STORE);
+  });
+
+  test("loadDateIndex behaves as file-based (no DB rows) for a fresh id once this file's app imports are done", async () => {
+    // Restore explicitly here too, so this assertion observes the
+    // post-restore state directly rather than trusting the backstop alone.
+    // Without the fix, this file's earlier imports leave a DB-backed store
+    // in place, and a fresh id that store has never seen would still
+    // resolve through that store's own "empty" path rather than proving
+    // the *file-based* fallback (utilities/feed-history.utility.ts's
+    // `if (_store) {...}` branch) is what's actually active again.
+    setFeedHistoryStore(FILE_BASED_FEED_HISTORY_STORE);
+    const index = await loadDateIndex("auth-conninfo-boundary-containment-check-fresh-id");
+    expect(index).toBeInstanceOf(Map);
+    expect(index.size).toBe(0);
   });
 });
