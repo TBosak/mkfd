@@ -76,3 +76,22 @@ Revise the three files for the two items above. Tests only; no production code.
 Preserve all 16 genuine RED failures and every existing adversarial case, especially the indeterminate-address test, the substring-containment `Origin` trick, the header-rotation throttle reset, and the webhook non-widening checks. Item 2 changes the shape of one assertion and adds one; it should not reduce coverage.
 
 Verify with the pinned Biome binary that all three files report zero warnings before reporting. Then re-run the three slice files plus `tests/static-diagnostics-cleanup-architecture.test.ts` and report the RED breakdown per file, confirming the aggregate ceiling is back to 545 warnings / 13 infos.
+
+## Round 2 scrutiny and acceptance
+
+`ACCEPTED FOR IMPLEMENTATION`
+
+- Session `2edd570c-9ea1-4324-9543-e7670b387841` (same session throughout; attempt 1 of this revision did nothing, having hit its own usage limit at turn 17).
+- Independent result: **15 pass / 17 fail** across the three files, and `static-diagnostics-cleanup-architecture.test.ts` back to **15 pass / 0 fail**.
+
+Both items verified myself rather than taken from the report, since the report was wrong on exactly this point last round:
+
+- Biome, run per-file with the pinned binary and `biome.json`: **zero warnings on all three files**. The locked aggregate ceiling is restored to 545 warnings / 13 infos. The fix was real — an untyped `as any` webhook fixture replaced with a properly typed `WebhookFeedConfig` — not a suppression.
+- The cookie contract is now genuinely conditional and split across the two files by capability. `auth-trust-boundary.test.ts` drives a real plain-HTTP loopback server and asserts `Secure` is **absent**; `auth-connection-info-boundary.test.ts` controls the scheme directly and asserts `Secure` **present** on direct HTTPS with the `SSL` flag off, **absent** on plain HTTP with the flag on, and **absent** for a forged `X-Forwarded-Proto: https` from an untrusted peer. Those two flag-inverted cases are what prove the value derives from the request rather than the startup flag; asserting only the positive case would have passed against today's static `secure: SSL`.
+
+RED grew from 16 to 17, entirely from the two new flag-inverted Secure cases. Every previously accepted adversarial case survives: indeterminate address, substring-containment `Origin`, header-rotation throttle reset, and webhook non-widening.
+
+Limitations Claude flagged honestly rather than inventing around, which I accept:
+
+- "Login remains possible after the lockout window" is not covered. It needs either a fake clock across a spawned-process boundary or a real wait, and the brief excludes both. Recorded as a known gap in the throttle contract.
+- The trusted-proxy path is proven only negatively — a forged header from an arbitrary peer is ignored. There is no trusted-proxy configuration surface yet, and inventing one in a test would prescribe production internals. The positive "a configured trusted proxy legitimately upgrades to Secure" case belongs with whichever slice introduces that surface.
