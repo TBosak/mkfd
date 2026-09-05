@@ -95,3 +95,15 @@ Limitations Claude flagged honestly rather than inventing around, which I accept
 
 - "Login remains possible after the lockout window" is not covered. It needs either a fake clock across a spawned-process boundary or a real wait, and the brief excludes both. Recorded as a known gap in the throttle contract.
 - The trusted-proxy path is proven only negatively — a forged header from an arbitrary peer is ignored. There is no trusted-proxy configuration surface yet, and inventing one in a test would prescribe production internals. The positive "a configured trusted proxy legitimately upgrades to Secure" case belongs with whichever slice introduces that surface.
+
+## Round 3 scrutiny and final acceptance
+
+`ACCEPTED` — delta feedback in `p2-auth-trust-boundary-review-round3.md`.
+
+This round fixed a defect in the suite, not the implementation. Independent result: **33 pass / 0 fail** across the three files against the already-committed implementation (`c0eef46`).
+
+`rawSetCookie` now resolves repeated `Set-Cookie` headers the way a user agent does — via `getSetCookie()`, taking the last entry — and carries a comment explaining why. Claude also added the regression guard I asked for, which is why the count went from 32 to 33: a test asserting a successful login emits more than one `session` cookie and that the selected pair is the one that authenticates. Without it, a future change to session handling could silently reintroduce first-header selection.
+
+Verified independently rather than from the report: zero Biome warnings on all three files, and `static-diagnostics-cleanup-architecture.test.ts` holds at 545 warnings / 13 infos.
+
+**The lock was refreshed after implementation.** This is normally forbidden, and the justification is narrow: the change corrected a helper that made three tests incapable of detecting what they asserted — each failed with a 302 that is indistinguishable from the redirect an unauthenticated request receives anyway, so they were a false negative then and a latent false positive later. No assertion was relaxed, no expectation was adjusted, and no requirement changed. The implementation was written before this round and was not modified to suit it.

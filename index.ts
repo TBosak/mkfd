@@ -232,10 +232,7 @@ const loginFailures = new Map<string, { count: number; firstAt: number }>();
 
 function loginThrottleKey(c: Context): string {
   try {
-    const info = getConnInfo(c) as unknown as {
-      remote?: { address?: string };
-    };
-    return info?.remote?.address ?? "unknown-peer";
+    return getConnInfo(c).remote?.address ?? "unknown-peer";
   } catch {
     return "unknown-peer";
   }

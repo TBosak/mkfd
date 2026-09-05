@@ -71,10 +71,21 @@ async function stopServer(proc: Subprocess | undefined): Promise<void> {
   await proc.exited;
 }
 
+/** All `Set-Cookie: session=...` entries on a response, in header order. */
+function sessionSetCookies(res: Response): string[] {
+  return res.headers.getSetCookie().filter((entry) => entry.toLowerCase().startsWith("session="));
+}
+
 function rawSetCookie(res: Response): string {
-  const setCookie = res.headers.get("set-cookie");
-  if (!setCookie) throw new Error("Response did not set any cookie");
-  return setCookie;
+  const setCookies = sessionSetCookies(res);
+  if (setCookies.length === 0) throw new Error("Response did not set any cookie");
+  // hono-sessions writes the pre-login, not-yet-authenticated session-id
+  // cookie *before* `next()` runs, then writes the persisted, authenticated
+  // session cookie *after* `next()` once the passkey handler has set
+  // `authenticated: true` — both named `session`. A user agent applies
+  // repeated Set-Cookie headers for the same name in order, so the last one
+  // wins; callers must do the same or they observe stale, pre-login state.
+  return setCookies[setCookies.length - 1];
 }
 
 function sessionCookiePair(res: Response): string {
@@ -111,6 +122,7 @@ describe("core trust boundary via a real running server", () => {
   let proc: Subprocess | undefined;
   let sessionCookie: string;
   let loginSetCookieHeader: string;
+  let loginSessionSetCookies: string[];
   const feedId = "auth-trust-boundary-webhook-feed";
   const slug = "auth-trust-boundary-webhook-slug";
   const validToken = "mkfd_wh_auth_trust_boundary_test_token";
@@ -137,6 +149,7 @@ describe("core trust boundary via a real running server", () => {
     await writeFeedConfig(feedId, webhookFixture);
 
     const loginRes = await login(BASE_SECRETS.PASSKEY);
+    loginSessionSetCookies = sessionSetCookies(loginRes);
     loginSetCookieHeader = rawSetCookie(loginRes);
     sessionCookie = sessionCookiePair(loginRes);
     await loginRes.body?.cancel();
@@ -277,6 +290,37 @@ describe("core trust boundary via a real running server", () => {
     // covered in tests/auth-connection-info-boundary.test.ts, which can
     // control the request's scheme and peer directly.
     expect(loginSetCookieHeader).not.toMatch(/;\s*Secure/i);
+  });
+
+  test("the session cookie helper selects the entry that actually authenticates, not the stale pre-login one", async () => {
+    // hono-sessions writes a not-yet-authenticated session-id cookie before
+    // `next()` runs, then overwrites it with the persisted, authenticated
+    // session cookie after `next()` — both named `session`. A regression
+    // here (e.g. reverting to `Headers.get("set-cookie")`, which only
+    // returns the first entry) would silently hand every downstream test a
+    // session that was never authenticated, without any of them failing
+    // for an obviously-related reason.
+    expect(loginSessionSetCookies.length).toBeGreaterThan(1);
+
+    const firstPair = loginSessionSetCookies[0].split(";")[0].trim();
+    const lastPair = loginSessionSetCookies[loginSessionSetCookies.length - 1].split(";")[0].trim();
+    expect(lastPair).toBe(sessionCookie);
+
+    const withFirst = await fetch(`${BASE_URL}/`, {
+      redirect: "manual",
+      headers: { cookie: firstPair },
+    });
+    await withFirst.body?.cancel();
+    const withLast = await fetch(`${BASE_URL}/`, {
+      redirect: "manual",
+      headers: { cookie: lastPair },
+    });
+    await withLast.body?.cancel();
+
+    // The first Set-Cookie must not be treated as "the" session cookie: it
+    // never carries the authenticated flag.
+    expect(withFirst.status).not.toBe(200);
+    expect(withLast.status).toBe(200);
   });
 
   test("a valid session cookie grants access to the app", async () => {
