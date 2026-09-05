@@ -46,3 +46,16 @@ Note for the implementation, not the tests: the hostile page inside the opaque i
 Add the two nonce tests described in item 1 to `frontend/e2e/selector-playground-isolation.spec.ts`. Change nothing else — items 2 and 3 are confirmations that your existing tests are correct as written, not requests to alter them.
 
 Preserve all 18 genuine RED failures and every adversarial case. Re-run the two backend files plus the six accepted lock sets, confirm zero Biome warnings on all three new files and that the ceiling holds at 545 warnings / 13 infos, and report the breakdown.
+
+## Round 2 scrutiny and acceptance
+
+`ACCEPTED FOR IMPLEMENTATION`
+
+- Session `2de2a461-99f5-495f-96c7-3fa824266de1` (same session).
+- Only `frontend/e2e/selector-playground-isolation.spec.ts` changed, as directed. Backend RED is unchanged at **7 pass / 18 fail**, confirming the addition did not disturb the existing contract.
+
+Both required nonce tests are present: a positive round-trip (`a legitimately nonced message from the real iframe is accepted and can be applied to a destination`) and a stale-nonce rejection across a close/reopen cycle. With those, an implementation that discarded every message — breaking the feature outright while passing every rejection test — is no longer possible.
+
+Verified independently rather than from the report: zero Biome warnings on all three files, `bun run typecheck` clean so the spec still compiles under `tsconfig.e2e.json`, and the locked ceiling holds at 545 warnings / 13 infos.
+
+The suite is locked and implementation may begin. One thing to carry into it: the Playwright coverage in this slice has never actually executed against a running app. `bun run test:e2e` must be run once the implementation lands, not merely `verify:core`, because the origin-isolation and nonce contracts are only observable in a real browser and a compile-clean spec is not evidence that they hold.
