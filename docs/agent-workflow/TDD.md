@@ -18,6 +18,54 @@ bun run tdd:claude -- revise --id p3-v2-css-target-roundtrip --brief docs/tdd/p3
 
 Reuse `revise` until the tests pass scrutiny. Do not start implementation while review feedback remains open.
 
+## Running the Claude launcher (long jobs)
+
+A `tdd:claude` author or revise run takes roughly 18 minutes. That is longer
+than any agent tool timeout permits, so the lead must not wait on it inline.
+
+**Do not block, and do not poll in a loop.** Launch the run detached, schedule
+your own return, and end the turn:
+
+1. Start it detached with output redirected to a log, capturing the PID. On
+   Windows:
+
+   ```powershell
+   $log = ".tdd-state\<slice>-<phase>.log"
+   $p = Start-Process -FilePath "bun" `
+     -ArgumentList 'run','tdd:claude','--','author','--id','<slice>','--brief','<brief>' `
+     -WorkingDirectory "<repo>" -RedirectStandardOutput $log `
+     -RedirectStandardError "$log.err" -PassThru -WindowStyle Hidden
+   ```
+
+2. Schedule a one-shot wake-up about 20 minutes out. Its prompt must be
+   self-contained: the PID, both log paths, what the run was for, and what to
+   do with the result.
+3. End the turn. On waking, check the PID first. If it is still running,
+   schedule another short check rather than blocking.
+
+**Never pass a Bash tool timeout above 600000 ms.** The documented maximum is
+600000; three consecutive long runs were silently killed by passing 900000, and
+the symptom looks like an external process kill rather than a bad argument.
+
+### Recovering a run the launcher aborted
+
+The launcher regularly throws *after* Claude has already responded and written
+its tests. The usual cause is the test suite rewriting tracked runtime state
+(`feed-state/filesystem/filesystem-test.json`), which the boundary check reads
+as Claude editing production files. The authored tests are still valid.
+
+When `.tdd-state/<slice>.json` is missing:
+
+1. Reconstruct it from `.tdd-state/<slice>-last-response.json`, which carries
+   `session_id` and the model identity. Preserving the session id is what lets
+   `revise` continue in the same Claude session, as the protocol requires.
+2. Restore the runtime-state file: `git checkout -- feed-state/filesystem/filesystem-test.json`.
+3. Continue with the lead review.
+
+Do not re-run `author` to recover state. It starts a new session, discards the
+review history, and costs another full run.
+
+
 ## Lock accepted tests before implementation
 
 ```powershell
