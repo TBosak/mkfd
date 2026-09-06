@@ -6,6 +6,7 @@ import {
 	extractFeedItemSnapshots,
 	serializeAllFeedFormats,
 } from "../utilities/feed-output.utility";
+import { redact } from "../utilities/log-redaction.utility";
 import { storeFeedHistory } from "../utilities/feed-history.utility";
 import { Feed } from "feed";
 import { initDb } from "../lib/analytics/db";
@@ -150,7 +151,11 @@ self.onmessage = (message) => {
 		let startedAt = Date.now();
 
 		if (!encryptionKey || typeof encryptionKey !== "string") {
-			console.error("[IMAP WORKER] Invalid encryption key:", encryptionKey);
+			// The guard above means this value is already unusable, so it is not a
+			// live key — but it can be an arbitrary non-string carrying secrets, and
+			// naming a variable in a log is the pattern this slice exists to stop.
+			// The type is the diagnostic; the value never is.
+			console.error("[IMAP WORKER] Invalid encryption key:", redact({ type: typeof encryptionKey, present: Boolean(encryptionKey) }));
 			self.postMessage({ status: "error", error: "Invalid encryption key" });
 			return;
 		}

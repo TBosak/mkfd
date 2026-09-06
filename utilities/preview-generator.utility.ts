@@ -7,6 +7,7 @@
 
 import axios from "axios";
 import { chromium } from "patchright";
+import { redact } from "./log-redaction.utility";
 import { getChromiumLaunchOptions } from "./chrome-extensions.utility";
 import { getRandomUserAgent } from "./user-agents.utility";
 import { buildFeedObject, buildFeedObjectFromApiData } from "./rss-builder.utility";
@@ -235,7 +236,10 @@ export async function generatePreview(feedConfig: any): Promise<import("feed").F
       axiosConfig.timeout = 60000;
       axiosConfig.maxRedirects = 0;
 
-      console.log("Preview Axios Config:", axiosConfig);
+      // Redacted: preview resolves protected values before building this
+      // request, so axiosConfig.headers carries live Authorization values and
+      // any configured proxy carries its credentials.
+      console.log("Preview Axios Config:", redact(axiosConfig));
 
       // NOTE: The redirect-following loop below duplicates what axiosGetWithPolicyRedirects
       // does for the webScraping path. The API/REST path can't use that helper directly
