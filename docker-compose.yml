@@ -13,9 +13,9 @@ services:
       - ./extensions:/app/extensions
       - ${RUNTIME_DB_PATH:-./data}:/app/data
     environment:
-      - PASSKEY=${PASSKEY:-your_passkey_here}
-      - COOKIE_SECRET=${COOKIE_SECRET:-your_cookie_secret_here}
-      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-your_encryption_key_here}
+      - PASSKEY=${PASSKEY:?set PASSKEY to a unique secret; there is deliberately no default}
+      - COOKIE_SECRET=${COOKIE_SECRET:?set COOKIE_SECRET to a random 32-byte secret; a known value allows session forgery}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:?set ENCRYPTION_KEY to a random 32-byte secret; a known value exposes every stored credential}
       - SSL=${SSL:-false}
       # Public URL used in feed atom:link canonical references (e.g. https://mkfd.example.com)
       - SERVER_URL=${SERVER_URL:-http://localhost:5000}

@@ -15,6 +15,7 @@ import {
   createFeedHistoryStore,
   migrateLegacyFeedHistory,
 } from "./lib/analytics/db";
+import { assertValidEncryptionKey } from "./utilities/security.utility";
 import { setFeedHistoryStore } from "./utilities/feed-history.utility";
 import {
   initWorkerManager,
@@ -78,6 +79,12 @@ async function getSecrets() {
 // ---------------------------------------------------------------------------
 
 const { passkey, cookieSecret, encryptionKey } = await getSecrets();
+
+// Fails closed in production on an absent, placeholder, or too-short key.
+// Encrypting every stored credential under a guessable secret is worse than
+// refusing to start, and the failure is far cheaper to diagnose here than as
+// an unreadable config months later.
+assertValidEncryptionKey(encryptionKey);
 
 const feedPath = join(__dirname, "/public/feeds");
 if (!existsSync(feedPath)) mkdirSync(feedPath);

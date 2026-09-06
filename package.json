@@ -23,7 +23,8 @@
     "verify:full": "bun run verify:core && bun run test:e2e",
     "tdd:claude": "bun scripts/claude-test-author.ts",
     "tdd:tests": "bun scripts/tdd-test-lock.ts",
-    "analyze": "bun x fallow --fail-on-issues"
+    "analyze": "bun x fallow --fail-on-issues",
+    "migrate:protected-values": "bun scripts/migrate-protected-values.ts"
   },
   "dependencies": {
     "@xmldom/xmldom": "^0.9.12",
