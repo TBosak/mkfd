@@ -40,7 +40,14 @@ export default defineConfig({
       "/trigger-webhook": { target: "http://localhost:5000", xfwd: true },
       "/imap": { target: "http://localhost:5000", xfwd: true },
       "/utils": { target: "http://localhost:5000", xfwd: true },
+      // /public is served by the backend, not by this dev server, even though
+      // Vite base is "/public/". That is deliberate: the backend enforces the
+      // session gate, so proxying it is what makes E2E exercise a real login.
+      // The bundle it serves must therefore be freshly built — "test:e2e"
+      // runs the build first, or the suite would test a stale app.
       "/public": { target: "http://localhost:5000", xfwd: true },
+      // Self-hosted SelectorGadget assets injected into proxied documents.
+      "/vendor": { target: "http://localhost:5000", xfwd: true },
       "/configs": { target: "http://localhost:5000", xfwd: true },
     },
   },

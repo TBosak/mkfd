@@ -17,7 +17,7 @@
     "db:generate": "bunx drizzle-kit generate --config=drizzle.config.ts",
     "validate:catalog": "bun scripts/validate-community-catalog.ts",
     "test": "bun test tests/",
-    "test:e2e": "cd frontend && bun run test",
+    "test:e2e": "bun run build && cd frontend && bun run test",
     "verify:static": "bun run lint && bun run typecheck",
     "verify:core": "bun run verify:static && bun run test && bun run validate:catalog && bun run build",
     "verify:full": "bun run verify:core && bun run test:e2e",

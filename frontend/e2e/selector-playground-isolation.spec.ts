@@ -65,8 +65,22 @@ function nonceCaptureDocument(nonceFromUrl: string | null): string {
   return `<!DOCTYPE html><html><body>nonce-capture target document
     <script>
       (function () {
+        // window.__mkfdCaptureNonceCandidate is injected by Playwright's
+        // exposeFunction into this frame's execution context, but that
+        // injection is not guaranteed to have completed before this
+        // synchronous, load-time script runs (unlike the async callbacks
+        // elsewhere in this file, which have a network round-trip's worth of
+        // headroom). Retry briefly rather than assuming it is present yet.
+        function report(nonce, attempt) {
+          attempt = attempt || 0;
+          if (typeof window.__mkfdCaptureNonceCandidate === 'function') {
+            window.__mkfdCaptureNonceCandidate(nonce);
+          } else if (attempt < 50) {
+            setTimeout(function () { report(nonce, attempt + 1); }, 20);
+          }
+        }
         var urlNonce = ${JSON.stringify(nonceFromUrl)};
-        if (urlNonce) window.__mkfdCaptureNonceCandidate(urlNonce);
+        if (urlNonce) report(urlNonce);
         window.addEventListener('message', function (event) {
           var data = event.data;
           var candidate = null;
@@ -84,7 +98,7 @@ function nonceCaptureDocument(nonceFromUrl: string | null): string {
               }
             }
           }
-          if (candidate) window.__mkfdCaptureNonceCandidate(candidate);
+          if (candidate) report(candidate);
         });
       })();
     </script>
@@ -98,6 +112,81 @@ function nonceQueryParam(requestUrl: string): string | null {
     if (/nonce/i.test(key)) return value;
   }
   return null;
+}
+
+/**
+ * Same nonce-discovery logic as nonceCaptureDocument, but once a nonce
+ * candidate is found, the document itself posts a genuine selectorUpdated
+ * message to window.parent — i.e. the message originates *inside* the
+ * iframe, so event.source on the receiving end is the real iframe window.
+ * This is required for a positive-path proof of requirement 5: the parent's
+ * `event.source === iframe.contentWindow` check can only ever be satisfied
+ * by a message the iframe sent, never one posted into it from outside.
+ *
+ * `selector` is deliberately typed `unknown`: reused both for a genuine
+ * string selector (the positive round-trip) and for schema-invalid values
+ * (an object, an oversized string) sent alongside a *correctly* discovered
+ * nonce, so that a rejection in the latter case can only be attributed to
+ * schema validation rather than an incidental nonce mismatch.
+ *
+ * Does not depend on Playwright's exposeFunction — that binding's injection
+ * into a brand-new, uniquely opaque-origin execution context is not
+ * guaranteed to finish before this document's own synchronous, load-time
+ * script runs, and the message-send itself (the actual thing under test)
+ * must not be gated on it.
+ */
+function autoSendSelectorUpdatedDocument(nonceFromUrl: string | null, selector: unknown): string {
+  return `<!DOCTYPE html><html><body>nonce-round-trip target document
+    <script>
+      (function () {
+        var sent = false;
+        function send(nonce) {
+          if (sent) return;
+          sent = true;
+          window.parent.postMessage({ type: 'selectorUpdated', selector: ${JSON.stringify(selector)}, nonce: nonce }, '*');
+        }
+        var urlNonce = ${JSON.stringify(nonceFromUrl)};
+        if (urlNonce) send(urlNonce);
+        window.addEventListener('message', function (event) {
+          var data = event.data;
+          var candidate = null;
+          if (typeof data === 'string') {
+            candidate = data;
+          } else if (data && typeof data === 'object') {
+            if (typeof data.nonce === 'string') {
+              candidate = data.nonce;
+            } else {
+              for (var key in data) {
+                if (/nonce/i.test(key) && typeof data[key] === 'string') {
+                  candidate = data[key];
+                  break;
+                }
+              }
+            }
+          }
+          if (candidate) send(candidate);
+        });
+      })();
+    </script>
+  </body></html>`;
+}
+
+/**
+ * Sends a fixed, pre-chosen selectorUpdated payload to window.parent as soon
+ * as the document loads, ignoring whatever this session's own transport
+ * would otherwise have supplied. The message still genuinely originates
+ * from this (real, currently-open) iframe's own window — satisfying the
+ * source check — while carrying an arbitrary caller-chosen payload. Used
+ * both to replay a stale nonce from a closed session, and to send a
+ * well-formed selector with a missing/wrong nonce so that layer can be
+ * tested in isolation from schema validation.
+ */
+function autoPostMessageDocument(message: unknown): string {
+  return `<!DOCTYPE html><html><body>fixed-payload target document
+    <script>
+      window.parent.postMessage(${JSON.stringify(message)}, '*');
+    </script>
+  </body></html>`;
 }
 
 test.describe('Selector Playground iframe origin isolation (requirement 1)', () => {
@@ -175,7 +264,15 @@ test.describe('Selector Playground iframe origin isolation (requirement 1)', () 
 
     expect(result.localStorage).not.toBe('secret-value');
     expect(result.parentDomError).toBeTruthy();
-    expect(result.apiBodyLooksLikeFeedJson).toBe(false);
+    // The opaque-origin fetch may either be refused outright (no body ever
+    // produced, so apiBodyLooksLikeFeedJson stays undefined and apiError is
+    // set) or complete but land on a non-authenticated response (e.g. the
+    // passkey HTML page, so apiBodyLooksLikeFeedJson is false). Both are
+    // valid isolation outcomes — only actually obtaining authenticated feed
+    // JSON is a leak.
+    expect(result.apiBodyLooksLikeFeedJson).not.toBe(true);
+    const requestWasIsolatedFromApi = Boolean(result.apiError) || result.apiBodyLooksLikeFeedJson === false;
+    expect(requestWasIsolatedFromApi).toBe(true);
   });
 });
 
@@ -216,77 +313,104 @@ test.describe('Selector Playground postMessage authentication (requirement 5)', 
     expect(after).not.toBe('.from-rogue-window');
   });
 
+  // Both sub-cases below must originate genuinely from inside the current
+  // iframe (event.source === iframe.contentWindow), exactly like the
+  // rogue-window test above needs a message that genuinely does NOT — a
+  // message posted *into* the iframe from the parent/test context never
+  // reaches the parent's own message listener at all, which would make
+  // either sub-case pass vacuously regardless of nonce handling.
   test('a selectorUpdated message from the real iframe with a missing or wrong nonce is ignored', async ({ authenticatedPage }) => {
-    await openMinimalPlayground(authenticatedPage, 'Missing Nonce Test Feed');
-
-    await authenticatedPage.evaluate(() => {
-      const el = document.querySelector('iframe[title="Selector Playground"]') as HTMLIFrameElement | null;
-      el?.contentWindow?.postMessage({ type: 'selectorUpdated', selector: '.no-nonce' }, '*');
-    });
+    await routeProxyWith(
+      authenticatedPage,
+      autoPostMessageDocument({ type: 'selectorUpdated', selector: '.no-nonce' }),
+    );
+    await fillBasicAndReachSelectorsStep(authenticatedPage, 'Missing Nonce Test Feed');
+    await openPlayground(authenticatedPage);
+    await authenticatedPage.waitForTimeout(500);
     expect(await itemSelectorValue(authenticatedPage)).not.toBe('.no-nonce');
 
-    await authenticatedPage.evaluate(() => {
-      const el = document.querySelector('iframe[title="Selector Playground"]') as HTMLIFrameElement | null;
-      el?.contentWindow?.postMessage(
-        { type: 'selectorUpdated', selector: '.wrong-nonce', nonce: 'stale-or-guessed-nonce' },
-        '*',
-      );
-    });
-    expect(await itemSelectorValue(authenticatedPage)).not.toBe('.wrong-nonce');
-  });
+    await authenticatedPage.getByRole('button', { name: 'Close', exact: true }).click();
+    await expect(authenticatedPage.locator('iframe[title="Selector Playground"]')).toHaveCount(0);
 
-  test('a malformed selectorUpdated payload (non-string or oversized selector) is discarded', async ({ authenticatedPage }) => {
-    await openMinimalPlayground(authenticatedPage, 'Malformed Payload Test Feed');
-
-    await authenticatedPage.evaluate(() => {
-      const el = document.querySelector('iframe[title="Selector Playground"]') as HTMLIFrameElement | null;
-      el?.contentWindow?.postMessage({ type: 'selectorUpdated', selector: { evil: true } }, '*');
-    });
-    const afterObjectPayload = await itemSelectorValue(authenticatedPage);
-    expect(afterObjectPayload).toBe('');
-
-    const oversized = '.a'.repeat(50000);
-    await authenticatedPage.evaluate((sel) => {
-      const el = document.querySelector('iframe[title="Selector Playground"]') as HTMLIFrameElement | null;
-      el?.contentWindow?.postMessage({ type: 'selectorUpdated', selector: sel }, '*');
-    }, oversized);
-    const afterOversizedPayload = await itemSelectorValue(authenticatedPage);
-    expect(afterOversizedPayload).not.toBe(oversized);
-  });
-
-  test('a legitimately nonced message from the real iframe is accepted and can be applied to a destination (positive round-trip)', async ({ authenticatedPage }) => {
-    const capturedNonces: string[] = [];
-    await authenticatedPage.exposeFunction('__mkfdCaptureNonceCandidate', (candidate: string) => {
-      capturedNonces.push(candidate);
-    });
     await authenticatedPage.route('**/proxy**', (route) => {
       route.fulfill({
         status: 200,
         contentType: 'text/html',
-        body: nonceCaptureDocument(nonceQueryParam(route.request().url())),
+        body: autoPostMessageDocument({
+          type: 'selectorUpdated',
+          selector: '.wrong-nonce',
+          nonce: 'stale-or-guessed-nonce',
+        }),
+      });
+    });
+    await openPlayground(authenticatedPage);
+    await authenticatedPage.waitForTimeout(500);
+    expect(await itemSelectorValue(authenticatedPage)).not.toBe('.wrong-nonce');
+  });
+
+  // Sent alongside a nonce this specific session's own transport actually
+  // supplied (discovered the same transport-agnostic way as the positive
+  // round-trip below), so a rejection here can only be attributed to schema
+  // validation of the selector itself, not an incidental nonce mismatch —
+  // the round-trip test below independently proves this exact delivery
+  // mechanism succeeds when the selector is a well-formed string.
+  test('a malformed selectorUpdated payload (non-string or oversized selector) is discarded even with a correctly nonced message', async ({ authenticatedPage }) => {
+    await authenticatedPage.route('**/proxy**', (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: 'text/html',
+        body: autoSendSelectorUpdatedDocument(nonceQueryParam(route.request().url()), { evil: true }),
+      });
+    });
+    await fillBasicAndReachSelectorsStep(authenticatedPage, 'Malformed Payload Test Feed');
+    await openPlayground(authenticatedPage);
+    await authenticatedPage.waitForTimeout(500);
+    expect(await itemSelectorValue(authenticatedPage)).toBe('');
+
+    await authenticatedPage.getByRole('button', { name: 'Close', exact: true }).click();
+    await expect(authenticatedPage.locator('iframe[title="Selector Playground"]')).toHaveCount(0);
+
+    const oversized = '.a'.repeat(50000);
+    await authenticatedPage.route('**/proxy**', (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: 'text/html',
+        body: autoSendSelectorUpdatedDocument(nonceQueryParam(route.request().url()), oversized),
+      });
+    });
+    await openPlayground(authenticatedPage);
+    await authenticatedPage.waitForTimeout(500);
+    expect(await itemSelectorValue(authenticatedPage)).not.toBe(oversized);
+  });
+
+  test('a legitimately nonced message originating from the real iframe is accepted and can be applied to a destination (positive round-trip)', async ({ authenticatedPage }) => {
+    await authenticatedPage.route('**/proxy**', (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: 'text/html',
+        body: autoSendSelectorUpdatedDocument(nonceQueryParam(route.request().url()), '.legit-choice'),
       });
     });
 
     await fillBasicAndReachSelectorsStep(authenticatedPage, 'Nonce Round Trip Test Feed');
     await openPlayground(authenticatedPage);
 
+    // The document sends its selectorUpdated message autonomously as soon as
+    // it discovers its own nonce (via the URL or a handshake), so this polls
+    // by repeatedly clicking "Item" and reading the field back — the click
+    // itself is idempotent (it just re-applies whatever the parent's
+    // currently-known selector is) and any extra "No selector chosen yet!"
+    // dialogs along the way are auto-dismissed by the beforeEach above.
     await expect.poll(
-      () => capturedNonces.length,
+      () => itemSelectorValue(authenticatedPage),
       {
         timeout: 10000,
         message:
-          'no nonce was observable via the iframe src query string or a parent -> child ' +
-          'handshake postMessage — the positive nonce path could not be exercised',
+          'the iframe never observed a nonce (no query-string parameter, no handshake ' +
+          'postMessage) or the parent never accepted its own iframe-originated, ' +
+          'correctly-nonced message — the positive nonce path could not be exercised',
       },
-    ).toBeGreaterThan(0);
-    const sessionNonce = capturedNonces[0];
-
-    await authenticatedPage.evaluate((nonce) => {
-      const el = document.querySelector('iframe[title="Selector Playground"]') as HTMLIFrameElement | null;
-      el?.contentWindow?.postMessage({ type: 'selectorUpdated', selector: '.legit-choice', nonce }, '*');
-    }, sessionNonce);
-
-    expect(await itemSelectorValue(authenticatedPage)).toBe('.legit-choice');
+    ).toBe('.legit-choice');
   });
 
   test('a nonce captured from a previous playground session is rejected after the playground is closed and reopened (stale nonce)', async ({ authenticatedPage }) => {
@@ -304,20 +428,41 @@ test.describe('Selector Playground postMessage authentication (requirement 5)', 
 
     await fillBasicAndReachSelectorsStep(authenticatedPage, 'Stale Nonce Test Feed');
     await openPlayground(authenticatedPage);
-    await expect.poll(() => capturedNonces.length, { timeout: 10000 }).toBeGreaterThan(0);
+    await expect.poll(
+      () => capturedNonces.length,
+      {
+        timeout: 10000,
+        message: 'the first playground session never observed a nonce to later replay as stale',
+      },
+    ).toBeGreaterThan(0);
     const staleNonce = capturedNonces[0];
 
     await authenticatedPage.getByRole('button', { name: 'Close', exact: true }).click();
     await expect(authenticatedPage.locator('iframe[title="Selector Playground"]')).toHaveCount(0);
 
+    // The second session's document ignores whatever nonce its own
+    // transport would supply and instead sends the first session's
+    // (stale) nonce, from its own window — genuinely satisfying the
+    // source check while carrying a nonce that belongs to a closed session.
+    await authenticatedPage.route('**/proxy**', (route) => {
+      route.fulfill({
+        status: 200,
+        contentType: 'text/html',
+        body: autoPostMessageDocument({
+          type: 'selectorUpdated',
+          selector: '.stale-nonce-selector',
+          nonce: staleNonce,
+        }),
+      });
+    });
+
     await openPlayground(authenticatedPage);
-    await expect.poll(() => capturedNonces.length, { timeout: 10000 }).toBeGreaterThan(1);
 
-    await authenticatedPage.evaluate((nonce) => {
-      const el = document.querySelector('iframe[title="Selector Playground"]') as HTMLIFrameElement | null;
-      el?.contentWindow?.postMessage({ type: 'selectorUpdated', selector: '.stale-nonce-selector', nonce }, '*');
-    }, staleNonce);
-
+    // Rejection is a stable end-state (nothing will eventually flip it to
+    // accepted), so this waits for the auto-sent message to have had time
+    // to arrive and be processed, then asserts once. Same idempotent-click
+    // pattern as the positive test, without expecting the value to change.
+    await authenticatedPage.waitForTimeout(500);
     expect(await itemSelectorValue(authenticatedPage)).not.toBe('.stale-nonce-selector');
   });
 });
