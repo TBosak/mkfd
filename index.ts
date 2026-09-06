@@ -15,6 +15,7 @@ import {
   createFeedHistoryStore,
   migrateLegacyFeedHistory,
 } from "./lib/analytics/db";
+import { securityHeaders } from "./utilities/security-headers.utility";
 import { assertValidEncryptionKey } from "./utilities/security.utility";
 import { setFeedHistoryStore } from "./utilities/feed-history.utility";
 import {
@@ -346,6 +347,10 @@ const authMiddleware = async (c: Context, next: () => Promise<void>) => {
   return c.redirect("/passkey");
 };
 
+// Mounted ahead of the auth gate so every response carries the baseline
+// headers — including the login page, redirects to it, and the anonymous
+// published feeds.
+app.use("/*", securityHeaders());
 app.use("/*", except([...ANONYMOUS_ROUTES], authMiddleware));
 app.use("/public/*", serveStatic({ root: "./" }));
 

@@ -339,13 +339,70 @@ export function utilsRouter(deps: {
   // GET /passkey
   // -------------------------------------------------------------------------
 
+  // Styled with local CSS rather than a CDN stylesheet. The previous Pico
+  // link was unpinned beyond a major version, carried no integrity attribute,
+  // and sat on the one page every operator sees before they have a session; it
+  // also broke the air-gapped and LAN installs Mkfd supports. Vendoring ~80KB
+  // to style one form would be disproportionate, so the CSS is inline and
+  // covered by the style-src allowance the app-wide policy already grants for
+  // React inline styles.
   app.get("/passkey", (c) => {
     return c.html(`
     <!DOCTYPE html>
     <html>
       <head>
         <title>Enter Passkey</title>
-        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@picocss/pico@2/css/pico.min.css">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <style>
+          :root { color-scheme: light dark; }
+          body {
+            margin: 0;
+            min-height: 100vh;
+            display: grid;
+            place-items: center;
+            font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+            background: #f6f7f9;
+            color: #1b1f24;
+          }
+          main { width: min(22rem, calc(100vw - 2rem)); }
+          h1 { font-size: 1.35rem; margin: 0 0 1rem; letter-spacing: -0.02em; }
+          form {
+            display: flex;
+            flex-direction: column;
+            gap: 0.5rem;
+            background: #fff;
+            padding: 1.5rem;
+            border: 1px solid #d8dce1;
+            border-radius: 0.5rem;
+          }
+          label { font-size: 0.875rem; font-weight: 500; }
+          input {
+            font: inherit;
+            padding: 0.5rem 0.625rem;
+            border: 1px solid #c3c9d0;
+            border-radius: 0.375rem;
+            background: #fff;
+            color: inherit;
+          }
+          input:focus-visible { outline: 2px solid #3b6ea5; outline-offset: 1px; }
+          button {
+            font: inherit;
+            font-weight: 500;
+            margin-top: 0.25rem;
+            padding: 0.5rem 0.75rem;
+            border: 0;
+            border-radius: 0.375rem;
+            background: #2f6feb;
+            color: #fff;
+            cursor: pointer;
+          }
+          button:hover { background: #2860d0; }
+          @media (prefers-color-scheme: dark) {
+            body { background: #14171a; color: #e6e9ec; }
+            form { background: #1c2024; border-color: #2c3238; }
+            input { background: #14171a; border-color: #39414a; }
+          }
+        </style>
       </head>
       <body>
         <main class="container">
