@@ -323,12 +323,12 @@ const authMiddleware = async (c: Context, next: () => Promise<void>) => {
     if (passkeyMatches(body.passkey)) {
       loginFailures.delete(throttleKey);
       session.set("authenticated", true);
-      // NOTE: two accepted test locks disagree about this target. The auth
-      // suite asserts exactly "/", while frontend/e2e/fixtures.ts waits for
-      // "**/public/" after login. Both were locked before login could
-      // actually run, so the contradiction was latent. Left as "/" to keep
-      // the auth lock green; see CF-09 in the ledger.
-      return c.redirect("/");
+      // The SPA is served under /public/ — Vite's base and the router's
+      // basename both say so — so that is where a logged-in user belongs.
+      // Redirecting to "/" lands outside the basename. This was unreachable
+      // while a loopback peer skipped authentication, which is why the wrong
+      // target survived. See CF-09.
+      return c.redirect("/public/");
     }
     recordLoginFailure(throttleKey);
     return c.html('<p>Incorrect passkey. <a href="/passkey">Try again</a>.</p>');
