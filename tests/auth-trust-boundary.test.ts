@@ -194,7 +194,10 @@ describe("core trust boundary via a real running server", () => {
     await res.body?.cancel();
     expect(res.status).toBeGreaterThanOrEqual(300);
     expect(res.status).toBeLessThan(400);
-    expect(res.headers.get("location")).toBe("/");
+    // The SPA is served under /public/ (Vite's base and the router's
+    // basename both agree), so a successful login must land there, not at
+    // the bare root, which is outside the basename.
+    expect(res.headers.get("location")).toBe("/public/");
   });
 
   test("an anonymous session cookie that never authenticated does not grant access to the app", async () => {
@@ -457,12 +460,18 @@ describe("login throttling on POST /passkey", () => {
     const finalAttempt = await login(BASE_SECRETS.PASSKEY, {
       "x-forwarded-for": "203.0.113.250",
     });
+    const status = finalAttempt.status;
     const location = finalAttempt.headers.get("location");
     await finalAttempt.body?.cancel();
 
-    // A successful login redirects to "/". If throttled, it must not. (This
-    // assertion is also satisfied once requirement 1's loopback fix lands
-    // and POST /passkey genuinely processes credentials for this client.)
-    expect(location).not.toBe("/");
+    // Assert both the refusal *and* that it isn't the successful-login
+    // redirect, together. Either check alone would be satisfiable by an
+    // implementation with no lockout at all: a correct passkey could still
+    // 302 to /public/ (a status-only check without also ruling out the
+    // success path would miss that), or an implementation could 302
+    // somewhere other than /public/ for an unrelated reason (a
+    // location-only check without also requiring 429 would miss that).
+    expect(status).toBe(429);
+    expect(location).not.toBe("/public/");
   });
 });

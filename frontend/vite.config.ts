@@ -24,20 +24,24 @@ export default defineConfig({
       },
     },
   },
+  // xfwd sends X-Forwarded-Host/For/Proto, matching what a production reverse
+  // proxy does. Without it the backend sees only its own internal host and
+  // cannot tell which public origin the browser addressed, so the CSRF origin
+  // check rejects every state-changing request made through the dev proxy.
   server: {
     port: 5173,
     proxy: {
-      "/api": "http://localhost:5000",
-      "/preview": "http://localhost:5000",
-      "/feeds": "http://localhost:5000",
-      "/proxy": "http://localhost:5000",
-      "/passkey": "http://localhost:5000",
-      "/delete-feed": "http://localhost:5000",
-      "/trigger-webhook": "http://localhost:5000",
-      "/imap": "http://localhost:5000",
-      "/utils": "http://localhost:5000",
-      "/public": "http://localhost:5000",
-      "/configs": "http://localhost:5000",
+      "/api": { target: "http://localhost:5000", xfwd: true },
+      "/preview": { target: "http://localhost:5000", xfwd: true },
+      "/feeds": { target: "http://localhost:5000", xfwd: true },
+      "/proxy": { target: "http://localhost:5000", xfwd: true },
+      "/passkey": { target: "http://localhost:5000", xfwd: true },
+      "/delete-feed": { target: "http://localhost:5000", xfwd: true },
+      "/trigger-webhook": { target: "http://localhost:5000", xfwd: true },
+      "/imap": { target: "http://localhost:5000", xfwd: true },
+      "/utils": { target: "http://localhost:5000", xfwd: true },
+      "/public": { target: "http://localhost:5000", xfwd: true },
+      "/configs": { target: "http://localhost:5000", xfwd: true },
     },
   },
 });
