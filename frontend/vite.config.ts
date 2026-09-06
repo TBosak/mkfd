@@ -48,7 +48,6 @@ export default defineConfig({
       "/public": { target: "http://localhost:5000", xfwd: true },
       // Self-hosted SelectorGadget assets injected into proxied documents.
       "/vendor": { target: "http://localhost:5000", xfwd: true },
-      "/configs": { target: "http://localhost:5000", xfwd: true },
     },
   },
 });

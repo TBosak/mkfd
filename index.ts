@@ -348,7 +348,6 @@ const authMiddleware = async (c: Context, next: () => Promise<void>) => {
 
 app.use("/*", except([...ANONYMOUS_ROUTES], authMiddleware));
 app.use("/public/*", serveStatic({ root: "./" }));
-app.use("/configs/*", serveStatic({ root: "./" }));
 
 // ---------------------------------------------------------------------------
 // Static SPA root
