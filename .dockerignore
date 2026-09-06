@@ -37,3 +37,16 @@ dist/
 build/
 public/feeds
 configs/
+
+# Dependencies are installed inside the image by `bun install --frozen-lockfile`.
+# Copying the build host's tree would overwrite that Linux dependency tree with
+# whatever the host happens to have — Windows-native on this project's own
+# development machine — silently discarding the frozen-lockfile guarantee.
+node_modules
+
+# Runtime state and development artefacts. .tdd-state holds TDD session
+# artefacts including full model responses; none of this belongs in a
+# published image.
+feed-state/
+tests/
+.tdd-state/

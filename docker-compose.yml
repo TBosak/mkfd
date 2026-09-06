@@ -26,7 +26,11 @@ services:
       # - NODE_OPTIONS=--max-old-space-size=8192
     restart: unless-stopped
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5000/"]
+      # -L matters as much as -f: / answers 302 to /passkey now that
+      # authentication is real, and curl -f without -L treats that redirect as
+      # success — so this check passed against an app that was entirely broken
+      # behind it. Kept identical to the Dockerfile's HEALTHCHECK.
+      test: ["CMD", "curl", "-fsSL", "http://localhost:5000/"]
       interval: 5m
       timeout: 10s
       retries: 3
