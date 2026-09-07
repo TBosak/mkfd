@@ -16,7 +16,11 @@ import {
   getGlobalFetchPolicyOptions,
   mergeFeedPolicyOptions,
 } from "./outbound-fetch-policy.utility";
-import { normalizeUrl, axiosGetWithPolicyRedirects } from "./feed-config-route-adapter.utility";
+import {
+  normalizeUrl,
+  axiosGetWithPolicyRedirects,
+  requestWithPolicyRedirects,
+} from "./feed-config-route-adapter.utility";
 import { runFeedTransformer } from "./feed-transformer.utility";
 import { fetchWebScrapingHtml } from "./web-scraping-fetcher.utility";
 import { buildFeedFromNormalizedItems } from "./normalized-feed-builder.utility";
@@ -26,8 +30,6 @@ import { executeGraphQLFeed, buildGraphQLItems } from "./graphql-feed.utility";
 import { readWebhookEvents, buildWebhookItems } from "./webhook-feed.utility";
 import { scanFilesystemFeed } from "./filesystem-feed.utility";
 import { runServiceConnector } from "./service-connector-runner.utility";
-
-const REDIRECT_STATUSES_IDX = new Set([301, 302, 303, 307, 308]);
 
 // ---------------------------------------------------------------------------
 // generatePreview
@@ -241,32 +243,17 @@ export async function generatePreview(feedConfig: any): Promise<import("feed").F
       // any configured proxy carries its credentials.
       console.log("Preview Axios Config:", redact(axiosConfig));
 
-      // NOTE: The redirect-following loop below duplicates what axiosGetWithPolicyRedirects
-      // does for the webScraping path. The API/REST path can't use that helper directly
-      // because it needs to support non-GET methods with a request body (axiosConfig.data).
-      // If axiosGetWithPolicyRedirects is ever extended to support POST/PUT with body,
-      // this inline loop should be replaced.
-      let previewApiResponse: import("axios").AxiosResponse | undefined;
-      let currentPreviewUrl = url;
-      for (let hop = 0; hop <= 5; hop++) {
-        axiosConfig.url = currentPreviewUrl;
-        const r = await axios(axiosConfig);
-        if (!REDIRECT_STATUSES_IDX.has(r.status)) {
-          previewApiResponse = r;
-          break;
-        }
-        const location = r.headers["location"];
-        if (!location)
-          throw new Error(
-            `Redirect from "${currentPreviewUrl}" had no Location header.`,
-          );
-        const nextUrl = new URL(location, currentPreviewUrl).toString();
-        await assertOutboundFetchAllowed(nextUrl, previewPolicyOptions);
-        currentPreviewUrl = nextUrl;
-        if (hop === 5)
-          throw new Error(`Too many redirects (>5) following "${url}".`);
-      }
-      const apiData = previewApiResponse!.data;
+      // This used to be an inline redirect loop, kept only because the shared
+      // helper was GET-only — its own comment said to replace it once a
+      // method-aware form existed. That form is requestWithPolicyRedirects,
+      // so the duplicate is gone: the initial URL is now validated too, which
+      // the inline loop never did.
+      const previewApiResponse = await requestWithPolicyRedirects(
+        url,
+        axiosConfig,
+        previewPolicyOptions,
+      );
+      const apiData = previewApiResponse.data;
       previewFeed = buildFeedObjectFromApiData(apiData, feedConfig).feed;
     }
 

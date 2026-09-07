@@ -1,4 +1,5 @@
-import axios from "axios";
+import { axiosGetWithPolicyRedirects } from "./feed-config-route-adapter.utility";
+import { getGlobalFetchPolicyOptions } from "./outbound-fetch-policy.utility";
 import type { CalendarEventItem, CalendarFeedConfig, CalendarParseOptions } from "../models/calendar.model";
 import type { NormalizedFeedItem } from "../models/normalized-feed-item.model";
 
@@ -15,7 +16,12 @@ export function parseIcsEvents(ics: string, options: CalendarParseOptions): Cale
 }
 
 export async function fetchAndBuildCalendarItems(config: CalendarFeedConfig): Promise<NormalizedFeedItem[]> {
-  const response = await axios.get(config.url, { responseType: "text", timeout: 60000 });
+  // Routed through the shared executor: calendar.url is feed-author supplied.
+  const response = await axiosGetWithPolicyRedirects(
+    config.url,
+    { responseType: "text", timeout: 60000 },
+    getGlobalFetchPolicyOptions(),
+  );
   return buildCalendarItems(parseIcsEvents(String(response.data), config), config);
 }
 

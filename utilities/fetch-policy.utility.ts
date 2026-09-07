@@ -102,7 +102,11 @@ export async function executeWithFetchPolicy<T = unknown>(args: {
         maxContentLength: policy.maxResponseSizeBytes,
         maxBodyLength: policy.maxResponseSizeBytes,
         validateStatus: () => true,
-      }, outboundPolicy, policy.maxRedirects);
+        // `deadline` below is the whole-operation budget. Passing it through
+        // means every redirect hop is measured against the same clock rather
+        // than each getting a fresh timeout, which a chain of slow hops would
+        // otherwise multiply into an unbounded total.
+      }, outboundPolicy, policy.maxRedirects, deadline);
       lastStatus = response.status;
       attempts.push({ url: args.url, mode: policy.mode, attempt, status: response.status });
       if (!shouldRetry(response.status)) {
@@ -118,7 +122,15 @@ export async function executeWithFetchPolicy<T = unknown>(args: {
       lastError = error;
       attempts.push({ url: args.url, mode: policy.mode, attempt, error: error?.message ?? "request failed" });
     }
-    if (attempt <= policy.retryCount) await sleep(backoffMs(policy, attempt));
+    if (attempt <= policy.retryCount) {
+      // The backoff itself has to fit inside the total deadline. Sleeping
+      // first and checking afterwards would let the retry schedule extend the
+      // very budget it is supposed to run inside — the whole operation is
+      // what the deadline covers, not each attempt.
+      const waitMs = backoffMs(policy, attempt);
+      if (Date.now() + waitMs >= deadline) break;
+      await sleep(waitMs);
+    }
   }
 
   throw new Error(`Fetch failed after ${attempts.length} attempt(s): ${lastError instanceof Error ? lastError.message : lastStatus ?? "unknown error"}`);

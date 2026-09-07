@@ -246,6 +246,18 @@ function isBlockedIPv6(ip: string): boolean {
 // assertOutboundFetchAllowed
 // ──────────────────────────────────────────────────────────────────────────────
 
+/**
+ * What validation concluded about a target.
+ *
+ * `address` is the IP the caller must connect to. It is `undefined` only when
+ * validation legitimately did not resolve the name — an allowlisted hostname,
+ * or DNS explicitly skipped — in which case there is nothing to pin and the
+ * caller resolves normally.
+ */
+export interface ValidatedTarget {
+	address: string | undefined;
+}
+
 export interface OutboundFetchPolicyOptions {
   /** Allow fetching from private/loopback/link-local ranges. Default: false. */
   allowPrivateFetches?: boolean;
@@ -320,10 +332,17 @@ export function mergeFeedPolicyOptions(
  *
  * Caller merge precedence: feed override > global setting/env > safe default
  */
-export async function assertOutboundFetchAllowed(
+/**
+ * Validates a target and returns the address the caller must connect to.
+ *
+ * Separate from `assertOutboundFetchAllowed` so the established void-returning
+ * contract that callers and its own suite depend on is left alone; this is the
+ * form the shared executor needs in order to pin the connection.
+ */
+export async function assertAndResolveOutboundTarget(
   rawUrl: string,
   options?: OutboundFetchPolicyOptions
-): Promise<void> {
+): Promise<ValidatedTarget> {
   const allowPrivateFetches = options?.allowPrivateFetches ?? false;
   const allowlist = options?.allowlist ?? [];
   const skipDns = options?._skipDns ?? false;
@@ -335,6 +354,17 @@ export async function assertOutboundFetchAllowed(
     parsed = new URL(rawUrl);
   } catch {
     throw new Error(`Outbound fetch blocked: invalid URL "${rawUrl}"`);
+  }
+
+  // Credentials in the URL are refused outright rather than stripped and
+  // followed. Stripping would send the request anyway, and a URL carrying
+  // `user:pass@` is either an attempt to reach something the operator did not
+  // configure or a credential about to be written to a log or a Referer.
+  if (parsed.username !== "" || parsed.password !== "") {
+    throw new Error(
+      `Outbound fetch blocked: URL for host "${parsed.hostname}" carries embedded credentials. ` +
+        "Configure credentials as request headers or a request profile instead.",
+    );
   }
 
   const scheme = parsed.protocol; // includes trailing ':'
@@ -364,22 +394,24 @@ export async function assertOutboundFetchAllowed(
     if (isBlockedAddress(hostname)) {
       // Check allowlist before blocking
       if (allowlist.some((entry) => entry === hostname)) {
-        return; // explicitly allowed
+        return { address: hostname }; // explicitly allowed
       }
       if (allowPrivateFetches) {
-        return; // admin override — but metadata hosts were already rejected above
+        return { address: hostname }; // admin override — metadata hosts already rejected above
       }
       throw new Error(
         `Outbound fetch blocked: IP address "${hostname}" is in a private/reserved range.`
       );
     }
     // Public literal IP — allowed
-    return;
+    return { address: hostname };
   }
 
   // ── Step 4: Check host allowlist (skip DNS if on list) ────────────────────
   if (allowlist.some((entry) => entry === hostname)) {
-    return; // explicitly allowed, skip DNS
+    // Explicitly allowed, so DNS is skipped — and with it the address that
+    // pinning would otherwise use. The caller resolves normally here.
+    return { address: undefined };
   }
 
   // ── Step 5: DNS resolution ────────────────────────────────────────────────
@@ -405,7 +437,18 @@ export async function assertOutboundFetchAllowed(
         );
       }
     }
+
+    // The address the caller must actually connect to. Returning it is what
+    // closes the DNS time-of-check/time-of-use gap: validating here and then
+    // letting the HTTP client resolve the name again lets a record that
+    // answers publicly once and privately the next time defeat every check
+    // above.
+    return { address: resolvedAddresses[0] };
   }
+
+  // DNS was skipped entirely (`_skipDns` with no injected lookup), so there is
+  // no validated address to pin to.
+  return { address: undefined };
 }
 
 /**
@@ -431,4 +474,17 @@ async function resolveHostname(hostname: string): Promise<string[]> {
       `Outbound fetch blocked: DNS resolution failed for hostname "${hostname}".`
     );
   }
+}
+
+/**
+ * Throws unless the URL is permitted by the outbound fetch policy.
+ *
+ * Returns nothing: callers that need the validated address for connection
+ * pinning use `assertAndResolveOutboundTarget` instead.
+ */
+export async function assertOutboundFetchAllowed(
+  rawUrl: string,
+  options?: OutboundFetchPolicyOptions
+): Promise<void> {
+  await assertAndResolveOutboundTarget(rawUrl, options);
 }

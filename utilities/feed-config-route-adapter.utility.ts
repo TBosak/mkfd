@@ -8,7 +8,13 @@
 
 import axios from "axios";
 import {
+  requestPinnedAddress,
+  requestPinnedWithConfig,
+} from "../lib/outbound/pinned-request";
+import {
   assertOutboundFetchAllowed,
+  assertAndResolveOutboundTarget,
+  type ValidatedTarget,
   mergeFeedPolicyOptions,
   type OutboundFetchPolicyOptions,
 } from "./outbound-fetch-policy.utility";
@@ -28,16 +34,55 @@ export function normalizeUrl(url: string): string {
 
 const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
 
+/**
+ * The method-aware form of the executor, for flows that need a body — the
+ * preview API path and the worker's API fetch.
+ *
+ * Both of those previously carried their own inline redirect loop, with a
+ * comment saying it existed only because the shared helper was GET-only. This
+ * is that helper: one validation path, one pin, one deadline, whatever the
+ * method.
+ */
+export async function requestWithPolicyRedirects(
+  url: string,
+  config: import("axios").AxiosRequestConfig,
+  policyOptions: OutboundFetchPolicyOptions,
+  maxRedirects = 5,
+  deadlineAt?: number,
+): Promise<import("axios").AxiosResponse> {
+  let validated = await assertAndResolveOutboundTarget(url, policyOptions);
+
+  let currentUrl = url;
+  let currentResponse = await requestPinnedWithConfig(currentUrl, validated.address, config, deadlineAt);
+
+  for (let hop = 0; hop < maxRedirects; hop++) {
+    if (!REDIRECT_STATUSES.has(currentResponse.status)) return currentResponse;
+
+    const location = currentResponse.headers["location"];
+    if (!location) {
+      throw new Error(`Redirect from "${currentUrl}" had no Location header.`);
+    }
+    const nextUrl = new URL(location, currentUrl).toString();
+    validated = await assertAndResolveOutboundTarget(nextUrl, policyOptions);
+    currentUrl = nextUrl;
+    currentResponse = await requestPinnedWithConfig(currentUrl, validated.address, config, deadlineAt);
+  }
+
+  if (!REDIRECT_STATUSES.has(currentResponse.status)) return currentResponse;
+  throw new Error(`Too many redirects (>${maxRedirects}) following "${url}".`);
+}
+
 export async function axiosGetWithPolicyRedirects(
   url: string,
   config: import("axios").AxiosRequestConfig,
   policyOptions: OutboundFetchPolicyOptions,
   maxRedirects = 5,
+  deadlineAt?: number,
 ): Promise<import("axios").AxiosResponse> {
-  await assertOutboundFetchAllowed(url, policyOptions);
+  let validated = await assertAndResolveOutboundTarget(url, policyOptions);
 
   let currentUrl = url;
-  let currentResponse = await axios.get(currentUrl, { ...config, maxRedirects: 0 });
+  let currentResponse = await requestPinnedAddress(currentUrl, validated.address, config, deadlineAt);
 
   for (let hop = 0; hop < maxRedirects; hop++) {
     if (!REDIRECT_STATUSES.has(currentResponse.status)) {
@@ -48,9 +93,12 @@ export async function axiosGetWithPolicyRedirects(
       throw new Error(`Redirect from "${currentUrl}" had no Location header.`);
     }
     const nextUrl = new URL(location, currentUrl).toString();
-    await assertOutboundFetchAllowed(nextUrl, policyOptions);
+    // Every hop is revalidated against the full policy, not merely counted:
+    // a permitted first hop redirecting to a private address must be refused
+    // at the hop that introduces it.
+    validated = await assertAndResolveOutboundTarget(nextUrl, policyOptions);
     currentUrl = nextUrl;
-    currentResponse = await axios.get(currentUrl, { ...config, maxRedirects: 0 });
+    currentResponse = await requestPinnedAddress(currentUrl, validated.address, config, deadlineAt);
   }
 
   if (!REDIRECT_STATUSES.has(currentResponse.status)) {

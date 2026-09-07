@@ -1,4 +1,5 @@
-import axios from "axios";
+import { axiosGetWithPolicyRedirects } from "./feed-config-route-adapter.utility";
+import { getGlobalFetchPolicyOptions } from "./outbound-fetch-policy.utility";
 import * as cheerio from "cheerio";
 import type { SitemapEntry, SitemapFeedConfig, SitemapFilterRule, SitemapParseResult } from "../models/sitemap.model";
 import type { NormalizedFeedItem } from "../models/normalized-feed-item.model";
@@ -50,7 +51,14 @@ function sortSitemapEntries(entries: SitemapEntry[], sortOrder: SitemapFeedConfi
 }
 
 export async function fetchAndBuildSitemapItems(config: SitemapFeedConfig): Promise<NormalizedFeedItem[]> {
-  const response = await axios.get(config.url, { responseType: "text", timeout: 60000 });
+  // Routed through the shared executor so the sitemap URL — which a feed
+  // author controls — is validated, address-pinned and redirect-revalidated
+  // like every other outbound request.
+  const response = await axiosGetWithPolicyRedirects(
+    config.url,
+    { responseType: "text", timeout: 60000 },
+    getGlobalFetchPolicyOptions(),
+  );
   const parsed = parseSitemapXml(String(response.data), config.url);
   const entries = sortSitemapEntries(applySitemapFilters(parsed.entries, config.filters), config.sortOrder).slice(0, config.maxItems);
   return buildSitemapItems(entries, config);

@@ -1,4 +1,6 @@
 import axios from "axios";
+import { axiosGetWithPolicyRedirects } from "./feed-config-route-adapter.utility";
+import { getGlobalFetchPolicyOptions } from "./outbound-fetch-policy.utility";
 import dayjs from "dayjs";
 import * as cheerio from "cheerio";
 import customParseFormat from "dayjs/plugin/customParseFormat";
@@ -269,10 +271,14 @@ export async function resolveDrillChain(
 				currentHtml = await page.content();
 			} else {
 				try {
-					const resp = await axios.get(startingHtmlOrUrl, {
-						maxContentLength: 2 * 1024 * 1024,
-						maxBodyLength: 2 * 1024 * 1024,
-					});
+					const resp = await axiosGetWithPolicyRedirects(
+						startingHtmlOrUrl,
+						{
+							maxContentLength: 2 * 1024 * 1024,
+							maxBodyLength: 2 * 1024 * 1024,
+						},
+						getGlobalFetchPolicyOptions(),
+					);
 					currentHtml = resp.data;
 				} catch (err) {
 					console.warn(
@@ -405,10 +411,14 @@ export async function resolveDrillChain(
 					}
 				} else {
 					try {
-						const resp = await axios.get(absoluteUrl, {
-							maxContentLength: 2 * 1024 * 1024,
-							maxBodyLength: 2 * 1024 * 1024,
-						});
+						const resp = await axiosGetWithPolicyRedirects(
+							absoluteUrl,
+							{
+								maxContentLength: 2 * 1024 * 1024,
+								maxBodyLength: 2 * 1024 * 1024,
+							},
+							getGlobalFetchPolicyOptions(),
+						);
 						currentHtml = resp.data;
 					} catch (err) {
 						console.warn(

@@ -27,6 +27,7 @@ import {
 	type OutboundFetchPolicyOptions,
 } from "../utilities/outbound-fetch-policy.utility";
 import { runFeedTransformer } from "../utilities/feed-transformer.utility";
+import { requestWithPolicyRedirects } from "../utilities/feed-config-route-adapter.utility";
 import { fetchWebScrapingHtml } from "../utilities/web-scraping-fetcher.utility";
 import { initDb } from "../lib/analytics/db";
 import { buildFeedFromNormalizedItems } from "../utilities/normalized-feed-builder.utility";
@@ -52,60 +53,10 @@ declare var self: Worker;
 initDb();
 const rssDir = "./public/feeds";
 
-const REDIRECT_STATUSES = new Set([301, 302, 303, 307, 308]);
-
 function asError(error: unknown): Error {
 	return error instanceof Error ? error : new Error(String(error));
 }
 
-/**
- * Performs an axios GET that manually follows redirects, re-checking the
- * outbound fetch policy before each hop. Prevents redirect-based SSRF.
- *
- * Validates the initial URL first (defence-in-depth). Then makes the initial
- * request outside the redirect loop. The redirect loop runs at most
- * `maxRedirects` times, so total network calls = 1 + maxRedirects.
- */
-async function axiosGetWithPolicyRedirects(
-	url: string,
-	config: AxiosRequestConfig,
-	policyOptions: OutboundFetchPolicyOptions,
-	maxRedirects = 5,
-): Promise<import("axios").AxiosResponse> {
-	// Defence-in-depth: validate the initial URL even if the caller already did.
-	await assertOutboundFetchAllowed(url, policyOptions);
-
-	let currentUrl = url;
-	// Initial request (not a redirect hop).
-	let currentResponse = await axios.get(currentUrl, {
-		...config,
-		maxRedirects: 0,
-	});
-
-	// Follow up to maxRedirects redirect hops.
-	for (let hop = 0; hop < maxRedirects; hop++) {
-		if (!REDIRECT_STATUSES.has(currentResponse.status)) {
-			return currentResponse;
-		}
-		const location = currentResponse.headers["location"];
-		if (!location) {
-			throw new Error(`Redirect from "${currentUrl}" had no Location header.`);
-		}
-		// Resolve relative redirects against the current URL
-		const nextUrl = new URL(location, currentUrl).toString();
-		await assertOutboundFetchAllowed(nextUrl, policyOptions);
-		currentUrl = nextUrl;
-		currentResponse = await axios.get(currentUrl, {
-			...config,
-			maxRedirects: 0,
-		});
-	}
-
-	if (!REDIRECT_STATUSES.has(currentResponse.status)) {
-		return currentResponse;
-	}
-	throw new Error(`Too many redirects (>${maxRedirects}) following "${url}".`);
-}
 
 async function fetchDataAndUpdateFeed(rawConfig: Record<string, unknown>) {
 	const feedConfig = normalizeLoadedFeedConfig(rawConfig);
@@ -524,30 +475,16 @@ async function fetchDataAndUpdateFeed(rawConfig: Record<string, unknown>) {
 			axiosConfig.timeout = 60000;
 			axiosConfig.maxRedirects = 0;
 
-			let response: import("axios").AxiosResponse;
-			// For non-GET/HEAD requests we don't auto-follow; only GET redirects are safe to re-issue.
-			// Wrap in redirect loop same as GET path for consistency.
-			let currentApiUrl = url;
-			for (let hop = 0; hop <= 5; hop++) {
-				axiosConfig.url = currentApiUrl;
-				const r = await axios(axiosConfig);
-				if (!REDIRECT_STATUSES.has(r.status)) {
-					response = r;
-					break;
-				}
-				const location = r.headers["location"];
-				if (!location)
-					throw new Error(
-						`Redirect from "${currentApiUrl}" had no Location header.`,
-					);
-				const nextUrl = new URL(location, currentApiUrl).toString();
-				await assertOutboundFetchAllowed(nextUrl, effectivePolicyOptions);
-				currentApiUrl = nextUrl;
-				if (hop === 5)
-					throw new Error(`Too many redirects (>5) following "${url}".`);
-			}
-			httpStatus = response!.status;
-			const apiData = response!.data;
+			// The third copy of this redirect loop in the codebase, now replaced
+			// by the shared method-aware executor — so this path gets address
+			// pinning and one total deadline, neither of which the local loop had.
+			const response = await requestWithPolicyRedirects(
+				url,
+				axiosConfig,
+				effectivePolicyOptions,
+			);
+			httpStatus = response.status;
+			const apiData = response.data;
 			const apiResult = buildFeedObjectFromApiData(
 				apiData,
 				feedConfig,

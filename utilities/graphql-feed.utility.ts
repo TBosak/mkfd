@@ -1,19 +1,34 @@
-import axios from "axios";
+import { postPinnedAddress } from "../lib/outbound/pinned-request";
+import {
+  assertAndResolveOutboundTarget,
+  getGlobalFetchPolicyOptions,
+} from "./outbound-fetch-policy.utility";
 import type { ExecuteGraphQLFeedOptions, GraphQLFeedConfig } from "../models/graphql.model";
 import type { NormalizedFeedItem } from "../models/normalized-feed-item.model";
 import { mapStructuredDataToItems } from "./structured-feed.utility";
 
 export async function executeGraphQLFeed(options: ExecuteGraphQLFeedOptions): Promise<{ data: unknown; errors?: unknown[]; responseBytes: number; fetchMs: number }> {
   const started = Date.now();
-  const response = await axios.post(options.endpoint, {
-    query: options.query,
-    variables: options.variables,
-    operationName: options.operationName,
-  }, {
-    headers: { "Content-Type": "application/json", ...(options.headers ?? {}) },
-    timeout: options.timeoutMs ?? 60000,
-    validateStatus: (status) => status >= 200 && status < 400,
-  });
+  // The endpoint is feed-author supplied, so it is validated before the
+  // request and the connection is pinned to the address that was validated.
+  const validated = await assertAndResolveOutboundTarget(
+    options.endpoint,
+    getGlobalFetchPolicyOptions(),
+  );
+  const response = await postPinnedAddress(
+    options.endpoint,
+    validated.address,
+    {
+      query: options.query,
+      variables: options.variables,
+      operationName: options.operationName,
+    },
+    {
+      headers: { "Content-Type": "application/json", ...(options.headers ?? {}) },
+      timeout: options.timeoutMs ?? 60000,
+      validateStatus: (status: number) => status >= 200 && status < 400,
+    },
+  );
   const body = response.data;
   if (body?.errors?.length && !body?.data) {
     throw new Error(`GraphQL returned ${body.errors.length} error(s): ${body.errors[0]?.message ?? "unknown error"}`);

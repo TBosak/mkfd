@@ -1,4 +1,5 @@
 import axios from "axios";
+import { axiosGetWithPolicyRedirects } from "./feed-config-route-adapter.utility";
 import * as cheerio from "cheerio";
 import type { Cheerio, CheerioAPI } from "cheerio";
 import type { AnyNode, Element } from "domhandler";
@@ -7,34 +8,6 @@ import {
 	assertOutboundFetchAllowed,
 	type OutboundFetchPolicyOptions,
 } from "./outbound-fetch-policy.utility";
-
-const REDIRECT_STATUSES_SE = new Set([301, 302, 303, 307, 308]);
-
-/**
- * Performs an axios GET that manually follows redirects, re-checking the
- * outbound fetch policy on each hop. Prevents redirect-based SSRF.
- */
-async function axiosGetWithPolicyRedirects(
-	url: string,
-	policyOptions: OutboundFetchPolicyOptions,
-	maxRedirects = 5,
-): Promise<import("axios").AxiosResponse> {
-	let currentUrl = url;
-	for (let hop = 0; hop <= maxRedirects; hop++) {
-		const response = await axios.get(currentUrl, { maxRedirects: 0 });
-		if (!REDIRECT_STATUSES_SE.has(response.status)) {
-			return response;
-		}
-		const location = response.headers["location"];
-		if (!location) {
-			throw new Error(`Redirect from "${currentUrl}" had no Location header.`);
-		}
-		const nextUrl = new URL(location, currentUrl).toString();
-		await assertOutboundFetchAllowed(nextUrl, policyOptions);
-		currentUrl = nextUrl;
-	}
-	throw new Error(`Too many redirects (>${maxRedirects}) following "${url}".`);
-}
 
 interface SuggestedSelectors {
 	iterator: string;
@@ -433,9 +406,13 @@ export async function suggestSelectors(
 			);
 		}
 	} else {
-		// Redirect-aware fetch to prevent redirect-based SSRF
+		// The shared executor, replacing a local copy of the redirect loop that
+		// lived here. That copy revalidated each redirect but never validated
+		// the initial URL at all — the target this function is handed is
+		// exactly the one an attacker controls.
 		const response = await axiosGetWithPolicyRedirects(
 			url,
+			{},
 			effectivePolicyOptions,
 		);
 		html = response.data;
