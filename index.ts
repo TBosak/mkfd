@@ -16,6 +16,7 @@ import {
   migrateLegacyFeedHistory,
 } from "./lib/analytics/db";
 import { securityHeaders } from "./utilities/security-headers.utility";
+import { getDatabaseReadiness } from "./lib/analytics/db";
 import { assertValidEncryptionKey } from "./utilities/security.utility";
 import { setFeedHistoryStore } from "./utilities/feed-history.utility";
 import {
@@ -147,7 +148,7 @@ const store = new CookieStore();
  * skipped auth entirely, so removing that bypass without this exception would
  * have permanently broken webhook ingress.
  */
-const ANONYMOUS_ROUTES = ["/public/feeds/*", "/webhook-feeds/*"] as const;
+const ANONYMOUS_ROUTES = ["/public/feeds/*", "/webhook-feeds/*", "/readyz"] as const;
 
 /** True when the request itself arrived over TLS. */
 function requestIsSecure(c: Context): boolean {
@@ -357,6 +358,15 @@ app.use("/public/*", serveStatic({ root: "./" }));
 // ---------------------------------------------------------------------------
 // Static SPA root
 // ---------------------------------------------------------------------------
+
+// Readiness. Deliberately anonymous: a probe behind the session gate is
+// useless to a container orchestrator, which has no cookie to present. It
+// reports only ready/not-ready plus a path-free reason — no counts, no
+// configuration, nothing an unauthenticated caller could mine.
+app.get("/readyz", (ctx) => {
+  const readiness = getDatabaseReadiness();
+  return ctx.json(readiness, readiness.ready ? 200 : 503);
+});
 
 app.get("/", (ctx) => ctx.html(file("./public/index.html").text()));
 

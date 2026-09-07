@@ -23,10 +23,9 @@ export const runLogs = sqliteTable("run_logs", {
   index("idx_run_logs_started_at").on(table.startedAt),
 ]);
 
-export const settings = sqliteTable("settings", {
-  key: text("key").primaryKey(),
-  value: text("value").notNull(),
-});
+// The former `settings` table is gone: it duplicated `app_settings` exactly
+// and was never read or written. Migration 0003 carries its rows across and
+// drops it. `app_settings` below is the one settings store.
 
 export type RunLog = typeof runLogs.$inferSelect;
 export type NewRunLog = typeof runLogs.$inferInsert;

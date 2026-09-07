@@ -2,9 +2,9 @@ import { Database } from "bun:sqlite";
 import { drizzle } from "drizzle-orm/bun-sqlite";
 import { migrate } from "drizzle-orm/bun-sqlite/migrator";
 import { and, desc, eq, inArray, lt } from "drizzle-orm";
-import { mkdirSync, existsSync, readdirSync } from "node:fs";
+import { mkdirSync, existsSync, readdirSync, rmSync, copyFileSync } from "node:fs";
 import { readdir, readFile } from "node:fs/promises";
-import { dirname, basename, extname, join } from "node:path";
+import { dirname, basename, extname, join, isAbsolute } from "node:path";
 import { createHash } from "node:crypto";
 import * as schema from "./schema";
 import type { RunLog } from "./schema";
@@ -36,10 +36,43 @@ export type RunLogInput = {
 
 let _sqlite: Database | null = null;
 
+/**
+ * Why the database is unusable, or null when it is fine.
+ *
+ * A failed migration used to throw out of `initDb` and take the process with
+ * it, which meant a degraded database was observable only as a dead container
+ * and a stack trace in the logs. Recording the reason lets readiness report it
+ * while the process keeps serving — an operator can then reach the app to see
+ * what is wrong instead of watching it restart-loop.
+ */
+let _degradedReason: string | null = null;
+
+/**
+ * Strips absolute filesystem paths out of an error message.
+ *
+ * `redact()` from the logging utility hides values by *field name*, which does
+ * not help with a path embedded in a free-text message, so this is the narrow
+ * complement rather than a second redactor: it removes Windows drive paths and
+ * POSIX absolute paths, leaving the diagnostic sentence intact.
+ */
+function redactPaths(message: string): string {
+  return message
+    .replace(/[A-Za-z]:[\\/][^\s"']*/g, "<path>")
+    .replace(/(?<![\w.])\/(?:[^\s"']+\/)*[^\s"']+/g, "<path>");
+}
+
+/** The database's state, for the readiness surface. Never includes a path. */
+export function getDatabaseReadiness(): { ready: boolean; reason?: string } {
+  if (_degradedReason) return { ready: false, reason: _degradedReason };
+  if (!_sqlite) return { ready: false, reason: "Runtime database has not been initialised." };
+  return { ready: true };
+}
+
 export function initDb(dbPath: string = process.env.RUNTIME_DB_PATH ?? "./data/runtime.db"): Database {
   const absoluteDbPath = join(process.cwd(), dbPath);
   mkdirSync(dirname(absoluteDbPath), { recursive: true });
-  
+
+  _degradedReason = null;
   _sqlite = new Database(absoluteDbPath);
   const db = drizzle(_sqlite, { schema });
   
@@ -60,10 +93,14 @@ export function initDb(dbPath: string = process.env.RUNTIME_DB_PATH ?? "./data/r
     migrate(db, { migrationsFolder });
     console.log("[Analytics] Migrations complete");
   } catch (err) {
+    // Recorded rather than thrown. Throwing here killed startup, so the only
+    // symptom of a bad database was a restart loop — nothing could be asked
+    // what was wrong. The process now stays up and reports not-ready, and the
+    // reason deliberately carries no filesystem path: readiness is frequently
+    // exposed to an orchestrator and scraped into logs.
+    const message = err instanceof Error ? err.message : String(err);
+    _degradedReason = `Runtime database could not be opened or migrated: ${redactPaths(message)}`;
     console.error("[Analytics] Migration failed:", err);
-    // Don't throw if we are in a worker and the main process might be migrating
-    // but for now, let's throw to see the error in logs
-    throw err;
   }
   return _sqlite;
 }
@@ -315,4 +352,48 @@ export async function migrateLegacyFeedHistory(
     `[FeedHistory] Migrated ${snapshots} snapshots, ${dateIndexes} date indexes (${skipped} skipped).`,
   );
   return { snapshots, dateIndexes, skipped };
+}
+
+// ---------------------------------------------------------------------------
+// Backup and restore
+//
+// Documented in docs/operations/database-backup-restore.md. The runtime
+// database holds feed history and settings, so a copy taken while the app is
+// writing can be torn — SQLite's own VACUUM INTO takes a consistent snapshot
+// instead, which is why this is a function rather than "copy the file".
+// ---------------------------------------------------------------------------
+
+/**
+ * Writes a consistent snapshot of the runtime database to `destinationPath`.
+ *
+ * The result is a standalone SQLite file that opens independently of the
+ * source, with no WAL or journal sidecar required.
+ */
+export function backupRuntimeDatabase(sqlite: Database, destinationPath: string): void {
+  const absolute = isAbsolute(destinationPath)
+    ? destinationPath
+    : join(process.cwd(), destinationPath);
+  mkdirSync(dirname(absolute), { recursive: true });
+  if (existsSync(absolute)) rmSync(absolute);
+  // VACUUM INTO snapshots under a read transaction, so it is safe while the
+  // app is running. A plain file copy is not.
+  sqlite.run(`VACUUM INTO '${absolute.replace(/'/g, "''")}'`);
+}
+
+/**
+ * Restores a backup over the runtime database file.
+ *
+ * The caller is responsible for the database being closed first; restoring
+ * underneath an open handle is how a half-written file happens.
+ */
+export function restoreRuntimeDatabase(backupPath: string, destinationPath: string): void {
+  const source = isAbsolute(backupPath) ? backupPath : join(process.cwd(), backupPath);
+  const target = isAbsolute(destinationPath)
+    ? destinationPath
+    : join(process.cwd(), destinationPath);
+  if (!existsSync(source)) {
+    throw new Error("Backup file not found; refusing to restore from a missing snapshot.");
+  }
+  mkdirSync(dirname(target), { recursive: true });
+  copyFileSync(source, target);
 }
