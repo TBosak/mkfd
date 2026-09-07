@@ -28,6 +28,7 @@ import {
 } from "../utilities/outbound-fetch-policy.utility";
 import { runFeedTransformer } from "../utilities/feed-transformer.utility";
 import { requestWithPolicyRedirects } from "../utilities/feed-config-route-adapter.utility";
+import { getFeedSourceDefinition } from "../utilities/feed-source-registry.utility";
 import { fetchWebScrapingHtml } from "../utilities/web-scraping-fetcher.utility";
 import { initDb } from "../lib/analytics/db";
 import { buildFeedFromNormalizedItems } from "../utilities/normalized-feed-builder.utility";
@@ -113,6 +114,25 @@ async function fetchDataAndUpdateFeed(rawConfig: Record<string, unknown>) {
 
 		if (feedUrl) {
 			await assertOutboundFetchAllowed(feedUrl, effectivePolicyOptions);
+		}
+
+		// Refuse unknown and unimplemented types by name, before doing any work.
+		// The sixteen-branch chain below used to fall off its end into a generic
+		// "RSS XML could not be generated", which is indistinguishable from a
+		// selector that matched nothing — so a typo'd feedType looked like a
+		// broken feed rather than a rejected one.
+		const sourceDefinition = getFeedSourceDefinition(feedConfig.feedType);
+		if (!sourceDefinition) {
+			throw new Error(
+				`Unknown feed source type "${feedConfig.feedType}": it is not declared in the ` +
+					"source-definition registry.",
+			);
+		}
+		if (!sourceDefinition.implemented) {
+			throw new Error(
+				`Feed source type "${feedConfig.feedType}" is registered but not implemented, ` +
+					"so it cannot be executed.",
+			);
 		}
 
 		// Common: Convert cookie array to string for Axios, or format for Playwright

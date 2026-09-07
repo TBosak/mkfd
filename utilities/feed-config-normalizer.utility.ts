@@ -1,3 +1,4 @@
+import { getFeedSourceDefinition } from "./feed-source-registry.utility";
 import type {
 	FeedConfig,
 	WebScrapingFeedConfig,
@@ -162,10 +163,14 @@ export function normalizeLoadedFeedConfig(
 		} as FeedTransformerFeedConfig;
 	}
 
-	// Stub types and unknown — pass through base with their source block
+	// Remaining types pass through with their own source block. The block key
+	// comes from the registry rather than being assumed equal to the type id:
+	// webhook stores its block under `webhookFeed`, and assuming otherwise
+	// dropped it entirely on every round trip.
+	const sourceBlock = getFeedSourceDefinition(feedType)?.sourceBlock ?? feedType;
 	return {
 		...base,
 		feedType,
-		[feedType]: (input[feedType] as Record<string, unknown>) ?? {},
+		[sourceBlock]: (input[sourceBlock] as Record<string, unknown>) ?? {},
 	} as FeedConfig;
 }

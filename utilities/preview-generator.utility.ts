@@ -8,6 +8,7 @@
 import axios from "axios";
 import { chromium } from "patchright";
 import { redact } from "./log-redaction.utility";
+import { getFeedSourceDefinition } from "./feed-source-registry.utility";
 import { getChromiumLaunchOptions } from "./chrome-extensions.utility";
 import { getRandomUserAgent } from "./user-agents.utility";
 import { buildFeedObject, buildFeedObjectFromApiData } from "./rss-builder.utility";
@@ -258,6 +259,29 @@ export async function generatePreview(feedConfig: any): Promise<import("feed").F
     }
 
     if (!previewFeed) {
+      // The registry is consulted before giving up, so a type registered
+      // through registerFeedSourceType routes here without any branch above
+      // being edited. That is what makes "adding a source type touches one
+      // place" true rather than aspirational.
+      const definition = getFeedSourceDefinition(feedConfig.feedType);
+      if (definition?.executePreview) {
+        previewFeed = await definition.executePreview(feedConfig);
+      }
+    }
+
+    if (!previewFeed) {
+      const definition = getFeedSourceDefinition(feedConfig.feedType);
+      if (!definition) {
+        throw new Error(
+          `Preview refused: unknown feed source type "${feedConfig.feedType}". ` +
+            "It is not declared in the source-definition registry.",
+        );
+      }
+      if (!definition.previewSupported) {
+        throw new Error(
+          `Preview is not supported for feed source type "${feedConfig.feedType}".`,
+        );
+      }
       throw new Error("Feed could not be generated for preview.");
     }
     return previewFeed;
