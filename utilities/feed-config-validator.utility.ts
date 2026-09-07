@@ -1,5 +1,9 @@
 import type { FeedConfig, WebScrapingFeedConfig, RestFeedConfig, ApiFeedConfig, EmailFeedConfig, FeedTransformerFeedConfig } from "../models/feed-config.model";
 import { findPlainSensitiveValues } from "./sensitive-config.utility";
+import {
+  getFeedSourceDefinition,
+  listFeedSourceTypes,
+} from "./feed-source-registry.utility";
 
 export type ValidationIssue = {
   path: string;
@@ -36,12 +40,29 @@ export function validateFeedConfig(config: FeedConfig): ValidationResult {
   }
 
   const t = config.feedType;
-  const supportedFeedTypes = new Set([
-    "webScraping", "rest", "api", "email", "graphql", "calendar", "sitemap",
-    "filesystem", "webhook", "feedTransformer", "serviceConnector", "changeDetection",
-  ]);
+  // The supported set comes from the registry rather than a literal list kept
+  // here. This was a thirteenth copy of the same knowledge, free to drift from
+  // the other twelve.
+  const supportedFeedTypes = new Set(listFeedSourceTypes());
   if (!supportedFeedTypes.has(t)) {
     err("feedType", `Unsupported feedType: ${String(t)}`);
+  }
+
+  // A config must not carry another source type's block. Persisting one means
+  // a webScraping feed quietly holding serviceConnector credentials, or a rest
+  // feed holding a webhook token — fields nothing validates and nothing reads,
+  // which is exactly where stale secrets accumulate.
+  const ownBlock = getFeedSourceDefinition(t)?.sourceBlock ?? t;
+  for (const otherType of supportedFeedTypes) {
+    if (otherType === t) continue;
+    const foreignBlock = getFeedSourceDefinition(otherType)?.sourceBlock ?? otherType;
+    if (foreignBlock === ownBlock) continue;
+    if ((config as Record<string, unknown>)[foreignBlock] !== undefined) {
+      err(
+        foreignBlock,
+        `A ${t} feed must not carry a ${foreignBlock} block, which belongs to the ${otherType} source type.`,
+      );
+    }
   }
 
   if (t === "webScraping") {

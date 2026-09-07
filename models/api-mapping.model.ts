@@ -44,6 +44,10 @@ export interface ApiMapping {
   feedSkipDays?: string;
   feedSkipHours?: string;
   feedPubDate?: string;
+  /** Path to the feed-level link. Kept under its historical name; the runtime reads exactly this key. */
+  feedLinkPath?: string;
+  /** Path to the feed-level lastBuildDate. Historical name, as above. */
+  feedLastBuildDatePath?: string;
 
   // Custom fields
   customElements?: {

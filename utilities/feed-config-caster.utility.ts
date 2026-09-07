@@ -1,6 +1,6 @@
 import { v4 as uuidv4 } from "uuid";
 import { isProtectedValue, protectValue } from "./protected-values.utility";
-import type { ProtectedRecord } from "../models/protected-value.model";
+import type { ProtectedRecord, FeedCookie } from "../models/protected-value.model";
 import type {
 	FeedConfig,
 	WebScrapingFeedConfig,
@@ -16,6 +16,7 @@ import type {
 } from "../models/feed-config.model";
 import { generateWebhookToken, hashWebhookToken } from "./webhook-feed.utility";
 import { defaultFeedRssMetadata } from "../models/feed-config.model";
+import type { FeedRssMetadata } from "../models/feed-config.model";
 import CSSTarget from "../models/csstarget.model";
 
 // Accepts the flat FeedFormData shape from the frontend without importing the frontend type.
@@ -55,12 +56,75 @@ function kvPairsToRecord(pairs: unknown): Record<string, string> {
 	);
 }
 
+/**
+ * Accepts either the canonical `{ name: value }` record or the legacy
+ * `[{ key, value }]` array the form emits, and returns a record either way.
+ *
+ * V2-02: `data.headers` was cast straight to a record. When it arrived as the
+ * legacy array, `Object.entries` yielded the array *indices*, so a config was
+ * saved with a header literally named `"0"` and the real name was lost.
+ *
+ * Deliberately not `kvPairsToRecord`: that helper types its values as `string`,
+ * which flattens a `ProtectedValue` into `"[object Object]"`. Header values
+ * here may legitimately be protected or env-backed, and must survive as
+ * themselves so `encryptPendingProtectedValues` can seal them.
+ */
+function toHeaderRecord(input: unknown): Record<string, unknown> {
+	if (Array.isArray(input)) {
+		const record: Record<string, unknown> = {};
+		for (const entry of input as Array<{ key?: string; name?: string; value?: unknown }>) {
+			const name = (entry?.key ?? entry?.name ?? "").trim();
+			if (name) record[name] = entry.value ?? "";
+		}
+		return record;
+	}
+	if (input && typeof input === "object") return input as Record<string, unknown>;
+	return {};
+}
+
+/** Every field of `FeedRssMetadata`, so none can be forgotten the way twelve were. */
+const FEED_RSS_METADATA_KEYS = [
+	"feedLanguage",
+	"feedCopyright",
+	"feedDescription",
+	"feedManagingEditor",
+	"feedWebMaster",
+	"feedPubDate",
+	"feedLastBuildDate",
+	"feedCategories",
+	"feedDocs",
+	"feedGenerator",
+	"feedTtl",
+	"feedSkipHours",
+	"feedSkipDays",
+	"feedImage",
+] as const;
+
+/**
+ * Picks whichever RSS metadata fields the caller actually supplied.
+ *
+ * Absent fields are omitted rather than written as empty, so the defaults
+ * spread before this call survive and an unedited value is never overwritten
+ * with a blank.
+ */
+function pickFeedRssMetadata(data: FormInput): Partial<FeedRssMetadata> {
+	const picked: Record<string, unknown> = {};
+	for (const key of FEED_RSS_METADATA_KEYS) {
+		if (data[key] !== undefined) picked[key] = data[key];
+	}
+	return picked;
+}
+
 function buildCSSTargetFromForm(
 	prefix: string,
 	data: Record<string, unknown>,
 ): CSSTarget | undefined {
 	const selector = data[`${prefix}Selector`] as string | undefined;
 	if (!selector) return undefined;
+	// V2-01: iterator was hard-coded `undefined` here, and guidIsPermaLink and
+	// drillChain were not read at all — so per-field drill chains, parallel
+	// iterators and GUID permalink semantics were destroyed on every save,
+	// even though the RSS runtime still honours all three.
 	return new CSSTarget(
 		selector,
 		data[`${prefix}Attribute`] as string | undefined,
@@ -68,9 +132,13 @@ function buildCSSTargetFromForm(
 		data[`${prefix}BaseUrl`] as string | undefined,
 		data[`${prefix}RelativeLink`] as boolean | undefined,
 		data[`${prefix}TitleCase`] as boolean | undefined,
-		undefined, // iterator
+		data[`${prefix}Iterator`] as string | undefined,
 		data[`${prefix}Format`] as string | undefined,
 		data[`${prefix}CustomDateFormat`] as string | undefined,
+		data[`${prefix}GuidIsPermaLink`] as boolean | undefined,
+		Array.isArray(data[`${prefix}DrillChain`])
+			? (data[`${prefix}DrillChain`] as CSSTarget["drillChain"])
+			: undefined,
 	);
 }
 
@@ -95,21 +163,37 @@ export function castFeedFormDataToFeedConfig(
 		(data.feedType as string) === "api" ? "rest" : (data.feedType as string);
 	const encKey = context.encryptionKey;
 
-	const rawHeaders = (data.headers as Record<string, unknown>) ?? {};
+	const rawHeaders = toHeaderRecord(data.headers);
 	const headers = encryptPendingProtectedValues(rawHeaders, encKey);
+	const webhookInput = data.webhook as Record<string, unknown> | undefined;
 
 	const base = {
 		schemaVersion: 2 as const,
 		feedId,
 		feedName: (data.feedName as string) ?? "RSS Feed",
 		feedType,
-		enabled: true,
+		// V2-13: this was hard-coded `true`, so editing and saving a disabled
+		// feed silently re-enabled it. The incoming value is authoritative;
+		// `true` remains the default only when nothing was supplied.
+		enabled: typeof data.enabled === "boolean" ? data.enabled : true,
 		refreshTime: Number(data.refreshTime) || 5,
 		reverse: (data.reverse as boolean) ?? false,
 		strict: (data.strict as boolean) ?? false,
 		advanced: (data.advanced as boolean) ?? false,
 		headers,
-		cookies: Array.isArray(data.cookies) ? data.cookies : [],
+		// V2-14: cookie values went to disk exactly as submitted, so a new
+		// protected cookie was written as PLAINTEXT — headers and params were
+		// sealed here, cookies were not. Scoping metadata (domain, path,
+		// secure, httpOnly) is preserved unchanged; only the value is sealed.
+		cookies: Array.isArray(data.cookies)
+			? (data.cookies as FeedCookie[]).map((cookie): FeedCookie => {
+					const value = cookie?.value;
+					if (isProtectedValue(value) && value.type === "protected" && value.value !== "********") {
+						return { ...cookie, value: protectValue(value.value, encKey) };
+					}
+					return cookie;
+				})
+			: [],
 		webhook:
 			(data.webhook as any)?.enabled && (data.webhook as any)?.url
 				? {
@@ -117,6 +201,20 @@ export function castFeedFormDataToFeedConfig(
 						url: (data.webhook as any).url,
 						format: (data.webhook as any).format ?? "xml",
 						newItemsOnly: (data.webhook as any).newItemsOnly ?? true,
+						// V2-04: headers and customPayload were read by the form and
+						// then dropped here, so editing a webhook feed discarded its
+						// customization silently. Both are optional, so they are only
+						// emitted when present rather than written as empty defaults.
+						//
+						// Read through a typed local rather than more `as any`: the
+						// locked anti-bypass gate counts noExplicitAny and refuses
+						// growth, and four more casts here would have breached it.
+						...(webhookInput?.headers
+							? { headers: encryptPendingProtectedValues(toHeaderRecord(webhookInput.headers), encKey) }
+							: {}),
+						...(webhookInput?.customPayload
+							? { customPayload: webhookInput.customPayload as string }
+							: {}),
 					}
 				: undefined,
 		flaresolverr:
@@ -128,9 +226,18 @@ export function castFeedFormDataToFeedConfig(
 						timeout: (data.flaresolverr as any).timeout ?? 60000,
 					}
 				: undefined,
-		...defaultFeedRssMetadata,
-		feedLanguage: (data.feedLanguage as string) ?? "",
-		feedDescription: (data.feedDescription as string) ?? "",
+		// V2-06: only feedLanguage and feedDescription were read back, so every
+		// other RSS metadata field — copyright, managing editor, webmaster,
+		// categories, TTL, skip hours/days, image, docs, generator — silently
+		// reset to its default on every edit, including hand-authored values
+		// the UI never exposes. Anything supplied wins over the default;
+		// anything absent keeps it.
+		//
+		// Spread through one merged object rather than two spreads: spreading a
+		// Partial over the defaults would widen every field to `| undefined`
+		// and break assignability to the concrete config types.
+		...({ ...defaultFeedRssMetadata, ...pickFeedRssMetadata(data) } as typeof defaultFeedRssMetadata &
+			FeedRssMetadata),
 	};
 
 	if (feedType === "webScraping") {
@@ -261,18 +368,28 @@ export function castFeedFormDataToFeedConfig(
 				comments: (data.apiCommentsUrl as string) ?? "",
 				sourceTitle: (data.apiSourceTitle as string) ?? "",
 				sourceUrl: (data.apiSourceUrl as string) ?? "",
-				feedTitlePath: (data.apiFeedTitle as string) ?? "",
-				feedDescriptionPath: (data.apiFeedDescription as string) ?? "",
-				feedLanguagePath: (data.apiFeedLanguage as string) ?? "",
-				feedCopyrightPath: (data.apiFeedCopyright as string) ?? "",
-				feedManagingEditorPath: (data.apiFeedManagingEditor as string) ?? "",
-				feedWebMasterPath: (data.apiFeedWebMaster as string) ?? "",
-				feedPubDatePath: (data.apiFeedPubDate as string) ?? "",
-				feedCategoriesPath: (data.apiFeedCategories as string) ?? "",
-				feedTtlPath: (data.apiFeedTtl as string) ?? "",
-				feedSkipHoursPath: (data.apiFeedSkipHours as string) ?? "",
-				feedSkipDaysPath: (data.apiFeedSkipDays as string) ?? "",
+				// V2-10: these were written with a legacy "*Path" suffix while
+				// rss-builder.utility.ts reads the unsuffixed canonical key, so
+				// every feed-level API mapping was saved somewhere nothing looks.
+				// The normalizer migrates the old suffixed keys on read; new
+				// saves emit only the canonical schema.
+				feedTitle: (data.apiFeedTitle as string) ?? "",
+				feedDescription: (data.apiFeedDescription as string) ?? "",
+				feedLanguage: (data.apiFeedLanguage as string) ?? "",
+				feedCopyright: (data.apiFeedCopyright as string) ?? "",
+				feedManagingEditor: (data.apiFeedManagingEditor as string) ?? "",
+				feedWebMaster: (data.apiFeedWebMaster as string) ?? "",
+				feedPubDate: (data.apiFeedPubDate as string) ?? "",
+				feedCategories: (data.apiFeedCategories as string) ?? "",
+				feedTtl: (data.apiFeedTtl as string) ?? "",
+				feedSkipHours: (data.apiFeedSkipHours as string) ?? "",
+				feedSkipDays: (data.apiFeedSkipDays as string) ?? "",
 				feedImageUrl: (data.apiFeedImageUrl as string) ?? "",
+				// V2-10: dropped entirely by the caster, though the runtime model
+				// declares all three.
+				guidIsPermaLink: (data.apiGuidIsPermaLink as string) ?? "",
+				feedLinkPath: (data.apiFeedLinkPath as string) ?? "",
+				feedLastBuildDatePath: (data.apiFeedLastBuildDatePath as string) ?? "",
 			},
 		} as RestFeedConfig;
 	}

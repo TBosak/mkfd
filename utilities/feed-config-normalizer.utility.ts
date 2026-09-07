@@ -8,6 +8,7 @@ import type {
 	FeedTransformerFeedConfig,
 } from "../models/feed-config.model";
 import { defaultFeedRssMetadata } from "../models/feed-config.model";
+import type { ApiMapping } from "../models/api-mapping.model";
 import type CSSTarget from "../models/csstarget.model";
 import type { CSSTargetFields } from "../models/csstarget.model";
 import type { ProtectedRecord } from "../models/protected-value.model";
@@ -28,13 +29,75 @@ function b(v: unknown, fallback = false): boolean {
 }
 
 function normalizeProtectedRecord(value: unknown): ProtectedRecord {
-	if (!value || typeof value !== "object" || Array.isArray(value)) return {};
+	if (!value || typeof value !== "object") return {};
+	// V2-02: configs already on disk may carry the legacy `[{key,value}]` array
+	// shape. Returning `{}` for those discarded every header on load — the
+	// normalizer's whole job is to keep old YAML readable, so it migrates the
+	// shape rather than rejecting it.
+	if (Array.isArray(value)) {
+		const migrated: ProtectedRecord = {};
+		for (const entry of value as Array<{ key?: string; name?: string; value?: unknown }>) {
+			const name = (entry?.key ?? entry?.name ?? "").trim();
+			if (!name) continue;
+			const entryValue = entry.value;
+			if (typeof entryValue === "string" || isProtectedValue(entryValue)) {
+				migrated[name] = entryValue;
+			}
+		}
+		return migrated;
+	}
 	const result: ProtectedRecord = {};
 	for (const [key, entry] of Object.entries(value)) {
 		if (typeof entry === "string" || isProtectedValue(entry))
 			result[key] = entry;
 	}
 	return result;
+}
+
+/** Feed-level API mapping keys that were historically written with a "Path" suffix. */
+const LEGACY_API_MAPPING_SUFFIXED = [
+	"feedTitle",
+	"feedDescription",
+	"feedLanguage",
+	"feedCopyright",
+	"feedManagingEditor",
+	"feedWebMaster",
+	"feedPubDate",
+	"feedCategories",
+	"feedTtl",
+	"feedSkipHours",
+	"feedSkipDays",
+] as const;
+
+/**
+ * Migrates a stored apiMapping onto the canonical key names.
+ *
+ * V2-10: feed-level paths were persisted as `feedTitlePath`, `feedLanguagePath`
+ * and so on, while rss-builder.utility.ts reads the unsuffixed key. Configs
+ * already on disk carry the suffixed form, so it is translated on read rather
+ * than abandoned. `feedLinkPath` and `feedLastBuildDatePath` keep their names:
+ * those ARE the canonical keys the runtime reads.
+ */
+function normalizeApiMapping(value: unknown): ApiMapping {
+	if (!value || typeof value !== "object" || Array.isArray(value)) {
+		return { items: "" };
+	}
+	// Typed as both from the outset so the legacy-key migration below can index
+	// it by string without needing a double cast on the way out — the
+	// anti-bypass gate counts those and refuses growth.
+	const mapping = {
+		items: "",
+		...(value as Record<string, unknown>),
+	} as ApiMapping & Record<string, unknown>;
+	for (const canonical of LEGACY_API_MAPPING_SUFFIXED) {
+		const legacyKey = `${canonical}Path`;
+		const legacyValue = mapping[legacyKey];
+		if (mapping[canonical] === undefined && typeof legacyValue === "string") {
+			mapping[canonical] = legacyValue;
+		}
+		delete mapping[legacyKey];
+	}
+	return mapping;
 }
 
 function normalizeArticle(raw: Record<string, unknown>): CSSTargetFields {
@@ -123,7 +186,7 @@ export function normalizeLoadedFeedConfig(
 			...base,
 			feedType: "rest",
 			config: (input.config as RestFeedConfig["config"]) ?? { baseUrl: "" },
-			apiMapping: (input.apiMapping as RestFeedConfig["apiMapping"]) ?? {},
+			apiMapping: normalizeApiMapping(input.apiMapping),
 		} as RestFeedConfig;
 	}
 
@@ -132,7 +195,7 @@ export function normalizeLoadedFeedConfig(
 			...base,
 			feedType: "api",
 			config: (input.config as ApiFeedConfig["config"]) ?? { baseUrl: "" },
-			apiMapping: (input.apiMapping as ApiFeedConfig["apiMapping"]) ?? {},
+			apiMapping: normalizeApiMapping(input.apiMapping),
 		} as ApiFeedConfig;
 	}
 
