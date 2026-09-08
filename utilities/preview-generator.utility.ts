@@ -8,6 +8,8 @@
 import axios from "axios";
 import { chromium } from "patchright";
 import { redact } from "./log-redaction.utility";
+import { solveWithFlareSolverr } from "../lib/outbound/flaresolverr-adapter";
+import { resolveFetchPolicy } from "./fetch-policy.utility";
 import { getFeedSourceDefinition } from "./feed-source-registry.utility";
 import { getChromiumLaunchOptions } from "./chrome-extensions.utility";
 import { getRandomUserAgent } from "./user-agents.utility";
@@ -70,43 +72,20 @@ export async function generatePreview(feedConfig: any): Promise<import("feed").F
         const flaresolverrUrl = normalizeUrl(
           feedConfig.flaresolverr.serverUrl || "http://localhost:8191",
         );
-        const timeout = feedConfig.flaresolverr.timeout || 60000;
-
-        await assertOutboundFetchAllowed(`${flaresolverrUrl}/v1`, previewPolicyOptions);
-
-        const flaresolverrPayload: any = {
-          cmd: "request.get",
-          url: feedConfig.config.baseUrl,
-          maxTimeout: timeout,
-        };
-
-        if (feedConfig.cookies && feedConfig.cookies.length > 0) {
-          flaresolverrPayload.cookies = feedConfig.cookies.map((c: any) => ({
+        // Routed through the one approved FlareSolverr adapter, which validates
+        // the endpoint and the target separately and bounds the whole call.
+        const solved = await solveWithFlareSolverr({
+          serverUrl: flaresolverrUrl,
+          targetUrl: feedConfig.config.baseUrl,
+          maxTimeoutMs: feedConfig.flaresolverr.timeout || 60000,
+          cookies: (feedConfig.cookies ?? []).map((c: { name: string; value: string }) => ({
             name: c.name,
             value: c.value,
-          }));
-        }
-
-        const flaresolverrResponse = await axios.post(
-          `${flaresolverrUrl}/v1`,
-          flaresolverrPayload,
-          {
-            headers: { "Content-Type": "application/json" },
-            timeout: timeout + 5000,
-          },
-        );
-
-        if (
-          flaresolverrResponse.data?.solution?.response &&
-          flaresolverrResponse.data?.solution?.status === 200
-        ) {
-          const html = flaresolverrResponse.data.solution.response;
-          previewFeed = (await buildFeedObject(html, feedConfig)).feed;
-        } else {
-          throw new Error(
-            `FlareSolverr failed: ${flaresolverrResponse.data?.message || "Unknown error"}`,
-          );
-        }
+          })),
+          policyOptions: previewPolicyOptions,
+          budgetMs: resolveFetchPolicy(feedConfig).feedRunTimeoutMs,
+        });
+        previewFeed = (await buildFeedObject(solved.html, feedConfig)).feed;
       } else if (feedConfig.advanced) {
         // Playwright-based scraping
         console.log("[Preview] Launching browser...");

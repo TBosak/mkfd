@@ -28,18 +28,39 @@ import { parseRawValue, SETTING_REGISTRY, type SettingValue } from "./app-settin
  * must lead to different fallbacks.
  */
 type StoredSettings =
-	| { unavailable: true }
-	| { unavailable: false; values: Record<string, string> };
+	| { state: "degraded" }
+	| { state: "uninitialised" }
+	| { state: "ok"; values: Record<string, string> };
 
+/**
+ * Reads the stored settings, distinguishing three states.
+ *
+ * `degraded` and `uninitialised` are deliberately separate. A database that
+ * was opened and cannot be read has *failed*, and a security control whose
+ * storage has failed must fail closed — that is what the locked
+ * `p3-settings-runtime-consumers` suite pins, using a genuinely corrupt file.
+ *
+ * A database that was never opened at all is a different situation: a CLI
+ * script, a worker before `initDb`, or a unit test that has no reason to
+ * stand up SQLite. Treating that as failure would silently ignore the
+ * environment in every one of those contexts, which is how the previously
+ * working env-var configuration would quietly stop applying.
+ */
 function readStoredSettings(): StoredSettings {
+	let db: ReturnType<typeof getDb>;
 	try {
-		const rows = getDb()
+		db = getDb();
+	} catch {
+		return { state: "uninitialised" };
+	}
+	try {
+		const rows = db
 			.query("SELECT key, value FROM app_settings")
 			.all() as Array<{ key: string; value: string }>;
-		return { unavailable: false, values: Object.fromEntries(rows.map((r) => [r.key, r.value])) };
+		return { state: "ok", values: Object.fromEntries(rows.map((r) => [r.key, r.value])) };
 	} catch {
-		// Not initialised, corrupt, mid-migration — anything that stops the read.
-		return { unavailable: true };
+		// Opened, but unreadable: corrupt, mid-migration, schema missing.
+		return { state: "degraded" };
 	}
 }
 
@@ -73,12 +94,16 @@ export function effectiveSetting(key: string, safeFallback: SettingValue): Setti
 	const meta = SETTING_REGISTRY[key];
 	const stored = readStoredSettings();
 
-	if (stored.unavailable) return safeFallback;
+	// Failed storage fails closed; absent storage falls through to the
+	// environment, which is where configuration lives before a database does.
+	if (stored.state === "degraded") return safeFallback;
 
-	const rawStored = stored.values[key];
-	if (rawStored !== undefined) {
-		const coerced = coerce(rawStored, key);
-		if (coerced !== undefined) return coerced;
+	if (stored.state === "ok") {
+		const rawStored = stored.values[key];
+		if (rawStored !== undefined) {
+			const coerced = coerce(rawStored, key);
+			if (coerced !== undefined) return coerced;
+		}
 	}
 
 	if (meta?.envVar) {

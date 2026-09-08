@@ -28,6 +28,8 @@ import {
 } from "../utilities/outbound-fetch-policy.utility";
 import { runFeedTransformer } from "../utilities/feed-transformer.utility";
 import { requestWithPolicyRedirects } from "../utilities/feed-config-route-adapter.utility";
+import { solveWithFlareSolverr } from "../lib/outbound/flaresolverr-adapter";
+import { resolveFetchPolicy } from "../utilities/fetch-policy.utility";
 import { getFeedSourceDefinition } from "../utilities/feed-source-registry.utility";
 import { fetchWebScrapingHtml } from "../utilities/web-scraping-fetcher.utility";
 import { initDb } from "../lib/analytics/db";
@@ -294,53 +296,29 @@ async function fetchDataAndUpdateFeed(rawConfig: Record<string, unknown>) {
 					feedConfig.flaresolverr.serverUrl || "http://localhost:8191";
 				const timeout = feedConfig.flaresolverr.timeout || 60000;
 
-				// SSRF protection: validate FlareSolverr server URL before posting to it.
-				await assertOutboundFetchAllowed(
-					`${flaresolverrUrl}/v1`,
-					effectivePolicyOptions,
-				);
+				// Routed through the one approved FlareSolverr adapter, which
+				// validates the endpoint and the target separately and bounds the
+				// whole call. The feed id is logged, not the endpoint: the server
+				// URL can carry credentials.
+				console.log(`[Feed ${feedConfig.feedId}] Using FlareSolverr`);
 
-				const flaresolverrPayload: any = {
-					cmd: "request.get",
-					url: feedConfig.config.baseUrl,
-					maxTimeout: timeout,
-				};
-
-				// Add cookies if present
-				if (feedConfig.cookies && feedConfig.cookies.length > 0) {
-					flaresolverrPayload.cookies = feedConfig.cookies.map((c: any) => ({
+				const solved = await solveWithFlareSolverr({
+					serverUrl: flaresolverrUrl,
+					targetUrl: feedConfig.config.baseUrl,
+					maxTimeoutMs: timeout,
+					cookies: (feedConfig.cookies ?? []).map((c: any) => ({
 						name: c.name,
 						value: resolveProtectedValues(c.value, { encryptionKey: encKey }),
-					}));
-				}
+					})),
+					policyOptions: effectivePolicyOptions,
+					budgetMs: resolveFetchPolicy(feedConfig as any).feedRunTimeoutMs,
+				});
 
-				console.log(
-					`[Feed ${feedConfig.feedId}] Using FlareSolverr at ${flaresolverrUrl}`,
-				);
+				httpStatus = solved.status;
 
-				const flaresolverrResponse = await axios.post(
-					`${flaresolverrUrl}/v1`,
-					flaresolverrPayload,
-					{
-						headers: {
-							"Content-Type": "application/json",
-						},
-						timeout: timeout + 5000, // Add 5 seconds buffer to axios timeout
-					},
-				);
-
-				httpStatus =
-					flaresolverrResponse.data?.solution?.status ??
-					flaresolverrResponse.status ??
-					null;
-
-				if (
-					flaresolverrResponse.data?.solution?.response &&
-					flaresolverrResponse.data?.solution?.status === 200
-				) {
-					const html = flaresolverrResponse.data.solution.response;
+				{
 					const flareResult = await buildFeedObject(
-						html,
+						solved.html,
 						feedConfig,
 						dateIndex,
 					);
@@ -349,12 +327,6 @@ async function fetchDataAndUpdateFeed(rawConfig: Record<string, unknown>) {
 						xml: flareResult.feed.rss2(),
 						metrics: flareResult.metrics,
 					};
-				} else {
-					throw new Error(
-						`FlareSolverr failed: ${
-							flaresolverrResponse.data?.message || "Unknown error"
-						}`,
-					);
 				}
 			} else if (feedConfig.advanced) {
 				// Advanced scraping with Playwright

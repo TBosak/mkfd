@@ -7,6 +7,8 @@
  */
 
 import axios from "axios";
+import { solveWithFlareSolverr } from "../lib/outbound/flaresolverr-adapter";
+import { redact } from "./log-redaction.utility";
 import {
   requestPinnedAddress,
   requestPinnedWithConfig,
@@ -135,41 +137,32 @@ export async function fetchSampleHtml(opts: FetchSampleHtmlOptions): Promise<str
     parseInt(flaresolverrData.timeout || "60000", 10) || 60000;
 
   if (flaresolverrEnabled && flaresolverrUrl) {
-    // SSRF protection: validate FlareSolverr server URL before posting to it.
-    await assertOutboundFetchAllowed(`${flaresolverrUrl}/v1`, policyOptions);
-
-    const payload: any = {
-      cmd: "request.get",
-      url: feedUrl,
-      maxTimeout: flaresolverrTimeout,
-    };
-
-    if (body.cookies && body.cookies.length > 0) {
-      payload.cookies = body.cookies.map((c: any) => ({
-        name: c.name,
-        value: c.value,
-      }));
-    }
-
-    const flaresolverrResponse = await axios.post(
-      `${flaresolverrUrl}/v1`,
-      payload,
-      {
-        headers: { "Content-Type": "application/json" },
-        timeout: flaresolverrTimeout + 5000,
-      },
-    );
-
-    if (
-      flaresolverrResponse.data?.solution?.response &&
-      flaresolverrResponse.data?.solution?.status === 200
-    ) {
-      return flaresolverrResponse.data.solution.response;
-    } else {
-      console.warn(
-        "FlareSolverr failed for sample HTML:",
-        flaresolverrResponse.data?.message,
-      );
+    // Routed through the one approved FlareSolverr adapter, which validates the
+    // endpoint and the target separately and bounds the whole call.
+    try {
+      const solved = await solveWithFlareSolverr({
+        serverUrl: flaresolverrUrl,
+        targetUrl: feedUrl,
+        maxTimeoutMs: flaresolverrTimeout,
+        cookies: (body.cookies ?? []).map((c: { name: string; value: string }) => ({
+          name: c.name,
+          value: c.value,
+        })),
+        policyOptions,
+        budgetMs: flaresolverrTimeout,
+      });
+      return solved.html;
+    } catch (error) {
+      // A policy refusal propagates. Sample-HTML fetching is best-effort about
+      // *transport* failures — an unreachable FlareSolverr should not fail the
+      // whole form-parsing path — but "this endpoint or target is not allowed"
+      // is a decision, not a hiccup, and swallowing it would turn a refusal
+      // into a silently empty page. The original code kept the policy check
+      // outside its try for the same reason.
+      const message = String((error as Error)?.message ?? "");
+      if (message.startsWith("Outbound fetch blocked")) throw error;
+      // The endpoint is not logged — it can carry credentials.
+      console.warn("FlareSolverr failed for sample HTML:", redact({ message }));
       return "";
     }
   } else {

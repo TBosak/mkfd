@@ -1,6 +1,8 @@
 import axios from "axios";
 import { axiosGetWithPolicyRedirects } from "./feed-config-route-adapter.utility";
 import { getGlobalFetchPolicyOptions } from "./outbound-fetch-policy.utility";
+import { solveWithFlareSolverr } from "../lib/outbound/flaresolverr-adapter";
+import { resolveFetchPolicy } from "./fetch-policy.utility";
 import dayjs from "dayjs";
 import * as cheerio from "cheerio";
 import customParseFormat from "dayjs/plugin/customParseFormat";
@@ -194,49 +196,19 @@ export async function resolveDrillChain(
 			startingHtmlOrUrl.startsWith("https://")
 		) {
 			if (flaresolverr?.enabled && flaresolverr?.serverUrl) {
-				// Use FlareSolverr to fetch the initial URL
-				const flaresolverrUrl = flaresolverr.serverUrl;
-				const timeout = flaresolverr.timeout || 60000;
-
-				const flaresolverrPayload: any = {
-					cmd: "request.get",
-					url: startingHtmlOrUrl,
-					maxTimeout: timeout,
-				};
-
-				// Add cookies if present
-				if (cookies && cookies.length > 0) {
-					flaresolverrPayload.cookies = cookies.map((c) => ({
-						name: c.name,
-						value: c.value,
-					}));
-				}
-
+				// Routed through the one approved FlareSolverr adapter. This call
+				// site used to POST straight to a feed-author-supplied serverUrl
+				// with no outbound-policy check at all.
 				try {
-					const flaresolverrResponse = await axios.post(
-						`${flaresolverrUrl}/v1`,
-						flaresolverrPayload,
-						{
-							headers: {
-								"Content-Type": "application/json",
-							},
-							timeout: timeout + 5000,
-						},
-					);
-
-					if (
-						flaresolverrResponse.data?.solution?.response &&
-						flaresolverrResponse.data?.solution?.status === 200
-					) {
-						currentHtml = flaresolverrResponse.data.solution.response;
-					} else {
-						console.warn(
-							"resolveDrillChain: FlareSolverr failed for",
-							startingHtmlOrUrl,
-							flaresolverrResponse.data?.message,
-						);
-						return "";
-					}
+					const solved = await solveWithFlareSolverr({
+						serverUrl: flaresolverr.serverUrl,
+						targetUrl: startingHtmlOrUrl,
+						maxTimeoutMs: flaresolverr.timeout || 60000,
+						cookies: cookies ?? [],
+						policyOptions: getGlobalFetchPolicyOptions(),
+						budgetMs: resolveFetchPolicy().feedRunTimeoutMs,
+					});
+					currentHtml = solved.html;
 				} catch (err) {
 					console.warn(
 						"resolveDrillChain: FlareSolverr error for",
@@ -339,51 +311,18 @@ export async function resolveDrillChain(
 				}
 
 				if (flaresolverr?.enabled && flaresolverr?.serverUrl) {
-					// Use FlareSolverr for drill chain step
-					const flaresolverrUrl = flaresolverr.serverUrl;
-					const timeout = flaresolverr.timeout || 60000;
-
-					const flaresolverrPayload: any = {
-						cmd: "request.get",
-						url: absoluteUrl,
-						maxTimeout: timeout,
-					};
-
-					// Add cookies if present
-					if (cookies && cookies.length > 0) {
-						flaresolverrPayload.cookies = cookies.map((c) => ({
-							name: c.name,
-							value: c.value,
-						}));
-					}
-
+					// Routed through the one approved FlareSolverr adapter, as above.
 					try {
 						console.log(`[DrillChain] Using FlareSolverr for: ${absoluteUrl}`);
-						const flaresolverrResponse = await axios.post(
-							`${flaresolverrUrl}/v1`,
-							flaresolverrPayload,
-							{
-								headers: {
-									"Content-Type": "application/json",
-								},
-								timeout: timeout + 5000,
-							},
-						);
-
-						if (
-							flaresolverrResponse.data?.solution?.response &&
-							flaresolverrResponse.data?.solution?.status === 200
-						) {
-							currentHtml = flaresolverrResponse.data.solution.response;
-						} else {
-							console.warn(
-								"resolveDrillChain: FlareSolverr failed for step",
-								absoluteUrl,
-								flaresolverrResponse.data?.message,
-							);
-							finalValue = "";
-							break;
-						}
+						const solved = await solveWithFlareSolverr({
+							serverUrl: flaresolverr.serverUrl,
+							targetUrl: absoluteUrl,
+							maxTimeoutMs: flaresolverr.timeout || 60000,
+							cookies: cookies ?? [],
+							policyOptions: getGlobalFetchPolicyOptions(),
+							budgetMs: resolveFetchPolicy().feedRunTimeoutMs,
+						});
+						currentHtml = solved.html;
 					} catch (err) {
 						console.warn(
 							"resolveDrillChain: FlareSolverr error for step",

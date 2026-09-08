@@ -19,6 +19,7 @@ import { existsSync } from "node:fs";
 import { readFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import axios from "axios";
+import { solveWithFlareSolverr } from "../lib/outbound/flaresolverr-adapter";
 import type { Config } from "node-imap";
 import { listImapFolders } from "../utilities/imap.utility";
 import { suggestSelectors } from "../utilities/selector-suggestion.utility";
@@ -272,39 +273,23 @@ export function utilsRouter(deps: {
       let html: string;
 
       if (flaresolverrEnabled && flaresolverrUrl) {
+        // Routed through the one approved FlareSolverr adapter. A policy
+        // refusal stays a 403 here rather than becoming a 500: the playground
+        // distinguishes "this target is not allowed" from "the fetch broke".
         try {
-          await assertOutboundFetchAllowed(
-            `${flaresolverrUrl}/v1`,
-            proxyPolicyOptions,
-          );
-        } catch (policyErr: any) {
-          return ctx.text(policyErr.message, 403);
-        }
-
-        const flaresolverrPayload = {
-          cmd: "request.get",
-          url: targetUrl,
-          maxTimeout: flaresolverrTimeout,
-        };
-
-        const flaresolverrResponse = await axios.post(
-          `${flaresolverrUrl}/v1`,
-          flaresolverrPayload,
-          {
-            headers: { "Content-Type": "application/json" },
-            timeout: flaresolverrTimeout + 5000,
-          },
-        );
-
-        if (
-          flaresolverrResponse.data?.solution?.response &&
-          flaresolverrResponse.data?.solution?.status === 200
-        ) {
-          html = flaresolverrResponse.data.solution.response;
-        } else {
-          throw new Error(
-            `FlareSolverr failed: ${flaresolverrResponse.data?.message || "Unknown error"}`,
-          );
+          const solved = await solveWithFlareSolverr({
+            serverUrl: flaresolverrUrl,
+            targetUrl,
+            maxTimeoutMs: flaresolverrTimeout,
+            policyOptions: proxyPolicyOptions,
+            budgetMs: flaresolverrTimeout,
+          });
+          html = solved.html;
+        } catch (flareErr: any) {
+          if (String(flareErr?.message ?? "").startsWith("Outbound fetch blocked")) {
+            return ctx.text(flareErr.message, 403);
+          }
+          throw flareErr;
         }
       } else {
         const response = await axiosGetWithPolicyRedirects(

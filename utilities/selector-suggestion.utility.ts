@@ -1,5 +1,7 @@
 import axios from "axios";
 import { axiosGetWithPolicyRedirects } from "./feed-config-route-adapter.utility";
+import { solveWithFlareSolverr } from "../lib/outbound/flaresolverr-adapter";
+import { resolveFetchPolicy } from "./fetch-policy.utility";
 import * as cheerio from "cheerio";
 import type { Cheerio, CheerioAPI } from "cheerio";
 import type { AnyNode, Element } from "domhandler";
@@ -367,44 +369,18 @@ export async function suggestSelectors(
 
 	if (flaresolverr?.enabled && flaresolverr?.serverUrl) {
 		// Use FlareSolverr to fetch the page
-		const flaresolverrUrl = flaresolverr.serverUrl;
-		const timeout = flaresolverr.timeout || 60000;
-
-		const flaresolverrPayload: any = {
-			cmd: "request.get",
-			url: url,
-			maxTimeout: timeout,
-		};
-
-		// Add cookies if present
-		if (cookies && cookies.length > 0) {
-			flaresolverrPayload.cookies = cookies.map((c) => ({
-				name: c.name,
-				value: c.value,
-			}));
-		}
-
-		const flaresolverrResponse = await axios.post(
-			`${flaresolverrUrl}/v1`,
-			flaresolverrPayload,
-			{
-				headers: {
-					"Content-Type": "application/json",
-				},
-				timeout: timeout + 5000,
-			},
-		);
-
-		if (
-			flaresolverrResponse.data?.solution?.response &&
-			flaresolverrResponse.data?.solution?.status === 200
-		) {
-			html = flaresolverrResponse.data.solution.response;
-		} else {
-			throw new Error(
-				`FlareSolverr failed: ${flaresolverrResponse.data?.message || "Unknown error"}`,
-			);
-		}
+		// Routed through the one approved FlareSolverr adapter. This call site
+		// used to POST straight to a feed-author-supplied serverUrl with no
+		// outbound-policy check at all.
+		const solved = await solveWithFlareSolverr({
+			serverUrl: flaresolverr.serverUrl,
+			targetUrl: url,
+			maxTimeoutMs: flaresolverr.timeout || 60000,
+			cookies: cookies ?? [],
+			policyOptions: effectivePolicyOptions,
+			budgetMs: resolveFetchPolicy().feedRunTimeoutMs,
+		});
+		html = solved.html;
 	} else {
 		// The shared executor, replacing a local copy of the redirect loop that
 		// lived here. That copy revalidated each redirect but never validated
