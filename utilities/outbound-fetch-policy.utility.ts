@@ -13,6 +13,7 @@
 
 import { resolve4, resolve6 } from "node:dns/promises";
 import * as net from "node:net";
+import { effectiveSetting } from "./effective-settings.utility";
 
 // ──────────────────────────────────────────────────────────────────────────────
 // Known cloud metadata hostnames — never allowed, even with allowPrivateFetches
@@ -282,9 +283,20 @@ export interface OutboundFetchPolicyOptions {
  * here must be replaced with effective settings lookups.
  */
 export function getGlobalFetchPolicyOptions(): OutboundFetchPolicyOptions {
+  // Reads the stored setting first, then the environment, then the registry
+  // default. Previously this consulted only `process.env`, so both settings
+  // were editable in the UI, persisted, and completely ignored by the policy
+  // that is supposed to enforce them.
+  //
+  // The safe fallbacks below are what an unreadable settings store resolves
+  // to — deny private fetches, empty allowlist — regardless of what the
+  // environment says. Failing open at the moment the app has lost track of
+  // its own configuration would be the wrong direction for an SSRF control.
+  const allowPrivateFetches = effectiveSetting("allow_private_fetches", false);
+  const allowlist = effectiveSetting("outbound_fetch_allowlist", []);
   return {
-    allowPrivateFetches: process.env.ALLOW_PRIVATE_FETCHES === "true",
-    allowlist: parseAllowlist(process.env.OUTBOUND_FETCH_ALLOWLIST),
+    allowPrivateFetches: allowPrivateFetches === true,
+    allowlist: Array.isArray(allowlist) ? allowlist.map((e) => String(e).toLowerCase()) : [],
   };
 }
 

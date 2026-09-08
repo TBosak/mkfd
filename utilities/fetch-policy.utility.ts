@@ -3,6 +3,7 @@ import type { FetchAttempt, FetchPolicy, FetchPolicyResult } from "../models/fet
 import type { EffectiveRequestProfile } from "../models/request-profile.model";
 import { axiosGetWithPolicyRedirects } from "./feed-config-route-adapter.utility";
 import { getGlobalFetchPolicyOptions, parseAllowlist, type OutboundFetchPolicyOptions } from "./outbound-fetch-policy.utility";
+import { effectiveSetting } from "./effective-settings.utility";
 
 const DEFAULT_POLICY: FetchPolicy = {
   feedRunTimeoutMs: 60000,
@@ -27,7 +28,22 @@ export function resolveFetchPolicy(feedConfig: Record<string, any> = {}, env: No
   const fetchPolicy = feedConfig.fetchPolicy ?? {};
   const global = getGlobalFetchPolicyOptions();
   return {
-    feedRunTimeoutMs: clamp(fetchPolicy.feedRunTimeoutMs ?? feedConfig.config?.timeoutMs ?? env.FEED_RUN_TIMEOUT_MS, 1000, 10 * 60 * 1000, DEFAULT_POLICY.feedRunTimeoutMs),
+    // The stored setting is consulted through effectiveSetting (stored > env >
+    // registry default), so changing feed_run_timeout_ms in the UI actually
+    // changes the deadline the executor applies. A feed-level override still
+    // wins, as it always did.
+    //
+    // The registry's default is the fallback rather than DEFAULT_POLICY's own:
+    // the two disagreed (120000 vs 60000), which meant "the default timeout"
+    // had two different answers depending on which code path you asked.
+    feedRunTimeoutMs: clamp(
+      fetchPolicy.feedRunTimeoutMs ??
+        feedConfig.config?.timeoutMs ??
+        effectiveSetting("feed_run_timeout_ms", DEFAULT_POLICY.feedRunTimeoutMs),
+      1000,
+      10 * 60 * 1000,
+      DEFAULT_POLICY.feedRunTimeoutMs,
+    ),
     maxResponseSizeBytes: clamp(fetchPolicy.maxResponseSizeBytes ?? env.FETCH_MAX_RESPONSE_SIZE_BYTES, 64 * 1024, 20 * 1024 * 1024, DEFAULT_POLICY.maxResponseSizeBytes),
     maxRedirects: clamp(fetchPolicy.maxRedirects ?? env.FETCH_MAX_REDIRECTS, 0, 10, DEFAULT_POLICY.maxRedirects),
     retryCount: clamp(fetchPolicy.retryCount ?? env.FETCH_RETRY_COUNT, 0, 5, DEFAULT_POLICY.retryCount),
