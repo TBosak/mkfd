@@ -2,13 +2,12 @@ import axios from "axios";
 import { axiosGetWithPolicyRedirects } from "./feed-config-route-adapter.utility";
 import { getGlobalFetchPolicyOptions } from "./outbound-fetch-policy.utility";
 import { solveWithFlareSolverr } from "../lib/outbound/flaresolverr-adapter";
+import { openBrowserSession, type BrowserSession } from "../lib/outbound/browser-adapter";
 import { resolveFetchPolicy } from "./fetch-policy.utility";
 import dayjs from "dayjs";
 import * as cheerio from "cheerio";
 import customParseFormat from "dayjs/plugin/customParseFormat";
-import { type Browser, chromium, type Cookie, type Page } from "patchright";
-import { getChromiumLaunchOptions } from "./chrome-extensions.utility";
-import { getRandomUserAgent } from "./user-agents.utility";
+import type { Cookie } from "patchright";
 import { discoverUrl, looksLikeUrl } from "./url-discovery.utility";
 
 dayjs.extend(customParseFormat);
@@ -187,8 +186,7 @@ export async function resolveDrillChain(
 	if (!chain || chain.length === 0) return "";
 
 	let currentHtml = "";
-	let browser: Browser | null = null;
-	let page: Page | null = null;
+	let session: BrowserSession | null = null;
 
 	try {
 		if (
@@ -218,29 +216,31 @@ export async function resolveDrillChain(
 					return "";
 				}
 			} else if (useAdvanced) {
-				browser = await chromium.launch(
-					getChromiumLaunchOptions({
-						headless: true,
-						timeout: 60000, // 1 minute timeout
-					}),
-				);
-				const userAgent = getRandomUserAgent();
-				const context = await browser.newContext({ userAgent });
-				await context.addInitScript(() => {
-					Object.defineProperty(navigator, "webdriver", {
-						get: () => undefined,
-					});
-				});
-				page = await context.newPage();
+				// Routed through the one approved browser adapter. One session
+				// spans the whole chain — and therefore one budget — while every
+				// navigation and subresource is validated on its own. Cookies are
+				// deliberately not passed: this branch has never applied them,
+				// and starting to would change which hosts receive a user's
+				// session cookie (CF-14).
 				try {
-					await page.goto(startingHtmlOrUrl, {
-						waitUntil: "networkidle",
-						timeout: 10000, // 10 second timeout for networkidle
+					session = await openBrowserSession({
+						url: startingHtmlOrUrl,
+						policyOptions: getGlobalFetchPolicyOptions(),
+						budgetMs: resolveFetchPolicy().feedRunTimeoutMs,
 					});
-				} catch {
-					// If networkidle times out, page is likely already loaded
+					currentHtml = await session.navigate(startingHtmlOrUrl);
+				} catch (err) {
+					// Returns "" rather than propagating, matching the two sibling
+					// branches: resolveDrillChain is best-effort for every other
+					// kind of starting URL, and a refusal here should not be the
+					// one case that fails the whole feed build.
+					console.warn(
+						"resolveDrillChain: browser fetch failed for",
+						startingHtmlOrUrl,
+						errorMessage(err),
+					);
+					return "";
 				}
-				currentHtml = await page.content();
 			} else {
 				try {
 					const resp = await axiosGetWithPolicyRedirects(
@@ -332,18 +332,14 @@ export async function resolveDrillChain(
 						finalValue = "";
 						break;
 					}
-				} else if (useAdvanced && browser && page) {
+				} else if (useAdvanced && session) {
 					try {
 						console.log(`[DrillChain] Navigating to: ${absoluteUrl}`);
-						try {
-							await page.goto(absoluteUrl, {
-								waitUntil: "networkidle",
-								timeout: 10000, // 10 second timeout for networkidle
-							});
-						} catch {
-							// If networkidle times out, continue with current page state
-						}
-						currentHtml = await page.content();
+						// absoluteUrl comes out of the previously scraped page, so
+						// it is attacker-influenced input. Before this slice this
+						// branch navigated to it with no validation at all, while
+						// the two branches beside it validated the same value.
+						currentHtml = await session.navigate(absoluteUrl);
 					} catch {
 						finalValue = "";
 						break;
@@ -374,7 +370,7 @@ export async function resolveDrillChain(
 
 		return finalValue;
 	} finally {
-		if (browser) await browser.close();
+		if (session) await session.close();
 	}
 }
 

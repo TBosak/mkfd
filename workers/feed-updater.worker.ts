@@ -11,9 +11,6 @@ import {
 import { normalizeLoadedFeedConfig } from "../utilities/feed-config-normalizer.utility";
 // parseCookiesForPlaywright might be simplified or removed if cookies are directly structured correctly
 // import { parseCookiesForPlaywright } from "../utilities/data-handler.utility"
-import { chromium } from "patchright";
-import { getChromiumLaunchOptions } from "../utilities/chrome-extensions.utility";
-import { getRandomUserAgent } from "../utilities/user-agents.utility";
 import {
 	loadDateIndex,
 	saveDateIndex,
@@ -29,6 +26,7 @@ import {
 import { runFeedTransformer } from "../utilities/feed-transformer.utility";
 import { requestWithPolicyRedirects } from "../utilities/feed-config-route-adapter.utility";
 import { solveWithFlareSolverr } from "../lib/outbound/flaresolverr-adapter";
+import { fetchWithBrowser } from "../lib/outbound/browser-adapter";
 import { resolveFetchPolicy } from "../utilities/fetch-policy.utility";
 import { getFeedSourceDefinition } from "../utilities/feed-source-registry.utility";
 import { fetchWebScrapingHtml } from "../utilities/web-scraping-fetcher.utility";
@@ -329,57 +327,25 @@ async function fetchDataAndUpdateFeed(rawConfig: Record<string, unknown>) {
 					};
 				}
 			} else if (feedConfig.advanced) {
-				// Advanced scraping with Playwright
-				const browser = await chromium.launch(
-					getChromiumLaunchOptions({
-						headless: true,
-						timeout: 60000, // 1 minute timeout
-					}),
-				);
-				const userAgent = getRandomUserAgent();
-				const context = await browser.newContext({ userAgent });
-				await context.addInitScript(() => {
-					Object.defineProperty(navigator, "webdriver", {
-						get: () => undefined,
-					});
-				});
-				const page = await context.newPage();
-
-				if (feedConfig.headers && Object.keys(feedConfig.headers).length) {
-					await page.setExtraHTTPHeaders(
-						resolveProtectedValues(feedConfig.headers, {
-							encryptionKey: encKey,
-						}),
-					);
-				}
-
-				if (feedConfig.cookies && feedConfig.cookies.length > 0) {
-					const domain = new URL(feedConfig.config.baseUrl).hostname;
-					// Playwright expects cookies in a specific format
-					const playwrightCookies = feedConfig.cookies.map((c) => ({
+				// Advanced scraping, routed through the one approved browser
+				// adapter: every navigation and every subresource is validated
+				// against the outbound policy, and the whole session shares the
+				// feed's run budget instead of a hardcoded launch timeout.
+				const html = await fetchWithBrowser({
+					url: feedConfig.config.baseUrl,
+					policyOptions: effectivePolicyOptions,
+					budgetMs: resolveFetchPolicy(feedConfig as any).feedRunTimeoutMs,
+					headers:
+						feedConfig.headers && Object.keys(feedConfig.headers).length
+							? resolveProtectedValues(feedConfig.headers, {
+									encryptionKey: encKey,
+								})
+							: undefined,
+					cookies: (feedConfig.cookies ?? []).map((c) => ({
 						name: c.name,
 						value: resolveProtectedValues(c.value, { encryptionKey: encKey }),
-						domain: domain,
-						path: "/", // Common default path
-						// Potentially add other fields like expires, httpOnly, secure if available in your cookie object
-					}));
-					if (playwrightCookies.length)
-						await page.context().addCookies(playwrightCookies);
-				}
-
-				try {
-					await page.goto(feedConfig.config.baseUrl, {
-						waitUntil: "networkidle",
-						timeout: 10000, // 10 second timeout for networkidle
-					});
-				} catch (_error) {
-					// If networkidle times out, page is likely already loaded
-					console.log(
-						`[Feed ${feedConfig.feedId}] Networkidle timeout, using current page state`,
-					);
-				}
-				const html = await page.content();
-				await browser.close();
+					})),
+				});
 				const playwrightResult = await buildFeedObject(
 					html,
 					feedConfig,

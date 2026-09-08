@@ -6,13 +6,11 @@
  */
 
 import axios from "axios";
-import { chromium } from "patchright";
 import { redact } from "./log-redaction.utility";
 import { solveWithFlareSolverr } from "../lib/outbound/flaresolverr-adapter";
+import { fetchWithBrowser } from "../lib/outbound/browser-adapter";
 import { resolveFetchPolicy } from "./fetch-policy.utility";
 import { getFeedSourceDefinition } from "./feed-source-registry.utility";
-import { getChromiumLaunchOptions } from "./chrome-extensions.utility";
-import { getRandomUserAgent } from "./user-agents.utility";
 import { buildFeedObject, buildFeedObjectFromApiData } from "./rss-builder.utility";
 import {
   assertOutboundFetchAllowed,
@@ -87,56 +85,21 @@ export async function generatePreview(feedConfig: any): Promise<import("feed").F
         });
         previewFeed = (await buildFeedObject(solved.html, feedConfig)).feed;
       } else if (feedConfig.advanced) {
-        // Playwright-based scraping
-        console.log("[Preview] Launching browser...");
-        const browser = await chromium.launch(
-          getChromiumLaunchOptions({
-            headless: true,
-            timeout: 60000,
-          }),
-        );
-        console.log("[Preview] Browser launched, creating context...");
-        const userAgent = getRandomUserAgent();
-        const context = await browser.newContext({ userAgent });
-        await context.addInitScript(() => {
-          Object.defineProperty(navigator, "webdriver", {
-            get: () => undefined,
-          });
+        // Browser-based scraping, routed through the one approved browser
+        // adapter: every navigation and every subresource is validated against
+        // the outbound policy, and the whole session shares one budget.
+        console.log("[Preview] Launching browser via adapter...");
+        const html = await fetchWithBrowser({
+          url: feedConfig.config.baseUrl,
+          policyOptions: previewPolicyOptions,
+          budgetMs: resolveFetchPolicy(feedConfig).feedRunTimeoutMs,
+          headers: feedConfig.headers || {},
+          cookies: (feedConfig.cookies ?? []).map((c: { name: string; value: string }) => ({
+            name: c.name,
+            value: c.value,
+          })),
         });
-        const page = await context.newPage();
-        console.log(
-          `[Preview] Using user agent: ${userAgent.substring(0, 50)}...`,
-        );
-
-        if (feedConfig.headers && Object.keys(feedConfig.headers).length) {
-          await page.setExtraHTTPHeaders(feedConfig.headers);
-        }
-
-        if (feedConfig.cookies && feedConfig.cookies.length > 0) {
-          const domain = new URL(feedConfig.config.baseUrl).hostname;
-          const playwrightCookies = feedConfig.cookies.map((c: any) => ({
-            ...c,
-            domain,
-            path: "/",
-          }));
-          if (playwrightCookies.length)
-            await page.context().addCookies(playwrightCookies);
-        }
-
-        console.log(`[Preview] Navigating to ${feedConfig.config.baseUrl}...`);
-        try {
-          await page.goto(feedConfig.config.baseUrl, {
-            waitUntil: "networkidle",
-            timeout: 10000,
-          });
-          console.log("[Preview] Page loaded (networkidle)");
-        } catch (_error) {
-          console.log("[Preview] Networkidle timeout, using current page state");
-        }
-        console.log("[Preview] Extracting content...");
-        const html = await page.content();
-        await browser.close();
-        console.log("[Preview] Browser closed, building feed...");
+        console.log("[Preview] Content extracted, building feed...");
         previewFeed = (await buildFeedObject(html, feedConfig)).feed;
       } else {
         // Standard axios (redirect-aware, SSRF-safe)
