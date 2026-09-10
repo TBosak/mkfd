@@ -3,8 +3,10 @@ import { getGlobalFetchPolicyOptions } from "./outbound-fetch-policy.utility";
 import * as cheerio from "cheerio";
 import type { SitemapEntry, SitemapFeedConfig, SitemapFilterRule, SitemapParseResult } from "../models/sitemap.model";
 import type { NormalizedFeedItem } from "../models/normalized-feed-item.model";
+import { assertParserInputWithinLimit, PARSER_INPUT_LIMITS } from "./parser-input-limits.utility";
 
 export function parseSitemapXml(xml: string, sourceSitemapUrl: string): SitemapParseResult {
+  assertParserInputWithinLimit(xml, "sitemap");
   const $ = cheerio.load(xml, { xmlMode: true });
   const discoveredAt = new Date().toISOString();
   const entries: SitemapEntry[] = $("url").toArray().map((el, order) => ({
@@ -56,7 +58,12 @@ export async function fetchAndBuildSitemapItems(config: SitemapFeedConfig): Prom
   // like every other outbound request.
   const response = await axiosGetWithPolicyRedirects(
     config.url,
-    { responseType: "text", timeout: 60000 },
+    {
+      responseType: "text",
+      timeout: 60000,
+      maxContentLength: PARSER_INPUT_LIMITS.documentBytes,
+      maxBodyLength: PARSER_INPUT_LIMITS.documentBytes,
+    },
     getGlobalFetchPolicyOptions(),
   );
   const parsed = parseSitemapXml(String(response.data), config.url);

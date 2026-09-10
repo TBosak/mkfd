@@ -4,6 +4,7 @@ import { axiosGetWithPolicyRedirects } from "./feed-config-route-adapter.utility
 import { extractJsonLd } from "./json-ld.utility";
 import { analyzeJsonLd } from "./json-ld-analysis.utility";
 import type { JsonLdDrillChainCandidate } from "../models/source-assistant.model";
+import { assertParserInputWithinLimit, PARSER_INPUT_LIMITS } from "./parser-input-limits.utility";
 
 const MAX_LINKS = 5;
 const CANDIDATE_SELECTORS = ["article a[href]", ".post a[href]", ".entry a[href]", ".card a[href]", "main a[href]"];
@@ -13,6 +14,7 @@ export async function analyzeJsonLdDrillChain(
   pageUrl: string,
   policyOptions: OutboundFetchPolicyOptions = getGlobalFetchPolicyOptions(),
 ): Promise<JsonLdDrillChainCandidate[]> {
+  assertParserInputWithinLimit(html, "json-ld-html");
   const $ = cheerio.load(html);
   const candidates: JsonLdDrillChainCandidate[] = [];
 
@@ -29,7 +31,16 @@ export async function analyzeJsonLdDrillChain(
     let itemLikePages = 0;
     for (const url of sampleUrls) {
       try {
-        const response = await axiosGetWithPolicyRedirects(url, { timeout: 6000, responseType: "text" }, policyOptions);
+        const response = await axiosGetWithPolicyRedirects(
+          url,
+          {
+            timeout: 6000,
+            responseType: "text",
+            maxContentLength: PARSER_INPUT_LIMITS.documentBytes,
+            maxBodyLength: PARSER_INPUT_LIMITS.documentBytes,
+          },
+          policyOptions,
+        );
         const analysis = analyzeJsonLd(extractJsonLd(String(response.data ?? "")));
         if (analysis.itemLikeCount > 0) itemLikePages++;
       } catch {

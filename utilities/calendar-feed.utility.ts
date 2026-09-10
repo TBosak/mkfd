@@ -2,8 +2,10 @@ import { axiosGetWithPolicyRedirects } from "./feed-config-route-adapter.utility
 import { getGlobalFetchPolicyOptions } from "./outbound-fetch-policy.utility";
 import type { CalendarEventItem, CalendarFeedConfig, CalendarParseOptions } from "../models/calendar.model";
 import type { NormalizedFeedItem } from "../models/normalized-feed-item.model";
+import { assertParserInputWithinLimit, PARSER_INPUT_LIMITS } from "./parser-input-limits.utility";
 
 export function parseIcsEvents(ics: string, options: CalendarParseOptions): CalendarEventItem[] {
+  assertParserInputWithinLimit(ics, "calendar");
   const events = [...ics.matchAll(/BEGIN:VEVENT([\s\S]*?)END:VEVENT/g)].map((match, index) => parseEvent(match[1], index));
   const now = new Date();
   const maxDate = new Date(now.getTime() + options.windowDays * 86400000);
@@ -19,7 +21,12 @@ export async function fetchAndBuildCalendarItems(config: CalendarFeedConfig): Pr
   // Routed through the shared executor: calendar.url is feed-author supplied.
   const response = await axiosGetWithPolicyRedirects(
     config.url,
-    { responseType: "text", timeout: 60000 },
+    {
+      responseType: "text",
+      timeout: 60000,
+      maxContentLength: PARSER_INPUT_LIMITS.documentBytes,
+      maxBodyLength: PARSER_INPUT_LIMITS.documentBytes,
+    },
     getGlobalFetchPolicyOptions(),
   );
   return buildCalendarItems(parseIcsEvents(String(response.data), config), config);

@@ -3,6 +3,7 @@ import type { FeedTransformerSourceFormat } from "../models/feed-transformer.mod
 import type { NormalizedFeedItem } from "../models/normalized-feed-item.model";
 import { getGlobalFetchPolicyOptions, type OutboundFetchPolicyOptions } from "./outbound-fetch-policy.utility";
 import { executeWithFetchPolicy } from "./fetch-policy.utility";
+import { assertParserInputWithinLimit, PARSER_INPUT_LIMITS } from "./parser-input-limits.utility";
 
 export type ParseExistingFeedInput = {
   url: string;
@@ -43,7 +44,7 @@ export async function parseExistingFeed(input: ParseExistingFeedInput): Promise<
       outboundPolicy: policyOptions,
       policy: {
         feedRunTimeoutMs: input.timeoutMs ?? 30000,
-        maxResponseSizeBytes: 4 * 1024 * 1024,
+        maxResponseSizeBytes: PARSER_INPUT_LIMITS.existingFeedBytes,
         retryCount: 1,
       },
       axiosConfig: {
@@ -73,6 +74,7 @@ export function parseExistingFeedContent(input: {
   contentType?: string;
   warnings?: string[];
 }): ParsedExistingFeed {
+  assertParserInputWithinLimit(input.content, "existing-feed");
   const warnings = input.warnings ?? [];
   const trimmed = input.content.trim();
   const format = detectFormat(input.format, input.contentType ?? "", trimmed);
