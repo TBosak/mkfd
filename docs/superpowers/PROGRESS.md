@@ -32,6 +32,7 @@ The Spec and Plan columns record approved artifacts. Implementation uses evidenc
 | Feature | Spec | Plan | Implementation |
 |---|---|---|---|
 | Backend Route Decomposition (prerequisite) | Approved | Approved | Verification |
+| Runtime Resource Controls | Approved | Approved | In progress |
 
 ## Phase 3 — Transformation & Scraping Intelligence
 | Feature | Spec | Plan | Implementation |

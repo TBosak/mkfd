@@ -35,6 +35,7 @@ import { catalogRouter } from "./routes/catalog";
 import { webhookFeedRouter } from "./routes/webhook";
 import { filesystemRouter } from "./routes/filesystem";
 import { serviceConnectorsRouter } from "./routes/service-connectors";
+import { requestBodyLimit } from "./middleware/request-body-limit";
 
 // ---------------------------------------------------------------------------
 // Startup helpers
@@ -182,6 +183,13 @@ app.use("*", async (c, next) => {
     : setCookie.replace(/;\s*Secure/gi, "");
   c.res.headers.set("set-cookie", rewritten);
 });
+
+// Security headers wrap every later response, including an early 400/413
+// from the request-body boundary. The byte limit itself precedes session and
+// auth handling so neither the passkey nor anonymous webhook parser can see an
+// oversized body.
+app.use("/*", securityHeaders());
+app.use("*", requestBodyLimit());
 
 app.use(
   "*",
@@ -348,10 +356,6 @@ const authMiddleware = async (c: Context, next: () => Promise<void>) => {
   return c.redirect("/passkey");
 };
 
-// Mounted ahead of the auth gate so every response carries the baseline
-// headers — including the login page, redirects to it, and the anonymous
-// published feeds.
-app.use("/*", securityHeaders());
 app.use("/*", except([...ANONYMOUS_ROUTES], authMiddleware));
 app.use("/public/*", serveStatic({ root: "./" }));
 
