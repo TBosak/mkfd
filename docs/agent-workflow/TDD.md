@@ -27,9 +27,9 @@ Reuse `revise` for Claude or send the delta to the same Luna task until the test
 ## Running the Claude launcher (long jobs)
 
 A `tdd:claude` author or revise run takes roughly 18 minutes. That is longer
-than any agent tool timeout permits, so the lead must not wait on it inline. Native Luna tasks already provide a completion signal; yield and use that signal instead of scheduling model-driven polls.
+than any agent tool timeout permits, so the lead must not wait on it inline. Native Luna completion updates the lead's mailbox but does not itself start a new root turn. Use one bounded native wait while the lead turn remains active; otherwise temporarily schedule sparse wake-ups and restore the normal roadmap cadence as soon as the handoff completes.
 
-**Do not block, and do not poll in a loop.** For the external Claude process, launch the run detached, schedule your own return only because no native completion signal exists, and end the turn:
+**Do not block, and do not poll in a loop.** For the external Claude process, launch the run detached, schedule a sparse return, and end the turn:
 
 1. Start it detached with output redirected to a log, capturing the PID. On
    Windows:

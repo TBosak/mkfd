@@ -1,4 +1,4 @@
-import { int, sqliteTable, text, uniqueIndex, index } from "drizzle-orm/sqlite-core";
+import { index, int, sqliteTable, text, uniqueIndex } from "drizzle-orm/sqlite-core";
 
 export const runLogs = sqliteTable("run_logs", {
   id: int("id").primaryKey({ autoIncrement: true }),
@@ -72,6 +72,30 @@ export const feedHistoryItems = sqliteTable(
   (table) => [
     index("idx_feed_history_items_feed_id").on(table.feedId),
     uniqueIndex("idx_feed_history_items_dedupe").on(table.feedId, table.itemHash),
+  ],
+);
+
+export const webhookFeedEvents = sqliteTable(
+  "webhook_feed_events",
+  {
+    id:             text("id").primaryKey(),
+    feedId:         text("feed_id").notNull(),
+    externalId:     text("external_id"),
+    receivedAt:     text("received_at").notNull(),
+    eventDate:      text("event_date").notNull(),
+    title:          text("title").notNull(),
+    description:    text("description"),
+    link:           text("link"),
+    author:         text("author"),
+    categoriesJson: text("categories_json").notNull(),
+    severity:       text("severity"),
+    metadataJson:   text("metadata_json"),
+    rawPayloadJson: text("raw_payload_json"),
+    dedupeKey:      text("dedupe_key").notNull(),
+  },
+  (table) => [
+    index("idx_webhook_feed_events_feed_date").on(table.feedId, table.eventDate),
+    uniqueIndex("idx_webhook_feed_events_dedupe").on(table.feedId, table.dedupeKey),
   ],
 );
 

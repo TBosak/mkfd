@@ -62,7 +62,7 @@ Reject and return tests to the test author when they:
 
 - Use the repository scripts instead of repeatedly reconstructing long commands. See `docs/agent-workflow/TDD.md`.
 - Start with the narrowest targeted test; run broader suites only after local GREEN.
-- Prefer native task/process completion signals. The lead must yield while a test author is working and must not continuously poll or repeatedly reread the author's context. Use a scheduled wake-up only when no completion signal is available, and keep routine unchanged checks model-free when possible.
+- Prefer completion signals that actually wake the lead. Native Luna completion currently updates a mailbox but does not start a new root turn, so use one bounded native wait while a turn is active or temporarily schedule sparse wake-ups; restore the normal roadmap cadence after the handoff completes. The lead must yield while a test author is working and must not continuously poll or repeatedly reread the author's context. Keep routine unchanged checks model-free when possible.
 - Do not add a daemon, message bus, workflow engine, or new persistent coordination layer for TDD. Reuse native Codex tasks, the Claude launcher, Git diffs, repository commands, `.tdd-state/`, and the existing lock manifest.
 - Store transient test-author session/output and test-lock state under `.tdd-state/`; never paste long transcripts into prompts or commit them.
 - Give the test author the concise requirements brief and delta feedback, not the entire audit history or lead conversation. Prefer file paths, requirement IDs, diffs, and line references over whole-file retransmission.

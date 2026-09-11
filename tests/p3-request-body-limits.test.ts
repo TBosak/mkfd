@@ -14,11 +14,12 @@
 //   10   stable, sanitized 413 response
 //   11-12 anonymous ingress/static/readiness and authenticated regressions
 
+import { Database } from "bun:sqlite";
 import { afterAll, beforeAll, describe, expect, test } from "bun:test";
 import type { Subprocess } from "bun";
 import { request as httpRequest, type ClientRequest } from "node:http";
 import { createConnection } from "node:net";
-import { readFile, rm } from "node:fs/promises";
+import { rm } from "node:fs/promises";
 import { resolve } from "node:path";
 import { deleteFeedConfig, writeFeedConfig } from "../utilities/config-manager.utility";
 import { hashWebhookToken } from "../utilities/webhook-feed.utility";
@@ -48,6 +49,27 @@ const BODY_MARKER = "p3-request-body-limits-secret-must-not-echo";
 const DB_REL_DIR = `./.tdd-state/_p3-request-body-limits-db-${process.pid}`;
 const DB_REL_PATH = `${DB_REL_DIR}/runtime.db`;
 const EVENT_PATH = resolve(REPO_ROOT, "feed-state/webhooks", `${FEED_ID}.jsonl`);
+
+type PersistedWebhookRow = {
+  external_id: string | null;
+  title: string;
+  description: string | null;
+};
+
+function readPersistedWebhookRows(externalId: string): PersistedWebhookRow[] {
+  const sqlite = new Database(resolve(REPO_ROOT, DB_REL_PATH), { readonly: true });
+  try {
+    return sqlite
+      .query(`
+          SELECT external_id, title, description
+          FROM webhook_feed_events
+          WHERE feed_id = ? AND external_id = ?
+        `)
+      .all(FEED_ID, externalId) as PersistedWebhookRow[];
+  } finally {
+    sqlite.close();
+  }
+}
 
 type BodyInput = string | Uint8Array;
 
@@ -765,18 +787,13 @@ describe("request body limits on the real running server", () => {
     expect(response.status, "a permitted chunked body must reach webhook parsing").toBe(200);
     expect(responseJson.ok).toBe(true);
 
-    const events = (await readFile(EVENT_PATH, "utf8"))
-      .split(/\n+/)
-      .filter(Boolean)
-      .map((line) => JSON.parse(line) as { externalId?: string; title: string; description?: string });
-    expect(
-      events.some(
-        (event) =>
-          event.externalId === "chunked-lossless-webhook" &&
-          event.title === title &&
-          event.description === "UTF-8 bytes cross several chunk boundaries",
-      ),
-    ).toBe(true);
+    const events = readPersistedWebhookRows("chunked-lossless-webhook");
+    expect(events).toHaveLength(1);
+    expect(events[0]).toEqual({
+      external_id: "chunked-lossless-webhook",
+      title,
+      description: "UTF-8 bytes cross several chunk boundaries",
+    });
   });
 
   test("a chunked body is rejected as soon as it crosses the webhook cap", async () => {
@@ -791,8 +808,7 @@ describe("request body limits on the real running server", () => {
       headers: webhookHeaders(),
     });
     await expectPayloadTooLarge(response, BODY_MARKER);
-    const events = await readFile(EVENT_PATH, "utf8");
-    expect(events).not.toContain("chunked-over-webhook");
+    expect(readPersistedWebhookRows("chunked-over-webhook")).toHaveLength(0);
   });
 
   test("a chunked request receives sanitized 413 at cap plus one before end-of-stream", async () => {

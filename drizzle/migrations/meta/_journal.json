@@ -29,6 +29,13 @@
       "when": 1788816143040,
       "tag": "0003_consolidate_settings",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "6",
+      "when": 1789119198667,
+      "tag": "0004_webhook_feed_events",
+      "breakpoints": true
     }
   ]
 }
