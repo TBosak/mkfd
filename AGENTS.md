@@ -29,26 +29,26 @@ All implementation work from `docs/mkfd-v3-implementation-roadmap.md` uses stric
 ### Roles and write boundaries
 
 - **Lead implementer/reviewer:** Codex owns the requirements brief, scrutinizes the tests, returns incomplete tests for revision, implements production code, and verifies the result. The lead must not create, edit, delete, rename, weaken, skip, or re-baseline tests authored for the slice.
-- **Test author:** Claude Code running **Sonnet 5** is the sole author and reviser of tests for an implementation slice. Invoke it through `bun run tdd:claude -- author ...` or `bun run tdd:claude -- revise ...`; do not substitute another Claude model or another agent.
-- Claude may write only under `tests/` and `frontend/e2e/`. If a test harness or fixture requires a production/configuration change elsewhere, Claude reports the need and the lead handles it after the tests are accepted.
-- Claude must not implement production code. The lead must not repair Claude's tests. Test deficiencies always go back to the same Claude session with a written review.
+- **Test author:** Claude Code running **Sonnet 5** is the default sole author and reviser of tests for an implementation slice. Invoke it through `bun run tdd:claude -- author ...` or `bun run tdd:claude -- revise ...`. When the maintainer explicitly authorizes GPT-5.6 Luna as a temporary substitute, use a dedicated Luna Codex task in the same separated test-author role and return revisions to that same task. Do not substitute any other model or agent without explicit authorization.
+- The test author may write only under `tests/` and `frontend/e2e/`. If a test harness or fixture requires a production/configuration change elsewhere, the test author reports the need and the lead handles it after the tests are accepted.
+- The test author must not implement production code. The lead must not repair test-author tests. Test deficiencies always go back to the same test-author session/task with a written delta review.
 
 ### Required cycle for every vertical slice
 
 1. Select the smallest independently verifiable vertical slice from one roadmap packet. Do not split one behavior across unrelated packets merely to make the test smaller.
-2. The lead creates a requirements brief from `docs/agent-workflow/requirements-brief-template.md`. It must cite the roadmap IDs, specs, security boundaries, v2 compatibility obligations, observable behavior, and explicit non-goals.
+2. The lead creates a concise requirements brief from `docs/agent-workflow/requirements-brief-template.md`. Every meaningful acceptance criterion, invariant, error, boundary, and compatibility obligation gets a stable ID. The brief must cite roadmap/spec sources, security boundaries, v2 obligations, observable behavior, and explicit non-goals without prescribing private implementation.
 3. Record the pre-existing baseline for the targeted test command. Existing unrelated failures are not an excuse to skip the cycle.
-4. Run Claude Sonnet 5 with `bun run tdd:claude -- author --id <slice-id> --brief <brief-path>`. Claude writes tests only and runs the narrowest useful command to prove RED.
-5. The lead reviews the test diff and failure output using `docs/agent-workflow/test-review-template.md`. Confirm requirement traceability, meaningful assertions, determinism, correct test level, and relevant happy, failure, boundary, migration, security, concurrency, cancellation, accessibility, and v2-compatibility cases.
-6. If anything is missing, the lead writes review feedback and runs `bun run tdd:claude -- revise --id <slice-id> --brief <brief-path> --feedback <review-path>`. Repeat until the tests fully specify the slice. The lead does not patch tests directly.
+4. Delegate test authorship with the brief plus only the public interfaces, nearby test conventions, and commands needed for the slice. For Claude Sonnet 5, run `bun run tdd:claude -- author --id <slice-id> --brief <brief-path>`. For a maintainer-authorized Luna substitute, use a dedicated native Codex task. The test author writes tests only, self-reviews, fixes routine test-side defects, runs deterministic checks, proves the narrow RED, and returns a compact manifest mapping requirement IDs to test locations, expected failures, changed files, uncovered requirements, and questions.
+5. The lead performs one focused semantic review of the test diff and RED evidence using `docs/agent-workflow/test-review-template.md`. Confirm that the mapped suite enforces the behavioral contract while allowing alternative conforming implementations. Use deterministic tools for formatting, lint, types, and mechanical checks instead of spending lead review on them.
+6. If substantive behavior is missing or over-constrained, the lead writes only the unresolved requirement IDs, counterexamples, and required observables. For Claude, run `bun run tdd:claude -- revise --id <slice-id> --brief <brief-path> --feedback <review-path>`; for Luna, send the same delta to the existing task. The test author self-validates the repair. The lead re-reviews only changed portions and unresolved IDs rather than repeating the entire review. The lead does not patch tests directly.
 7. Confirm the accepted tests fail for the intended missing behavior rather than syntax, fixture, import, environment, or harness errors. Then lock them with `bun run tdd:tests -- lock --id <slice-id>`.
 8. Implement the smallest coherent production change that passes the accepted tests. Do not special-case fixtures, loosen assertions, add test-only production branches, or change the test files.
-9. Run the targeted tests until green, then the packet-relevant verification command. Run `bun run tdd:tests -- verify --id <slice-id>` before handing off; any test change returns the slice to Claude review.
-10. Refactor only while green. Update the implementation ledger/roadmap evidence with the brief, Claude session ID, accepted test diff, RED evidence, GREEN evidence, broader verification, migrations, and remaining risks.
+9. Run the targeted tests until green, classify failures before assigning them, then run packet-relevant deterministic verification. Implementation defects stay with the lead; test defects or newly proven coverage gaps return to the same test author as a minimal delta; the lead resolves specification ambiguity. Run `bun run tdd:tests -- verify --id <slice-id>` before handing off; any test change returns through test-author review.
+10. Refactor only while green. Update the implementation ledger/roadmap evidence with the brief, test-author identity/session or task, accepted test diff, RED evidence, GREEN evidence, broader verification, migrations, and remaining risks.
 
 ### Test quality gate
 
-Reject and return tests to Claude when they:
+Reject and return tests to the test author when they:
 
 - restate implementation details instead of externally meaningful behavior;
 - cover only a happy path or merely assert that a function was called;
@@ -62,8 +62,11 @@ Reject and return tests to Claude when they:
 
 - Use the repository scripts instead of repeatedly reconstructing long commands. See `docs/agent-workflow/TDD.md`.
 - Start with the narrowest targeted test; run broader suites only after local GREEN.
-- Store transient Claude session/output and test-lock state under `.tdd-state/`; never paste long transcripts into prompts or commit them.
-- Give Claude the requirements brief and delta feedback, not the entire audit history. Link to source documents and include only the relevant acceptance criteria.
+- Prefer native task/process completion signals. The lead must yield while a test author is working and must not continuously poll or repeatedly reread the author's context. Use a scheduled wake-up only when no completion signal is available, and keep routine unchanged checks model-free when possible.
+- Do not add a daemon, message bus, workflow engine, or new persistent coordination layer for TDD. Reuse native Codex tasks, the Claude launcher, Git diffs, repository commands, `.tdd-state/`, and the existing lock manifest.
+- Store transient test-author session/output and test-lock state under `.tdd-state/`; never paste long transcripts into prompts or commit them.
+- Give the test author the concise requirements brief and delta feedback, not the entire audit history or lead conversation. Prefer file paths, requirement IDs, diffs, and line references over whole-file retransmission.
+- Use deterministic tests, type checking, linting, static analysis, coverage, or targeted mutation testing when practical. A surviving mutation is evidence to review, not an automatic requirement for another test.
 
 ## Notes
 

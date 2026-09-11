@@ -2,29 +2,34 @@
 
 This procedure implements the mandatory workflow in `AGENTS.md`. It exists to keep handoffs short, reproducible, and resistant to test/implementation role drift.
 
-## One slice, one brief, one Claude session
+## One slice, one brief, one test-author session
 
-Use a stable lowercase slice ID such as `p3-v2-css-target-roundtrip`. Create its brief from `requirements-brief-template.md`. The Claude launcher stores the session ID and last response under `.tdd-state/`, allowing precise feedback to return to the same Sonnet 5 session without resending repository history.
+Use a stable lowercase slice ID such as `p3-v2-css-target-roundtrip`. Create its concise behavioral contract from `requirements-brief-template.md`, assigning a stable ID to every meaningful acceptance criterion, invariant, error, and compatibility obligation. The Claude launcher stores its session ID and last response under `.tdd-state/`; a maintainer-authorized Luna substitute uses one dedicated native Codex task. Both mechanisms let precise feedback return to the same test-author context without resending repository history.
 
 ```powershell
 bun run tdd:claude -- author --id p3-v2-css-target-roundtrip --brief docs/tdd/p3-v2-css-target-roundtrip.md
 ```
 
-The lead then reviews the test diff and RED output. When coverage is incomplete, record only the gaps and required observable behavior in a review file:
+The test author self-reviews, resolves routine test-side issues, and returns a compact manifest mapping requirement IDs to test locations and intended RED failures. The lead performs one focused semantic review of that map, diff, and RED output. When coverage is incomplete, record only the unresolved IDs, counterexamples, and required observable behavior in a review file:
 
 ```powershell
 bun run tdd:claude -- revise --id p3-v2-css-target-roundtrip --brief docs/tdd/p3-v2-css-target-roundtrip.md --feedback docs/tdd/p3-v2-css-target-roundtrip-review.md
 ```
 
-Reuse `revise` until the tests pass scrutiny. Do not start implementation while review feedback remains open.
+Reuse `revise` for Claude or send the delta to the same Luna task until the tests pass scrutiny. After a revision, review only changed portions and unresolved IDs. Do not start implementation while substantive feedback remains open.
+
+## Choose the existing author mechanism
+
+- Use Claude Sonnet 5 through `tdd:claude` by default.
+- Use a dedicated GPT-5.6 Luna native Codex task only when the maintainer explicitly authorizes that substitution. Give it the brief path, allowed write boundary, relevant public interfaces/test conventions, and narrow commands—not the lead's full conversation or repository history.
+- Require the same test-only boundary, intended RED proof, compact manifest, and same-task revisions from either author.
 
 ## Running the Claude launcher (long jobs)
 
 A `tdd:claude` author or revise run takes roughly 18 minutes. That is longer
-than any agent tool timeout permits, so the lead must not wait on it inline.
+than any agent tool timeout permits, so the lead must not wait on it inline. Native Luna tasks already provide a completion signal; yield and use that signal instead of scheduling model-driven polls.
 
-**Do not block, and do not poll in a loop.** Launch the run detached, schedule
-your own return, and end the turn:
+**Do not block, and do not poll in a loop.** For the external Claude process, launch the run detached, schedule your own return only because no native completion signal exists, and end the turn:
 
 1. Start it detached with output redirected to a log, capturing the PID. On
    Windows:
@@ -42,6 +47,8 @@ your own return, and end the turn:
    do with the result.
 3. End the turn. On waking, check the PID first. If it is still running,
    schedule another short check rather than blocking.
+
+Do not build a daemon, message bus, or new orchestration framework around this. Native task completion, process exit, Git diffs, `.tdd-state/`, and the existing lock manifest are sufficient.
 
 **Never pass a Bash tool timeout above 600000 ms.** The documented maximum is
 600000; three consecutive long runs were silently killed by passing 900000, and
@@ -105,9 +112,13 @@ Packet 1 owns making these commands fully green and deterministic on Windows and
 
 ## Lead review standard
 
-The lead reviews behavior, not line count. Every requirement in the brief needs at least one meaningful assertion, and every material risk needs an adversarial or boundary case at the correct test level. Unit tests should isolate pure contracts; integration tests should cross serialization, persistence, process, or network-policy boundaries; Playwright tests should exercise user-visible behavior and accessibility.
+The lead reviews behavior, not line count, and does one full semantic pass. Every stable requirement ID needs at least one meaningful assertion, and every material risk needs an adversarial or boundary case at the correct test level. Unit tests should isolate pure contracts; integration tests should cross serialization, persistence, process, or network-policy boundaries; Playwright tests should exercise user-visible behavior and accessibility.
 
-The lead returns tests to Claude when the suite can pass with a materially incomplete implementation. Feedback should name the missing observable, give one or more counterexamples, and explain the incorrect behavior that the current suite would allow. It should not prescribe production internals.
+The lead returns tests to the author when the suite can pass with a materially incomplete implementation. Feedback should name the requirement ID, missing observable, and counterexample the current suite would allow. It should not prescribe production internals. The author repairs and self-validates routine test problems; the lead rechecks only the delta and unresolved IDs.
+
+Formatting, lint, type checking, coverage, static analysis, and practical targeted mutation checks belong to deterministic tooling. Do not spend model review on a question a command answers directly. Treat surviving mutations as evidence requiring judgment, not automatic proof that a new test is mandatory.
+
+After implementation, classify failures before assigning them: the lead fixes implementation defects; the same test author fixes test defects or adds the smallest test for a newly proven coverage gap; the lead resolves specification ambiguity.
 
 ## Evidence retained per slice
 
@@ -115,7 +126,7 @@ The implementation ledger records only compact evidence:
 
 - slice ID and roadmap/spec links;
 - requirements brief path;
-- Claude Sonnet 5 session ID from `.tdd-state/<slice-id>.json`;
+- test-author identity and Claude session ID from `.tdd-state/<slice-id>.json` or native Luna task name;
 - accepted test files and review outcome;
 - targeted RED command and relevant failure summary;
 - targeted GREEN command and result;

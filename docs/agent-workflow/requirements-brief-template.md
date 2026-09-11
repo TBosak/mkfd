@@ -5,15 +5,31 @@
 - Roadmap packet and finding IDs:
 - Feature spec and implementation-plan links:
 - Production surfaces owned by this slice:
-- Test surfaces Claude may add or edit:
+- Test surfaces the authorized test author may add or edit:
+
+## Behavioral contract
+
+Use stable IDs and externally observable language. Keep this substantially smaller than the implementation context.
+
+| ID | Required observable behavior |
+|---|---|
+| A1 | |
+
+## Invariants and state transitions
+
+| ID | Invariant or transition |
+|---|---|
+| I1 | |
+
+## Errors and boundaries
+
+| ID | Error condition or boundary behavior |
+|---|---|
+| E1 | |
 
 ## Current behavior and RED reason
 
 Describe the current observable failure and the narrow command that establishes the pre-existing baseline. Include a minimal reproducer when useful.
-
-## Required observable behavior
-
-List independently testable outcomes. State inputs, outputs, persisted/runtime effects, user-visible states, and error semantics without prescribing private implementation details.
 
 ## Required edge and adversarial cases
 
@@ -33,7 +49,8 @@ Name adjacent behavior that this slice must not test or implement.
 - Deterministic fixtures and controlled time/randomness.
 - Assert semantics rather than incidental formatting or private call structure.
 - New required tests must demonstrate RED for the intended reason before implementation.
-- Claude may modify only `tests/` and `frontend/e2e/`.
+- The authorized test author may modify only `tests/` and `frontend/e2e/`.
+- The test author self-reviews, fixes routine test-side issues, runs the narrow deterministic checks, and returns a compact coverage manifest keyed by the stable requirement IDs.
 
 ## Acceptance checklist
 
