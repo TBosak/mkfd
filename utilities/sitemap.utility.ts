@@ -4,6 +4,12 @@ import * as cheerio from "cheerio";
 import type { SitemapEntry, SitemapFeedConfig, SitemapFilterRule, SitemapParseResult } from "../models/sitemap.model";
 import type { NormalizedFeedItem } from "../models/normalized-feed-item.model";
 import { assertParserInputWithinLimit, PARSER_INPUT_LIMITS } from "./parser-input-limits.utility";
+import {
+  prepareSafePatternFilters,
+  type PreparedSafePatternRule,
+  type SafePatternRuntimeOptions,
+  testPreparedSafePattern,
+} from "./safe-user-pattern.utility";
 
 export function parseSitemapXml(xml: string, sourceSitemapUrl: string): SitemapParseResult {
   assertParserInputWithinLimit(xml, "sitemap");
@@ -32,12 +38,15 @@ export function parseSitemapXml(xml: string, sourceSitemapUrl: string): SitemapP
   };
 }
 
-function applySitemapFilters(entries: SitemapEntry[], filters?: SitemapFeedConfig["filters"]): SitemapEntry[] {
+function applySitemapFilters(
+  entries: SitemapEntry[],
+  filters: SitemapFeedConfig["filters"] | undefined,
+  options: SafePatternRuntimeOptions,
+): SitemapEntry[] {
+  const preparedFilters = prepareSafePatternFilters(filters, (rule) => rule.type === "regex", options);
   return entries.filter((entry) => {
-    const includes = filters?.include ?? [];
-    const excludes = filters?.exclude ?? [];
-    if (includes.length && !includes.some((rule) => matchesRule(entry, rule))) return false;
-    if (excludes.some((rule) => matchesRule(entry, rule))) return false;
+    if (preparedFilters.include.length && !preparedFilters.include.some((rule) => matchesRule(entry, rule))) return false;
+    if (preparedFilters.exclude.some((rule) => matchesRule(entry, rule))) return false;
     return true;
   });
 }
@@ -52,7 +61,10 @@ function sortSitemapEntries(entries: SitemapEntry[], sortOrder: SitemapFeedConfi
   });
 }
 
-export async function fetchAndBuildSitemapItems(config: SitemapFeedConfig): Promise<NormalizedFeedItem[]> {
+export async function fetchAndBuildSitemapItems(
+  config: SitemapFeedConfig,
+  options: SafePatternRuntimeOptions = {},
+): Promise<NormalizedFeedItem[]> {
   // Routed through the shared executor so the sitemap URL — which a feed
   // author controls — is validated, address-pinned and redirect-revalidated
   // like every other outbound request.
@@ -67,7 +79,10 @@ export async function fetchAndBuildSitemapItems(config: SitemapFeedConfig): Prom
     getGlobalFetchPolicyOptions(),
   );
   const parsed = parseSitemapXml(String(response.data), config.url);
-  const entries = sortSitemapEntries(applySitemapFilters(parsed.entries, config.filters), config.sortOrder).slice(0, config.maxItems);
+  const entries = sortSitemapEntries(
+    applySitemapFilters(parsed.entries, config.filters, options),
+    config.sortOrder,
+  ).slice(0, config.maxItems);
   return buildSitemapItems(entries, config);
 }
 
@@ -86,10 +101,9 @@ export function buildSitemapItems(entries: SitemapEntry[], config: SitemapFeedCo
   });
 }
 
-function matchesRule(entry: SitemapEntry, rule: SitemapFilterRule): boolean {
-  const value = String((entry as any)[rule.field] ?? "");
-  if (rule.type === "regex") {
-    try { return new RegExp(rule.value, rule.caseSensitive ? "" : "i").test(value); } catch { return false; }
-  }
+function matchesRule(entry: SitemapEntry, prepared: PreparedSafePatternRule<SitemapFilterRule>): boolean {
+  const { rule } = prepared;
+  const value = String(entry[rule.field] ?? "");
+  if (rule.type === "regex") return testPreparedSafePattern(prepared, value);
   return rule.caseSensitive ? value.includes(rule.value) : value.toLowerCase().includes(rule.value.toLowerCase());
 }

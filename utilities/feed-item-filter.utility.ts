@@ -1,5 +1,11 @@
 import type { NormalizedFeedItem } from "../models/normalized-feed-item.model";
 import type { BasicFilterRule, BasicItemTransformConfig } from "../models/feed-transformer.model";
+import {
+  prepareSafePatternFilters,
+  type PreparedSafePatternRule,
+  type SafePatternRuntimeOptions,
+  testPreparedSafePattern,
+} from "./safe-user-pattern.utility";
 
 export type FilterFeedItemsInput = {
   items: NormalizedFeedItem[];
@@ -11,16 +17,20 @@ export type FilterFeedItemsResult = {
   filteredItemCount: number;
 };
 
-export function filterFeedItems(input: FilterFeedItemsInput): FilterFeedItemsResult {
+export function filterFeedItems(
+  input: FilterFeedItemsInput,
+  options: SafePatternRuntimeOptions = {},
+): FilterFeedItemsResult {
   const { items, filters } = input;
   if (!filters || (!filters.include?.length && !filters.exclude?.length)) {
     return { items, filteredItemCount: 0 };
   }
 
+  const preparedFilters = prepareSafePatternFilters(filters, (rule) => rule.type === "regex", options);
   const kept = items.filter((item) => {
-    if (filters.exclude?.some((rule) => matchesRule(item, rule))) return false;
-    if (filters.include?.length) {
-      return filters.include.some((rule) => matchesRule(item, rule));
+    if (preparedFilters.exclude.some((rule) => matchesRule(item, rule))) return false;
+    if (preparedFilters.include.length) {
+      return preparedFilters.include.some((rule) => matchesRule(item, rule));
     }
     return true;
   });
@@ -28,18 +38,20 @@ export function filterFeedItems(input: FilterFeedItemsInput): FilterFeedItemsRes
   return { items: kept, filteredItemCount: items.length - kept.length };
 }
 
-function matchesRule(item: NormalizedFeedItem, rule: BasicFilterRule): boolean {
+function matchesRule(item: NormalizedFeedItem, prepared: PreparedSafePatternRule<BasicFilterRule>): boolean {
+  const { rule } = prepared;
   if (rule.field === "categories") {
-    return (item.categories ?? []).some((category) => matchValue(category, rule));
+    return (item.categories ?? []).some((category) => matchValue(category, prepared));
   }
 
   const raw = (item as Record<string, unknown>)[rule.field];
   if (raw == null) return false;
-  if (Array.isArray(raw)) return raw.some((value) => matchValue(String(value), rule));
-  return matchValue(String(raw), rule);
+  if (Array.isArray(raw)) return raw.some((value) => matchValue(String(value), prepared));
+  return matchValue(String(raw), prepared);
 }
 
-function matchValue(value: string, rule: BasicFilterRule): boolean {
+function matchValue(value: string, prepared: PreparedSafePatternRule<BasicFilterRule>): boolean {
+  const { rule } = prepared;
   const haystack = rule.caseSensitive ? value : value.toLowerCase();
   const needle = rule.caseSensitive ? rule.value : rule.value.toLowerCase();
 
@@ -49,13 +61,7 @@ function matchValue(value: string, rule: BasicFilterRule): boolean {
     case "equals": return haystack === needle;
     case "startsWith": return haystack.startsWith(needle);
     case "endsWith": return haystack.endsWith(needle);
-    case "regex":
-      try {
-        return new RegExp(rule.value, rule.caseSensitive ? "" : "i").test(value);
-      } catch {
-        return false;
-      }
-    default:
-      return false;
+    case "regex": return testPreparedSafePattern(prepared, value);
+    default: return false;
   }
 }

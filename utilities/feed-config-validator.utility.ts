@@ -1,9 +1,10 @@
-import type { FeedConfig, WebScrapingFeedConfig, RestFeedConfig, ApiFeedConfig, EmailFeedConfig, FeedTransformerFeedConfig } from "../models/feed-config.model";
+import type { FeedConfig, WebScrapingFeedConfig, RestFeedConfig, ApiFeedConfig, EmailFeedConfig, FeedTransformerFeedConfig, SitemapFeedConfig } from "../models/feed-config.model";
 import { findPlainSensitiveValues } from "./sensitive-config.utility";
 import {
   getFeedSourceDefinition,
   listFeedSourceTypes,
 } from "./feed-source-registry.utility";
+import { validateSafePatternFilters } from "./safe-user-pattern.utility";
 
 export type ValidationIssue = {
   path: string;
@@ -122,13 +123,22 @@ export function validateFeedConfig(config: FeedConfig): ValidationResult {
         }
       }
     });
+    for (const issue of validateSafePatternFilters(
+      transformer.feedTransformer?.items?.filters,
+      (rule) => rule.type === "regex",
+    )) {
+      err(`feedTransformer.items.filters.${issue.list}.${issue.index}.value`, issue.message);
+    }
   }
 
   if (t === "sitemap") {
-    const sitemap = (config as any).sitemap;
+    const sitemap = (config as SitemapFeedConfig).sitemap;
     if (!sitemap?.url) err("sitemap.url", "url is required for sitemap feeds");
     if (sitemap?.url && !isHttpUrl(sitemap.url)) err("sitemap.url", "sitemap url must be http or https");
     if (!sitemap?.maxItems || sitemap.maxItems <= 0) err("sitemap.maxItems", "maxItems must be positive");
+    for (const issue of validateSafePatternFilters(sitemap?.filters, (rule) => rule.type === "regex")) {
+      err(`sitemap.filters.${issue.list}.${issue.index}.value`, issue.message);
+    }
   }
 
   if (t === "calendar") {
