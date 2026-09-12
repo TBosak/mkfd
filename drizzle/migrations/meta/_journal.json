@@ -36,6 +36,13 @@
       "when": 1789119198667,
       "tag": "0004_webhook_feed_events",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "6",
+      "when": 1789130400000,
+      "tag": "0005_filesystem_feed_state",
+      "breakpoints": true
     }
   ]
 }

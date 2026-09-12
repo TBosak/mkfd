@@ -3,6 +3,10 @@ import { readdir, readFile, writeFile, unlink } from "node:fs/promises";
 import { join } from "node:path";
 import * as yaml from "js-yaml";
 import type { FeedConfig } from "../models/feed-config.model";
+import {
+  approvedRootsFromEnvironment,
+  saveFilesystemFeedConfig,
+} from "./filesystem-feed.utility";
 
 const DEFAULT_CONFIGS_DIR = join(__dirname, "../configs");
 
@@ -21,6 +25,13 @@ export async function readFeedConfig(id: string, dir: string = DEFAULT_CONFIGS_D
 
 export async function writeFeedConfig(id: string, config: FeedConfig, dir: string = DEFAULT_CONFIGS_DIR): Promise<void> {
   assertSafeFeedId(id);
+  if (config.feedType === "filesystem") {
+    await saveFilesystemFeedConfig(id, config, {
+      configDir: dir,
+      approvedRoots: approvedRootsFromEnvironment(),
+    });
+    return;
+  }
   const path = join(dir, `${id}.yaml`);
   await writeFile(path, yaml.dump(config), "utf8");
 }

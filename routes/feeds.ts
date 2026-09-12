@@ -18,7 +18,7 @@
 import { file } from "bun";
 import { Hono } from "hono";
 import { existsSync } from "node:fs";
-import { readFile, writeFile } from "node:fs/promises";
+import { readFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import { v4 as uuidv4 } from "uuid";
 import * as yaml from "js-yaml";
@@ -33,6 +33,7 @@ import {
   duplicateFeedConfig,
   exportFeedConfig,
   assertSafeFeedId,
+  writeFeedConfig,
 } from "../utilities/config-manager.utility";
 import { patchMetadata, patchEnabled } from "../utilities/config-metadata.utility";
 import { buildFeedSummary } from "../utilities/feed-summary.utility";
@@ -57,6 +58,11 @@ import {
   terminateWorker,
 } from "../utilities/worker-manager.utility";
 import { parseExistingFeed } from "../utilities/existing-feed-parser.utility";
+import {
+  approvedRootsFromEnvironment,
+  FilesystemScanError,
+  saveFilesystemFeedConfig,
+} from "../utilities/filesystem-feed.utility";
 
 // ---------------------------------------------------------------------------
 // Router factory
@@ -180,9 +186,21 @@ export function feedsRouter(deps: {
       );
     }
 
-    const yamlStr = yaml.dump(finalFeedConfig);
-    const yamlFilePath = join(configsDir, `${feedId}.yaml`);
-    await writeFile(yamlFilePath, yamlStr, "utf8");
+    if (finalFeedConfig.feedType === "filesystem") {
+      try {
+        await saveFilesystemFeedConfig(feedId, finalFeedConfig, {
+          configDir: configsDir,
+          approvedRoots: approvedRootsFromEnvironment(),
+        });
+      } catch (error) {
+        const code = error instanceof FilesystemScanError
+          ? error.code
+          : "FILESYSTEM_CONFIG_INVALID";
+        return ctx.json({ error: { code, message: "Filesystem feed configuration is not authorized." } }, 400);
+      }
+    } else {
+      await writeFeedConfig(feedId, finalFeedConfig, configsDir);
+    }
 
     setFeedUpdaterInterval(finalFeedConfig);
 
@@ -367,8 +385,21 @@ export function feedsRouter(deps: {
       );
     }
 
-    const yamlStr = yaml.dump(finalFeedConfig);
-    await writeFile(configPath, yamlStr, "utf8");
+    if (finalFeedConfig.feedType === "filesystem") {
+      try {
+        await saveFilesystemFeedConfig(feedId, finalFeedConfig, {
+          configDir: configsDir,
+          approvedRoots: approvedRootsFromEnvironment(),
+        });
+      } catch (error) {
+        const code = error instanceof FilesystemScanError
+          ? error.code
+          : "FILESYSTEM_CONFIG_INVALID";
+        return ctx.json({ error: { code, message: "Filesystem feed configuration is not authorized." } }, 400);
+      }
+    } else {
+      await writeFeedConfig(feedId, finalFeedConfig, configsDir);
+    }
 
     // Restart worker with updated config
     clearFeedUpdaterInterval(feedId);

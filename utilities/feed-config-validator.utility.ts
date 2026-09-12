@@ -5,6 +5,7 @@ import {
   listFeedSourceTypes,
 } from "./feed-source-registry.utility";
 import { validateSafePatternFilters } from "./safe-user-pattern.utility";
+import { normalizeFilesystemFeedConfig } from "./filesystem-feed.utility";
 
 export type ValidationIssue = {
   path: string;
@@ -166,6 +167,13 @@ export function validateFeedConfig(config: FeedConfig): ValidationResult {
     const filesystem = (config as any).filesystem;
     if (!filesystem?.rootPath) err("filesystem.rootPath", "rootPath is required for filesystem feeds");
     if (!filesystem?.maxItems || filesystem.maxItems <= 0) err("filesystem.maxItems", "maxItems must be positive");
+    if (filesystem?.rootPath && filesystem?.maxItems) {
+      try {
+        normalizeFilesystemFeedConfig(filesystem);
+      } catch {
+        err("filesystem", "filesystem configuration is invalid or exceeds a runtime limit");
+      }
+    }
   }
 
   if (t === "serviceConnector") {

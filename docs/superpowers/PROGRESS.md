@@ -32,7 +32,7 @@ The Spec and Plan columns record approved artifacts. Implementation uses evidenc
 | Feature | Spec | Plan | Implementation |
 |---|---|---|---|
 | Backend Route Decomposition (prerequisite) | Approved | Approved | Verification |
-| Runtime Resource Controls | Approved | Approved | In progress |
+| Runtime Resource Controls | Approved | Approved | Ready |
 
 ## Phase 3 — Transformation & Scraping Intelligence
 | Feature | Spec | Plan | Implementation |
@@ -59,7 +59,7 @@ The Spec and Plan columns record approved artifacts. Implementation uses evidenc
 | Calendar | Approved | Approved | In progress |
 | GraphQL | Approved | Approved | In progress |
 | Webhook | Approved | Approved | In progress |
-| Filesystem | Approved | Approved | In progress |
+| Filesystem | Approved | Approved | Ready |
 
 ## Phase 6 — Service Connectors
 | Feature | Spec | Plan | Implementation |
@@ -69,3 +69,8 @@ The Spec and Plan columns record approved artifacts. Implementation uses evidenc
 ## Evidence authority
 
 Feature-level rationale lives in `../feature-ship-readiness-review-major-revision-0526.md`. Packet and TDD evidence lives only in `../mkfd-v3-implementation-ledger.md`. Update a feature to **Ready** only after its documented acceptance criteria and applicable release gates pass.
+
+2026-09-11: the approved Filesystem Runtime Controls addendum supersedes the
+legacy JSON-state security design. Slice 5 is GREEN with locked Luna-authored
+tests, transactional SQLite state, bounded legacy copy-forward, and broader
+compatibility verification; Filesystem and Runtime Resource Controls are Ready.

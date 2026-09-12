@@ -1,14 +1,11 @@
 import { Hono } from "hono";
-import { writeFile } from "node:fs/promises";
-import { join } from "node:path";
 import { v4 as uuidv4 } from "uuid";
-import * as yaml from "js-yaml";
 import { getCatalogFeed, getCatalogManifest } from "../utilities/community-catalog/catalog-client.utility";
 import { buildCatalogSubmissionBundle, sanitizeForCommunityCatalog } from "../utilities/community-catalog/catalog-sanitizer.utility";
 import { renderFeedConfigTemplate } from "../utilities/feed-template.utility";
 import { validateFeedConfig } from "../utilities/feed-config-validator.utility";
 import { maskProtectedValues } from "../utilities/protected-values.utility";
-import { readFeedConfig } from "../utilities/config-manager.utility";
+import { readFeedConfig, writeFeedConfig } from "../utilities/config-manager.utility";
 import { setFeedUpdaterInterval } from "../utilities/worker-manager.utility";
 
 export function catalogRouter(deps: {
@@ -78,7 +75,7 @@ export function catalogRouter(deps: {
       if (!validation.valid) {
         return ctx.json({ errors: validation.errors, warnings: validation.warnings }, 400);
       }
-      await writeFile(join(configsDir, `${feedId}.yaml`), yaml.dump(finalConfig), "utf8");
+      await writeFeedConfig(feedId, finalConfig as any, configsDir);
       setFeedUpdaterInterval(finalConfig as any);
       return ctx.json({ feedId, config: maskProtectedValues(finalConfig), warnings: validation.warnings }, 201);
     } catch (err: any) {

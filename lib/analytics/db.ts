@@ -7,7 +7,7 @@ import {
   readdirSync,
   rmSync,
 } from "node:fs";
-import { readdir, readFile } from "node:fs/promises";
+import { lstat, readdir, readFile } from "node:fs/promises";
 import { basename, dirname, extname, isAbsolute, join } from "node:path";
 import { and, desc, eq, inArray, lt } from "drizzle-orm";
 import { drizzle } from "drizzle-orm/bun-sqlite";
@@ -211,6 +211,295 @@ export async function saveAppSettings(
       .values({ key, value })
       .onConflictDoUpdate({ target: schema.appSettings.key, set: { value } });
   }
+}
+
+// ---------------------------------------------------------------------------
+// Filesystem feed observation state
+// ---------------------------------------------------------------------------
+
+const SAFE_FILESYSTEM_FEED_ID = /^[A-Za-z0-9_-]+$/;
+const MAX_LEGACY_FILESYSTEM_STATE_BYTES = 5 * 1024 * 1024;
+
+export type FilesystemStateRow = {
+  relativePath: string;
+  stableId: string;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  lastModifiedAt: string;
+  sizeBytes: number;
+  contentHash?: string;
+};
+
+export type FilesystemStateStore = {
+  read(feedId: string): Promise<FilesystemStateRow[]>;
+  replace(feedId: string, rows: FilesystemStateRow[]): Promise<void>;
+  migrateLegacy(): Promise<{ imported: number; skipped: number; files: number }>;
+};
+
+export function createFilesystemStateStore(
+  sqlite: Database,
+  options: {
+    legacyDir?: string;
+    clock?: () => Date;
+    onCommit?: () => Promise<void>;
+  } = {},
+): FilesystemStateStore {
+  const clock = options.clock ?? (() => new Date());
+  let initialMigration:
+    | Promise<{ imported: number; skipped: number; files: number }>
+    | undefined;
+
+  const migrateLegacyFiles = async (): Promise<{
+    imported: number;
+    skipped: number;
+    files: number;
+  }> => {
+    const legacyDir = options.legacyDir;
+    if (!legacyDir || !existsSync(legacyDir)) {
+      return { imported: 0, skipped: 0, files: 0 };
+    }
+
+    let imported = 0;
+    let skipped = 0;
+    let files = 0;
+    for (const filename of (await readdir(legacyDir)).sort()) {
+      const match = /^([A-Za-z0-9_-]+)\.json$/.exec(filename);
+      if (!match) {
+        skipped += 1;
+        continue;
+      }
+      const feedId = match[1];
+      const path = join(legacyDir, filename);
+      let raw: string;
+      try {
+        const legacyStat = await lstat(path);
+        if (
+          !legacyStat.isFile() ||
+          legacyStat.isSymbolicLink() ||
+          legacyStat.size > MAX_LEGACY_FILESYSTEM_STATE_BYTES
+        ) {
+          skipped += 1;
+          continue;
+        }
+        raw = await readFile(path, "utf8");
+      } catch {
+        skipped += 1;
+        continue;
+      }
+
+      const contentHash = createHash("sha256").update(raw).digest("hex");
+      const migrationId = `filesystem-json:${feedId}:${contentHash}`;
+      if (
+        sqlite
+          .query("SELECT id FROM runtime_migrations WHERE id = ? LIMIT 1")
+          .get(migrationId)
+      ) {
+        continue;
+      }
+
+      let parsed: unknown;
+      try {
+        parsed = JSON.parse(raw);
+      } catch {
+        skipped += 1;
+        continue;
+      }
+      const records = parseLegacyFilesystemState(parsed);
+      if (!records) {
+        skipped += 1;
+        continue;
+      }
+
+      const migrateFile = sqlite.transaction(() => {
+        let fileImported = 0;
+        let fileSkipped = 0;
+        for (const [relativePath, row] of records) {
+          if (!isSafeFilesystemRelativePath(relativePath) || !isLegacyFilesystemRow(row)) {
+            fileSkipped += 1;
+            continue;
+          }
+          const result = sqlite
+            .query(`
+              INSERT OR IGNORE INTO filesystem_feed_state (
+                feed_id, relative_path, stable_id, first_seen_at, last_seen_at,
+                last_modified_at, size_bytes, content_hash
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            `)
+            .run(
+              feedId,
+              relativePath.replaceAll("\\", "/"),
+              row.stableId,
+              row.firstSeenAt,
+              row.lastSeenAt,
+              row.lastModifiedAt ?? row.lastSeenAt,
+              row.lastSizeBytes ?? 0,
+              row.contentHash ?? null,
+            );
+          if (result.changes > 0) fileImported += 1;
+        }
+        sqlite
+          .query(
+            "INSERT INTO runtime_migrations (id, name, applied_at, details_json) VALUES (?, ?, ?, ?)",
+          )
+          .run(
+            migrationId,
+            "Legacy filesystem observation copy-forward",
+            clock().toISOString(),
+            JSON.stringify({ imported: fileImported, skipped: fileSkipped }),
+          );
+        return { fileImported, fileSkipped };
+      });
+      const result = migrateFile();
+      imported += result.fileImported;
+      skipped += result.fileSkipped;
+      files += 1;
+    }
+    return { imported, skipped, files };
+  };
+
+  const ensureInitialMigration = async (): Promise<void> => {
+    initialMigration ??= migrateLegacyFiles();
+    await initialMigration;
+  };
+
+  return {
+    async read(feedId) {
+      await ensureInitialMigration();
+      assertSafeFilesystemFeedId(feedId);
+      return (sqlite
+        .query(`
+          SELECT relative_path, stable_id, first_seen_at, last_seen_at,
+                 last_modified_at, size_bytes, content_hash
+          FROM filesystem_feed_state
+          WHERE feed_id = ?
+          ORDER BY relative_path ASC
+        `)
+        .all(feedId) as Array<{
+          relative_path: string;
+          stable_id: string;
+          first_seen_at: string;
+          last_seen_at: string;
+          last_modified_at: string;
+          size_bytes: number;
+          content_hash: string | null;
+        }>).map((row) => ({
+        relativePath: row.relative_path,
+        stableId: row.stable_id,
+        firstSeenAt: row.first_seen_at,
+        lastSeenAt: row.last_seen_at,
+        lastModifiedAt: row.last_modified_at,
+        sizeBytes: row.size_bytes,
+        ...(row.content_hash ? { contentHash: row.content_hash } : {}),
+      }));
+    },
+
+    async replace(feedId, rows) {
+      await ensureInitialMigration();
+      assertSafeFilesystemFeedId(feedId);
+      sqlite.run("BEGIN IMMEDIATE");
+      try {
+        for (const row of rows) {
+          if (!isSafeFilesystemRelativePath(row.relativePath)) {
+            throw new Error("Invalid filesystem observation path.");
+          }
+          sqlite
+            .query(`
+              INSERT INTO filesystem_feed_state (
+                feed_id, relative_path, stable_id, first_seen_at, last_seen_at,
+                last_modified_at, size_bytes, content_hash
+              ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+              ON CONFLICT(feed_id, relative_path) DO UPDATE SET
+                last_seen_at = excluded.last_seen_at,
+                last_modified_at = excluded.last_modified_at,
+                size_bytes = excluded.size_bytes,
+                content_hash = excluded.content_hash
+            `)
+            .run(
+              feedId,
+              row.relativePath,
+              row.stableId,
+              row.firstSeenAt,
+              row.lastSeenAt,
+              row.lastModifiedAt,
+              row.sizeBytes,
+              row.contentHash ?? null,
+            );
+        }
+        if (rows.length === 0) {
+          sqlite.query("DELETE FROM filesystem_feed_state WHERE feed_id = ?").run(feedId);
+        } else {
+          const placeholders = rows.map(() => "?").join(", ");
+          sqlite
+            .query(
+              `DELETE FROM filesystem_feed_state WHERE feed_id = ? AND relative_path NOT IN (${placeholders})`,
+            )
+            .run(feedId, ...rows.map((row) => row.relativePath));
+        }
+        await options.onCommit?.();
+        sqlite.run("COMMIT");
+      } catch (error) {
+        try {
+          sqlite.run("ROLLBACK");
+        } catch {
+          // The original database error is more useful and is kept internal.
+        }
+        throw error;
+      }
+    },
+
+    migrateLegacy: migrateLegacyFiles,
+  };
+}
+
+function assertSafeFilesystemFeedId(feedId: string): void {
+  if (!SAFE_FILESYSTEM_FEED_ID.test(feedId)) {
+    throw new Error("Invalid filesystem feed identifier.");
+  }
+}
+
+function isSafeFilesystemRelativePath(path: string): boolean {
+  if (!path || isAbsolute(path) || path.includes("\0")) return false;
+  const segments = path.replaceAll("\\", "/").split("/");
+  return segments.every((segment) => segment.length > 0 && segment !== "." && segment !== "..");
+}
+
+function parseLegacyFilesystemState(
+  value: unknown,
+): Array<[string, Record<string, unknown>]> | null {
+  if (!value || typeof value !== "object" || Array.isArray(value)) return null;
+  const files = (value as { files?: unknown }).files;
+  if (!files || typeof files !== "object" || Array.isArray(files)) return null;
+  return Object.entries(files as Record<string, Record<string, unknown>>);
+}
+
+function isLegacyFilesystemRow(value: Record<string, unknown>): value is {
+  stableId: string;
+  firstSeenAt: string;
+  lastSeenAt: string;
+  lastModifiedAt?: string;
+  lastSizeBytes?: number;
+  contentHash?: string;
+} {
+  const lastSizeBytes = value.lastSizeBytes;
+  const lastModifiedAt = value.lastModifiedAt;
+  return Boolean(
+    value &&
+      typeof value === "object" &&
+      typeof value.stableId === "string" &&
+      typeof value.firstSeenAt === "string" &&
+      typeof value.lastSeenAt === "string" &&
+      (!lastModifiedAt || typeof lastModifiedAt === "string") &&
+      (lastSizeBytes === undefined ||
+        (typeof lastSizeBytes === "number" &&
+          Number.isInteger(lastSizeBytes) &&
+          lastSizeBytes >= 0)) &&
+      (value.contentHash === undefined || typeof value.contentHash === "string") &&
+      !Number.isNaN(Date.parse(value.firstSeenAt)) &&
+      !Number.isNaN(Date.parse(value.lastSeenAt)) &&
+      (!lastModifiedAt ||
+        (typeof lastModifiedAt === "string" &&
+          !Number.isNaN(Date.parse(lastModifiedAt)))),
+  );
 }
 
 // ---------------------------------------------------------------------------

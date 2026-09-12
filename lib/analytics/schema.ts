@@ -99,5 +99,26 @@ export const webhookFeedEvents = sqliteTable(
   ],
 );
 
+export const filesystemFeedState = sqliteTable(
+  "filesystem_feed_state",
+  {
+    feedId:         text("feed_id").notNull(),
+    relativePath:   text("relative_path").notNull(),
+    stableId:       text("stable_id").notNull(),
+    firstSeenAt:    text("first_seen_at").notNull(),
+    lastSeenAt:     text("last_seen_at").notNull(),
+    lastModifiedAt: text("last_modified_at").notNull(),
+    sizeBytes:      int("size_bytes").notNull(),
+    contentHash:    text("content_hash"),
+  },
+  (table) => [
+    uniqueIndex("idx_filesystem_feed_state_identity").on(
+      table.feedId,
+      table.relativePath,
+    ),
+    index("idx_filesystem_feed_state_feed_id").on(table.feedId),
+  ],
+);
+
 export type FeedHistorySnapshot = typeof feedHistorySnapshots.$inferSelect;
 export type FeedHistoryItem     = typeof feedHistoryItems.$inferSelect;
