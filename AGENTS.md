@@ -36,7 +36,15 @@ All implementation work from `docs/mkfd-v3-implementation-roadmap.md` uses stric
 - **Lead implementer/reviewer:** owns the requirements brief, scrutinizes the tests, returns incomplete tests for revision, implements production code, and verifies the result. The lead must not create, edit, delete, rename, weaken, skip, or re-baseline tests authored for the slice. Codex is the usual lead; when Codex is unavailable, Claude Code takes the lead role under the same constraints.
 - **Test author:** Claude Code running **Sonnet 5** is the default sole author and reviser of tests for an implementation slice. Invoke it through `bun run tdd:claude -- author ...` or `bun run tdd:claude -- revise ...`.
 
-  **The invariant is role separation, not model identity.** What must never happen is one agent both authoring a slice's tests and implementing it. Which model fills each seat is an availability question, and it is expected to change mid-project — usage limits on one provider have already interrupted this work repeatedly.
+  **Prefer different providers for the two roles.** The point of separating author from implementer is adversarial review, and two sessions of the same model share the same blind spots — the same assumptions about what is obvious, the same failure classes they habitually miss. A Codex lead reviewed by a Claude-authored suite (or the reverse) catches materially more than either reviewing itself. Treat cross-provider staffing as the target configuration whenever token budgets on both sides permit, not as a nicety.
+
+  Preference ladder, best first:
+
+  1. **Different providers.** Codex leads, Claude Sonnet 5 authors — or Claude leads and a dedicated Luna Codex task authors. This is the configuration to aim for.
+  2. **Same provider, different session**, with strict role separation. Acceptable when one provider's budget is exhausted; note the degradation in the ledger row so the weaker review is visible later.
+  3. **Never** one agent doing both. There is no budget condition that justifies this; pause the slice instead.
+
+  **The hard invariant is role separation; provider diversity is the strong preference above it.** Which model fills each seat is otherwise an availability question, and it is expected to change mid-project — usage limits on one provider have already interrupted this work repeatedly.
 
   So: when the default author is unavailable — usage exhausted, provider outage, repeated `is_error` responses — the lead **may substitute an alternate author without new maintainer authorization**, provided all of the following hold:
 

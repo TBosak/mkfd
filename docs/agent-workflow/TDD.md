@@ -20,9 +20,11 @@ Reuse `revise` for Claude or send the delta to the same Luna task until the test
 
 ## Choose the existing author mechanism
 
-- Use Claude Sonnet 5 through `tdd:claude` by default.
-- **If that author is unavailable, substitute one and keep going.** No new maintainer authorization is required. Provider usage limits have interrupted this work repeatedly, and a protocol that stalls on them is a protocol that gets abandoned. The rule being protected is role separation — one agent must never both author a slice's tests and implement it — not the identity of the model in the seat.
-- Known alternates, in preference order: a dedicated GPT-5.6 Luna native Codex task; another Claude Code session explicitly scoped to the test-author role. Give either the brief path, the allowed write boundary, relevant public interfaces and test conventions, and narrow commands — not the lead's full conversation or repository history.
+- **Staff the two roles from different providers whenever both budgets permit.** Two sessions of the same model share blind spots — the same assumptions about what is obvious, the same cases they habitually skip — so a same-provider review is measurably weaker than a cross-provider one. The usual pairing is a Codex lead with a Claude Sonnet 5 author via `tdd:claude`; Claude leading with a dedicated Luna Codex task authoring is the mirror image and equally good.
+- Same provider in both seats, different sessions, is the **degraded** configuration. Use it when one side's budget is exhausted, and record the degradation in the ledger row so a later reader knows that slice got a weaker adversarial pass.
+- **If the default author is unavailable, substitute one and keep going.** No new maintainer authorization is required. Provider usage limits have interrupted this work repeatedly, and a protocol that stalls on them is a protocol that gets abandoned.
+- One agent authoring and implementing the same slice is never acceptable, at any budget. Pause the slice instead.
+- Give any author the brief path, the allowed write boundary, relevant public interfaces and test conventions, and narrow commands — not the lead's full conversation or repository history.
 - Whoever authors, require the same test-only boundary, intended RED proof, compact manifest, and same-session revisions.
 - Finish a slice with the author that started it. If you must change authors mid-slice, restart that slice's test phase deliberately and record it; do not stitch two authors' halves together.
 - Record the author actually used, and the reason if it was not the default, in the slice's ledger row.
@@ -129,7 +131,7 @@ The implementation ledger records only compact evidence:
 
 - slice ID and roadmap/spec links;
 - requirements brief path;
-- test-author identity and Claude session ID from `.tdd-state/<slice-id>.json` or native Luna task name;
+- test-author identity and Claude session ID from `.tdd-state/<slice-id>.json` or native Luna task name, plus whether lead and author came from different providers — note the reason when they did not;
 - accepted test files and review outcome;
 - targeted RED command and relevant failure summary;
 - targeted GREEN command and result;
