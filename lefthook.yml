@@ -46,9 +46,12 @@ pre-push:
       # CLAUDE.md/AGENTS.md instead of .ruler/.
       run: bun run agents:check
     fallow-changed:
-      # Scoped to what this push actually changes. A full-repo Fallow run has
-      # 69 legacy findings and would block every push.
-      run: bun x fallow audit --base origin/{branch} || bun x fallow audit --base HEAD~1
+      # Exactly the command static-analysis.yml runs, on purpose. `--gate
+      # new-only` fails only on findings this change introduces; without it the
+      # audit also reports the repository's inherited findings and blocks every
+      # push. Pinning an explicit --base is wrong here too: when the remote
+      # branch is far behind, "changed files" becomes most of the repo.
+      run: bun x fallow audit --gate new-only
       skip:
         - merge
         - rebase
