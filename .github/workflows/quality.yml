@@ -75,3 +75,84 @@ jobs:
           name: playwright-report-${{ matrix.os }}
           path: frontend/playwright-report
           retention-days: 7
+
+  container:
+    name: Container builds and starts (no publish)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
+
+      # push: false and no registry login, deliberately. docker-test.yml and
+      # docker-deploy.yml both publish and are gated to their own branches, so
+      # neither can answer "does this branch still produce a working image".
+      #
+      # This job is NOT the only branch build: supply-chain.yml's container-scan
+      # already builds the image to scan it with Trivy. That job proves the
+      # image builds and is free of known CVEs; it never runs the container.
+      # The gap this job closes is the boot check below — an image that builds
+      # cleanly and dies on startup passes every other gate in this repository.
+      #
+      # load: true keeps the image on the runner for that check, which is why
+      # this builds a single platform: a multi-arch build cannot be loaded into
+      # the local daemon. arm64 stays proven by docker-deploy.
+      - name: Build image (amd64, not published)
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
+        with:
+          context: .
+          file: dockerfile
+          platforms: linux/amd64
+          push: false
+          load: true
+          tags: mkfd:ci
+          # No build cache, deliberately, and matching container-scan's plain
+          # `docker build`. This gate answers "does this branch still produce a
+          # working image", and a cached layer can answer that question about a
+          # build that no longer happens. The base is pinned to Debian bullseye,
+          # which is drifting: as of 2026-09-13 this exact apt step fails from
+          # scratch because the bullseye-security index advertises openssl
+          # 1.1.1w-0+deb11u8 and xz-utils 5.2.5-2.1~deb11u2 while the pool 404s
+          # them. Whether a given runner hits that depends on its mirror edge,
+          # which is precisely why this must build from scratch rather than
+          # report success from a layer built before the drift.
+          no-cache: true
+
+      # A container that builds but dies on boot is the failure this is really
+      # for. The app refuses to start without all three secrets, so they are
+      # supplied as obvious throwaways; they are never published and the
+      # container is destroyed at the end of the job.
+      - name: Start the container
+        run: |
+          docker run -d --name mkfd-ci \
+            -e PASSKEY=ci-smoke-passkey \
+            -e COOKIE_SECRET=ci-smoke-cookie-secret \
+            -e ENCRYPTION_KEY=ci-smoke-encryption-key-not-a-real-secret \
+            -p 5000:5000 \
+            mkfd:ci
+
+      # -L matters for the same reason the Dockerfile HEALTHCHECK documents:
+      # / answers 302 to /passkey, and curl -f without -L treats that redirect
+      # as success, so the check would pass against a completely broken app.
+      - name: Wait for the app to answer
+        run: |
+          for i in $(seq 1 45); do
+            if curl -fsSL --max-time 5 http://localhost:5000/ >/dev/null 2>&1; then
+              echo "Container answered after ${i} attempt(s)."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "Container never answered on :5000 within 90s."
+          exit 1
+
+      - name: Container logs
+        if: failure()
+        run: docker logs mkfd-ci || true
+
+      - name: Tear down
+        if: always()
+        run: docker rm -f mkfd-ci || true
