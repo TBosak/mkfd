@@ -55,6 +55,13 @@ regexes = [
   # Environment variable NAMES asserted by the e2e harness contract test, not
   # values. The test asserts these names are required; it never holds a secret.
   '''MKFD_E2E_(COOKIE_SECRET|ENCRYPTION_KEY|PASSKEY)''',
+  # Throwaway secrets for the CI container smoke test in quality.yml. They must
+  # be at least 32 characters or hono-sessions rejects the cookie secret on the
+  # first request, and that length is exactly what makes them look real to the
+  # generic-key heuristic. Each one says what it is in its own value, is public
+  # in the workflow file, and grants access to a container destroyed at the end
+  # of the job.
+  '''ci-smoke-(passkey|cookie-secret|encryption-key)-[a-z0-9-]+''',
   # Documentation examples against the non-routable host mkfd.local.
   '''Bearer mkfd_wh[A-Za-z0-9_]*''',
 ]

@@ -124,13 +124,15 @@ jobs:
       # A container that builds but dies on boot is the failure this is really
       # for. The app refuses to start without all three secrets, so they are
       # supplied as obvious throwaways; they are never published and the
-      # container is destroyed at the end of the job.
+      # container is destroyed at the end of the job. They must each be at
+      # least 32 characters: hono-sessions rejects a shorter cookie secret at
+      # the first request, which fails the check against a perfectly good image.
       - name: Start the container
         run: |
           docker run -d --name mkfd-ci \
-            -e PASSKEY=ci-smoke-passkey \
-            -e COOKIE_SECRET=ci-smoke-cookie-secret \
-            -e ENCRYPTION_KEY=ci-smoke-encryption-key-not-a-real-secret \
+            -e PASSKEY=ci-smoke-passkey-not-a-real-secret \
+            -e COOKIE_SECRET=ci-smoke-cookie-secret-at-least-32-chars \
+            -e ENCRYPTION_KEY=ci-smoke-encryption-key-at-least-32-chars \
             -p 5000:5000 \
             mkfd:ci
 
