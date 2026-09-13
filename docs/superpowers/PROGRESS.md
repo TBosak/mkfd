@@ -74,3 +74,8 @@ Feature-level rationale lives in `../feature-ship-readiness-review-major-revisio
 legacy JSON-state security design. Slice 5 is GREEN with locked Luna-authored
 tests, transactional SQLite state, bounded legacy copy-forward, and broader
 compatibility verification; Filesystem and Runtime Resource Controls are Ready.
+
+2026-09-11: the Fetch Run Orchestration addendum reconciles the partial legacy
+retry loop with Packet 3. The retry/fallback/deadline/cancellation slice is Ready
+for RED; whole-feed serialization and global queue backpressure follow as a
+separate vertical slice so multi-request feeds are not throttled per request.
