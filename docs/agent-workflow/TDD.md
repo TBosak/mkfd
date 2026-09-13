@@ -21,8 +21,11 @@ Reuse `revise` for Claude or send the delta to the same Luna task until the test
 ## Choose the existing author mechanism
 
 - Use Claude Sonnet 5 through `tdd:claude` by default.
-- Use a dedicated GPT-5.6 Luna native Codex task only when the maintainer explicitly authorizes that substitution. Give it the brief path, allowed write boundary, relevant public interfaces/test conventions, and narrow commands—not the lead's full conversation or repository history.
-- Require the same test-only boundary, intended RED proof, compact manifest, and same-task revisions from either author.
+- **If that author is unavailable, substitute one and keep going.** No new maintainer authorization is required. Provider usage limits have interrupted this work repeatedly, and a protocol that stalls on them is a protocol that gets abandoned. The rule being protected is role separation — one agent must never both author a slice's tests and implement it — not the identity of the model in the seat.
+- Known alternates, in preference order: a dedicated GPT-5.6 Luna native Codex task; another Claude Code session explicitly scoped to the test-author role. Give either the brief path, the allowed write boundary, relevant public interfaces and test conventions, and narrow commands — not the lead's full conversation or repository history.
+- Whoever authors, require the same test-only boundary, intended RED proof, compact manifest, and same-session revisions.
+- Finish a slice with the author that started it. If you must change authors mid-slice, restart that slice's test phase deliberately and record it; do not stitch two authors' halves together.
+- Record the author actually used, and the reason if it was not the default, in the slice's ledger row.
 
 ## Running the Claude launcher (long jobs)
 

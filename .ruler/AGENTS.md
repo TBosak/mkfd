@@ -28,8 +28,19 @@ All implementation work from `docs/mkfd-v3-implementation-roadmap.md` uses stric
 
 ### Roles and write boundaries
 
-- **Lead implementer/reviewer:** Codex owns the requirements brief, scrutinizes the tests, returns incomplete tests for revision, implements production code, and verifies the result. The lead must not create, edit, delete, rename, weaken, skip, or re-baseline tests authored for the slice.
-- **Test author:** Claude Code running **Sonnet 5** is the default sole author and reviser of tests for an implementation slice. Invoke it through `bun run tdd:claude -- author ...` or `bun run tdd:claude -- revise ...`. When the maintainer explicitly authorizes GPT-5.6 Luna as a temporary substitute, use a dedicated Luna Codex task in the same separated test-author role and return revisions to that same task. Do not substitute any other model or agent without explicit authorization.
+- **Lead implementer/reviewer:** owns the requirements brief, scrutinizes the tests, returns incomplete tests for revision, implements production code, and verifies the result. The lead must not create, edit, delete, rename, weaken, skip, or re-baseline tests authored for the slice. Codex is the usual lead; when Codex is unavailable, Claude Code takes the lead role under the same constraints.
+- **Test author:** Claude Code running **Sonnet 5** is the default sole author and reviser of tests for an implementation slice. Invoke it through `bun run tdd:claude -- author ...` or `bun run tdd:claude -- revise ...`.
+
+  **The invariant is role separation, not model identity.** What must never happen is one agent both authoring a slice's tests and implementing it. Which model fills each seat is an availability question, and it is expected to change mid-project — usage limits on one provider have already interrupted this work repeatedly.
+
+  So: when the default author is unavailable — usage exhausted, provider outage, repeated `is_error` responses — the lead **may substitute an alternate author without new maintainer authorization**, provided all of the following hold:
+
+  - the substitute is a different agent from whoever will implement the slice;
+  - it receives the same brief, the same `tests/`-only write boundary, and the same obligation to prove RED and return a compact manifest;
+  - every revision for that slice returns to the **same** substitute session or task, never a fresh one;
+  - the substitution and its reason are recorded in the slice's ledger row.
+
+  Known alternates, in order of preference: a dedicated GPT-5.6 Luna native Codex task; another Claude Code session explicitly scoped to the test-author role. Do not substitute the agent that will implement the slice, and do not silently switch authors mid-slice — finish the slice with the author that started it, or restart the slice's test phase deliberately and say so in the ledger.
 - The test author may write only under `tests/` and `frontend/e2e/`. If a test harness or fixture requires a production/configuration change elsewhere, the test author reports the need and the lead handles it after the tests are accepted.
 - The test author must not implement production code. The lead must not repair test-author tests. Test deficiencies always go back to the same test-author session/task with a written delta review.
 
