@@ -60,6 +60,26 @@ async function getSecrets() {
     process.env.ENCRYPTION_KEY ??
     args.encryptionKey ??
     (await prompt("Enter encryption key: "));
+
+  // Fail here, loudly, rather than on the user's first page load.
+  //
+  // hono-sessions encrypts the session cookie through iron-webcrypto, which
+  // requires at least 32 characters. Below that it throws "Password string too
+  // short" from inside the session middleware — on the first request, not at
+  // startup. The container therefore starts, reports healthy for a minute, and
+  // then returns 500 for every page, with the real reason buried in the logs.
+  // Every value this project's own README, .env.example and compose file used
+  // to suggest was shorter than 32 characters, so the documented quickstart
+  // produced exactly that failure.
+  const MIN_COOKIE_SECRET_LENGTH = 32;
+  if (cookieSecret.length < MIN_COOKIE_SECRET_LENGTH) {
+    throw new Error(
+      `COOKIE_SECRET must be at least ${MIN_COOKIE_SECRET_LENGTH} characters; got ${cookieSecret.length}. ` +
+        "Session cookies are encrypted with it, and a shorter value fails on the first request rather than at startup. " +
+        "Generate one with: openssl rand -base64 32",
+    );
+  }
+
   return { passkey, cookieSecret, encryptionKey };
 }
 

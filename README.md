@@ -23,10 +23,28 @@ If you are using email feeds, you will need to install a version of NodeJS that 
 bun install
 ```
 
+### 🔑 Generate your secrets first
+
+Every command below needs three secrets. Generate them once and reuse them:
+
+```bash
+export PASSKEY=$(openssl rand -base64 32)
+export COOKIE_SECRET=$(openssl rand -base64 32)
+export ENCRYPTION_KEY=$(openssl rand -base64 32)
+```
+
+> **`COOKIE_SECRET` must be at least 32 characters.** Session cookies are
+> encrypted with it, and a shorter value fails on the *first request* rather
+> than at startup — so the app appears to boot, reports healthy, and then
+> returns 500 for every page.
+>
+> Reuse the same `ENCRYPTION_KEY` across restarts, or stored email
+> credentials become unreadable.
+
 ### 🚀 To run
 
 ```bash
-bun run index.ts --passkey=your_passkey_here --cookieSecret=your_cookie_secret_here --encryptionKey=your_encryption_key_here --ssl=true/false
+bun run index.ts --passkey="$PASSKEY" --cookieSecret="$COOKIE_SECRET" --encryptionKey="$ENCRYPTION_KEY" --ssl=false
 ```
 
 ➡️ Access the GUI at `http://localhost:5000/`
@@ -39,14 +57,14 @@ bun run index.ts --passkey=your_passkey_here --cookieSecret=your_cookie_secret_h
 
 ```bash
 docker build -t mkfd .
-docker run -p 5000:5000 -v /local/mount/path:/app/configs -e PASSKEY=your_passkey -e COOKIE_SECRET=your_cookie_secret -e ENCRYPTION_KEY=your_encryption_key -e SSL=true/false mkfd
+docker run -p 5000:5000 -v /local/mount/path:/app/configs -e PASSKEY="$PASSKEY" -e COOKIE_SECRET="$COOKIE_SECRET" -e ENCRYPTION_KEY="$ENCRYPTION_KEY" -e SSL=false mkfd
 ```
 
 ### 📥 From Docker Hub
 
 ```bash
 docker pull tbosk/mkfd:latest
-docker run -p 5000:5000 -v /local/mount/path:/app/configs -e PASSKEY=your_passkey -e COOKIE_SECRET=your_cookie_secret -e ENCRYPTION_KEY=your_encryption_key -e SSL=true/false tbosk/mkfd:latest
+docker run -p 5000:5000 -v /local/mount/path:/app/configs -e PASSKEY="$PASSKEY" -e COOKIE_SECRET="$COOKIE_SECRET" -e ENCRYPTION_KEY="$ENCRYPTION_KEY" -e SSL=false tbosk/mkfd:latest
 ```
 
 If you don't supply the keys and cookie secret, the app will prompt you for them (just make sure to run docker with "it" flag to get an interactive shell). Make sure to reuse your encryption key for email feeds.
@@ -79,9 +97,9 @@ The Docker image includes a healthcheck that monitors the application every 5 mi
 ```bash
 docker run -p 5000:5000 -v /local/mount/path:/app/configs \
   --restart=unless-stopped \
-  -e PASSKEY=your_passkey \
-  -e COOKIE_SECRET=your_cookie_secret \
-  -e ENCRYPTION_KEY=your_encryption_key \
+  -e PASSKEY="$PASSKEY" \
+  -e COOKIE_SECRET="$COOKIE_SECRET" \
+  -e ENCRYPTION_KEY="$ENCRYPTION_KEY" \
   -e SSL=true/false \
   tbosk/mkfd:latest
 ```
@@ -118,9 +136,9 @@ When using Docker or Docker Compose, mount your extensions directory as a volume
 docker run -p 5000:5000 \
   -v /local/mount/path:/app/configs \
   -v /path/to/extensions:/app/extensions \
-  -e PASSKEY=your_passkey \
-  -e COOKIE_SECRET=your_cookie_secret \
-  -e ENCRYPTION_KEY=your_encryption_key \
+  -e PASSKEY="$PASSKEY" \
+  -e COOKIE_SECRET="$COOKIE_SECRET" \
+  -e ENCRYPTION_KEY="$ENCRYPTION_KEY" \
   tbosk/mkfd:latest
 ```
 

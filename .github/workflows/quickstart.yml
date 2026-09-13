@@ -1,0 +1,88 @@
+name: Quickstart
+
+# Tests what a new user actually does, which no other job here does.
+#
+# The build being green says nothing about whether the documented quickstart
+# works. It did not: every secret this project's README, .env.example and
+# compose file suggested was shorter than the 32 characters hono-sessions
+# requires, so `docker compose up` produced a container that started, reported
+# healthy for a minute, and then returned 500 for every page — with the reason
+# only visible in `docker logs`. That shipped for months.
+#
+# This job runs the documented path end to end and asserts a 200.
+
+on:
+  pull_request:
+  push:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: quickstart-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  quickstart:
+    name: Documented quickstart works
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Tagged as the name docker-compose.yml references, so compose uses this
+      # build rather than pulling the published image. The point is to test the
+      # source under review.
+      - name: Build the image the compose file references
+        run: docker build --file dockerfile --tag tbosk/mkfd:latest .
+
+      # The compose file uses ${VAR:?} for all three secrets. If that guard ever
+      # regresses to a default, this step passes and the job fails here — which
+      # is the whole point, because a weak default is how the app shipped with a
+      # publicly-known cookie secret.
+      - name: Refuses to start with no secrets set
+        run: |
+          if docker compose config >/dev/null 2>&1; then
+            echo "::error::docker compose accepted an empty environment."
+            echo "::error::All three secrets must use the \${VAR:?message} form so a missing value fails loudly."
+            exit 1
+          fi
+          echo "Compose correctly refused to start without secrets."
+
+      - name: Generate secrets the way the README says
+        run: |
+          {
+            echo "PASSKEY=$(openssl rand -base64 32)"
+            echo "COOKIE_SECRET=$(openssl rand -base64 32)"
+            echo "ENCRYPTION_KEY=$(openssl rand -base64 32)"
+          } > .env
+          echo "COOKIE_SECRET length: $(grep '^COOKIE_SECRET=' .env | cut -d= -f2- | wc -c)"
+
+      - name: docker compose up
+        run: docker compose up -d
+
+      # -L matters: / answers 302 to /passkey, and curl -f without it reads the
+      # redirect as success. The original failure was a 500 behind that redirect.
+      - name: The app answers
+        run: |
+          for i in $(seq 1 45); do
+            code=$(curl -s -o /dev/null -w "%{http_code}" -L --max-time 5 http://localhost:5000/ || echo "000")
+            if [ "$code" = "200" ]; then
+              echo "Quickstart answered 200 after ${i} attempt(s)."
+              exit 0
+            fi
+            sleep 2
+          done
+          echo "::error::Quickstart never returned 200 (last status: ${code:-none})."
+          exit 1
+
+      - name: Container logs
+        if: failure()
+        run: docker compose logs --no-color || true
+
+      - name: Tear down
+        if: always()
+        run: docker compose down -v || true
