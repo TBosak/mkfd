@@ -1,14 +1,40 @@
 name: Build and Push Docker Images
 
+# Releases are triggered by a version tag, not by a branch.
+#
+# The `deploy` branch previously served as the trigger, but it was a button
+# shaped like a branch: across eleven merges it never diverged from main, never
+# merged back, and carried no content of its own. What it did produce was a
+# recurring failure mode — the image tag came from package.json as read at merge
+# time, so the version bump and the publish were two separate manual steps that
+# could silently disagree and overwrite an already-published tag.
+#
+# A tag couples the two. `git tag v2.1.3 && git push origin v2.1.3` names the
+# version and fires the release in one action, the published image is
+# reproducible from the tag, and the guard below refuses to build if the tag and
+# package.json disagree.
+#
+# Release:      git tag v3.0.0 && git push origin v3.0.0
+# Pre-release:  git tag v3.0.0-rc.1 && git push origin v3.0.0-rc.1   (skips :latest)
+# Rebuild:      workflow_dispatch with an explicit version            (skips :latest)
+
 on:
   push:
-    branches: [deploy]
+    tags:
+      - "v*"
   workflow_dispatch:
     inputs:
       version:
-        description: "Version tag (leave empty to use package.json version and tag as latest)"
+        description: "Version tag to publish (leave empty to use package.json). Never moves :latest."
         required: false
         type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: docker-deploy-${{ github.ref }}
+  cancel-in-progress: false
 
 jobs:
   build-and-push:
@@ -19,39 +45,50 @@ jobs:
 
     steps:
       - name: Checkout repository
-        uses: actions/checkout@v4
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
 
       - name: Set up QEMU
-        uses: docker/setup-qemu-action@v3
+        uses: docker/setup-qemu-action@29109295f81e9208d7d86ff1c6c12d2833863392 # v3.6.0
         with:
           platforms: arm64
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v3
-        with:
-          registry: docker.io
-          username: ${{ secrets.DOCKERHUB_USERNAME }}
-          password: ${{ secrets.DOCKERHUB_TOKEN }}
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GHCR_TOKEN }}
+        uses: docker/setup-buildx-action@e468171a9de216ec08956ac3ada2f0791b6bd435 # v3.11.1
 
       - name: Determine version and tags
         id: vars
         run: |
-          if [ -n "${{ inputs.version }}" ]; then
+          set -euo pipefail
+
+          PKG_VERSION=$(node -p "require('./package.json').version")
+
+          if [ "${GITHUB_REF_TYPE}" = "tag" ]; then
+            # v2.1.3 -> 2.1.3. The tag is authoritative for what gets published.
+            VERSION="${GITHUB_REF_NAME#v}"
+
+            # The guard. Without it the two sources of truth drift, which is the
+            # failure the branch trigger allowed: a forgotten bump republishes an
+            # existing tag with a different image.
+            if [ "${VERSION}" != "${PKG_VERSION}" ]; then
+              echo "::error::Tag ${GITHUB_REF_NAME} does not match package.json version ${PKG_VERSION}."
+              echo "::error::Bump package.json to ${VERSION}, or retag to v${PKG_VERSION}."
+              exit 1
+            fi
+
+            # A pre-release must never move :latest. Anything with a hyphen
+            # (2.1.3-rc.1, 3.0.0-beta.2) is treated as one.
+            case "${VERSION}" in
+              *-*) USE_LATEST="false" ;;
+              *)   USE_LATEST="true" ;;
+            esac
+          elif [ -n "${{ inputs.version }}" ]; then
+            # Manual rebuild of a specific version — deliberately never latest,
+            # so a published pointer cannot move by hand.
             VERSION="${{ inputs.version }}"
             USE_LATEST="false"
           else
-            VERSION=$(node -p "require('./package.json').version")
-            USE_LATEST="true"
+            VERSION="${PKG_VERSION}"
+            USE_LATEST="false"
           fi
 
           TAGS="docker.io/tbosk/mkfd:${VERSION}"$'\n'"ghcr.io/tbosak/mkfd:${VERSION}"
@@ -59,20 +96,40 @@ jobs:
             TAGS="$TAGS"$'\n'"docker.io/tbosk/mkfd:latest"$'\n'"ghcr.io/tbosak/mkfd:latest"
           fi
 
-          echo "VERSION=$VERSION" >> $GITHUB_ENV
-          echo "USE_LATEST=$USE_LATEST" >> $GITHUB_ENV
-          echo "TAGS<<EOF" >> $GITHUB_ENV
-          echo "$TAGS" >> $GITHUB_ENV
-          echo "EOF" >> $GITHUB_ENV
+          {
+            echo "VERSION=$VERSION"
+            echo "USE_LATEST=$USE_LATEST"
+            echo "TAGS<<EOF"
+            echo "$TAGS"
+            echo "EOF"
+          } >> "$GITHUB_ENV"
 
-          echo "Building version: $VERSION (latest tag: $USE_LATEST)"
-          echo "Docker tags:"
+          echo "Building version: $VERSION (moves :latest = $USE_LATEST)"
           echo "$TAGS"
 
+      # Login happens only after the version guard passes, so a mismatched tag
+      # fails before any credential is exchanged.
+      - name: Log in to Docker Hub
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
+        with:
+          registry: docker.io
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@5e57cd118135c172c3672efd75eb46360885c0ef # v3.6.0
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GHCR_TOKEN }}
+
       - name: Build and push multi-arch images to Docker Hub and GHCR
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@263435318d21b8e681c14492fe198d362a7d2c83 # v6.18.0
         with:
           context: .
+          # Explicit: the Dockerfile is tracked lowercase, and relying on the
+          # default lookup has bitten this repo on case-sensitive checkouts.
+          file: dockerfile
           push: true
           platforms: linux/amd64,linux/arm64
           tags: ${{ env.TAGS }}
