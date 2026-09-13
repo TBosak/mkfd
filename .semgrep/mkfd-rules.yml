@@ -1,0 +1,73 @@
+rules:
+  # ---------------------------------------------------------------------------
+  # Credential leakage through logs
+  # ---------------------------------------------------------------------------
+  # The p2-redacting-logger slice exists because request configs in this codebase
+  # legitimately carry live Authorization headers, cookie jars and proxy
+  # credentials. `redact()` is the approved way to log any of them; logging the
+  # object directly puts the secret in stdout, and container logs outlive the
+  # request.
+  - id: mkfd-unredacted-credential-log
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: >-
+      Logging a config/headers/cookies object directly. Wrap it in redact() from
+      utilities/log-redaction.utility.ts — these objects carry live Authorization
+      values, cookie jars and proxy credentials.
+    paths:
+      include:
+        - routes/
+        - utilities/
+        - workers/
+        - lib/
+        - node/
+        - middleware/
+      exclude:
+        - "*.test.ts"
+        - "utilities/log-redaction.utility.ts"
+    patterns:
+      - pattern-either:
+          - pattern: console.log(..., $OBJ, ...)
+          - pattern: console.warn(..., $OBJ, ...)
+          - pattern: console.error(..., $OBJ, ...)
+          - pattern: console.info(..., $OBJ, ...)
+      - metavariable-regex:
+          metavariable: $OBJ
+          regex: ^(.*[Hh]eaders|.*[Cc]ookies|.*[Cc]redentials|axiosConfig|requestConfig|proxyConfig)$
+      # redact(...) already returns a sanitized copy, so a redacted log is fine.
+      - pattern-not: console.log(..., redact(...), ...)
+      - pattern-not: console.warn(..., redact(...), ...)
+      - pattern-not: console.error(..., redact(...), ...)
+      - pattern-not: console.info(..., redact(...), ...)
+
+  # ---------------------------------------------------------------------------
+  # Outbound requests that skip the approved executor
+  # ---------------------------------------------------------------------------
+  # The locked architecture test scans routes/, utilities/, workers/ and node/
+  # only — lib/ is deliberately outside it because the approved adapters live
+  # there. That leaves a gap: a NEW direct axios/fetch call added anywhere in
+  # lib/ other than the outbound adapters themselves would be invisible to that
+  # test. This rule closes it.
+  - id: mkfd-direct-outbound-in-lib
+    languages: [typescript, javascript]
+    severity: ERROR
+    message: >-
+      Direct network call inside lib/ outside the approved outbound adapters.
+      Route it through lib/outbound/pinned-request.ts (or the FlareSolverr /
+      browser adapters), which validate the target, pin the resolved address and
+      revalidate every redirect.
+    paths:
+      include:
+        - lib/
+      exclude:
+        - lib/outbound/
+        - "*.test.ts"
+        # The backend lib/ only. frontend/src/lib/ is browser code calling this
+        # app's own API over relative URLs; it has no business with the outbound
+        # executor, and `lib/` alone also matches that path.
+        - frontend/
+    patterns:
+      - pattern-either:
+          - pattern: axios.$METHOD(...)
+          - pattern: fetch(...)
+          - pattern: globalThis.fetch(...)

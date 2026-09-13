@@ -203,3 +203,15 @@ data/
 .dolt/
 .beads-credential-key
 .beads/proxieddb/
+
+# Agent tooling artifacts (see .ruler/tooling.md).
+# Canonical, tracked config: .ruler/, .ast-grep/, .semgrep/, .gitleaks.toml,
+# sgconfig.yml, stryker.config.json, lefthook.yml, .graphifyignore,
+# .serena/project.yml. Everything below is a machine-local index, cache or
+# report that each developer regenerates.
+.qmd/
+graphify-out/
+.stryker-tmp/
+reports/mutation/
+.serena/cache/
+.serena/project.local.yml

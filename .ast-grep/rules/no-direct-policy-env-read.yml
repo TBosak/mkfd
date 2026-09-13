@@ -1,0 +1,41 @@
+id: no-direct-policy-env-read
+language: TypeScript
+severity: error
+message: >-
+  Policy setting read directly from process.env, bypassing the settings registry.
+note: |
+  These settings are operator-editable through the Settings API and stored in
+  `app_settings`. Reading them from `process.env` reintroduces exactly the bug
+  the `p3-settings-runtime-consumers` slice existed to fix: the setting appears
+  to save, survives a reload, and silently governs nothing in this code path.
+
+  Read them through `effectiveSetting()` instead — or, for outbound policy, call
+  `getGlobalFetchPolicyOptions()` / `resolveFetchPolicy()`, which already apply
+  the stored > env > default precedence and fail closed on a degraded database.
+
+  Bootstrap secrets (ENCRYPTION_KEY, PASSKEY, COOKIE_SECRET) are deliberately
+  NOT covered: they are needed before the database exists.
+files:
+  - "routes/**/*.ts"
+  - "utilities/**/*.ts"
+  - "workers/**/*.ts"
+  - "lib/**/*.ts"
+  - "node/**/*.ts"
+  - "middleware/**/*.ts"
+ignores:
+  # The settings layer itself is where env is legitimately consulted: it owns
+  # the stored > env > default precedence this rule exists to protect.
+  - "**/effective-settings.utility.ts"
+  - "**/app-settings.utility.ts"
+  - "**/*.test.ts"
+rule:
+  any:
+    - pattern: process.env.ALLOW_PRIVATE_FETCHES
+    - pattern: process.env.OUTBOUND_FETCH_ALLOWLIST
+    - pattern: process.env.FEED_RUN_TIMEOUT_MS
+    - pattern: process.env.RETENTION_DAYS
+    - pattern: process.env.RETENTION_DAYS_ENABLED
+    - pattern: process.env.RETENTION_RUNS
+    - pattern: process.env["ALLOW_PRIVATE_FETCHES"]
+    - pattern: process.env["OUTBOUND_FETCH_ALLOWLIST"]
+    - pattern: process.env["FEED_RUN_TIMEOUT_MS"]

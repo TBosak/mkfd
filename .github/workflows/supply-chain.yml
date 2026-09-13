@@ -198,3 +198,20 @@ jobs:
           name: mkfd-sbom
           path: mkfd-sbom.spdx.json
           retention-days: 90
+
+  osv-scan:
+    name: Known vulnerabilities (OSV, bun.lock)
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - name: Checkout
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+
+      # Complements the existing `bun audit --audit-level=high` job rather than
+      # replacing it: OSV reads bun.lock directly and reports medium and low
+      # severities that the high-only audit gate passes over.
+      - name: Scan bun.lock against OSV
+        uses: google/osv-scanner-action/osv-scanner-action@40a8940a65eab1544a6af759e1d476ca7dc81f13 # v2.4.0
+        with:
+          scan-args: |-
+            --lockfile=bun.lock

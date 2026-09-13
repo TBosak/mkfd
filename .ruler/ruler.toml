@@ -1,0 +1,40 @@
+# Ruler configuration — canonical agent instructions for Mkfd v3.
+#
+# Ruler owns the GENERATED instruction files (AGENTS.md for Codex, CLAUDE.md for
+# Claude Code) and the shared MCP declaration. Edit `.ruler/*.md` and run
+# `bun run agents:apply`; never hand-edit the generated files.
+#
+# Skills are deliberately NOT managed here. `.agents/skills/` plus the tracked
+# `skills-lock.json` is an existing committed, tamper-evident skill corpus
+# (15 skills, 188 tracked files) installed through `npx skills add`. Ruler
+# writes to that same path, so letting it manage skills would put two owners on
+# one directory. `bun run agents:apply` passes `--skills=false` for that reason.
+#
+# Gitignore automation is disabled so Ruler cannot silently rewrite `.gitignore`.
+
+default_agents = ["claude", "codex"]
+
+[gitignore]
+enabled = false
+
+[backup]
+enabled = false
+
+[agents.claude]
+enabled = true
+
+[agents.codex]
+enabled = true
+
+# --- MCP servers -------------------------------------------------------------
+# Deliberately none.
+#
+# MCP servers for this machine are managed by the Docker MCP gateway under the
+# "AI coding" profile (`docker mcp profile ls`), not declared per-project here.
+# That keeps one registry of servers, secrets, and container isolation for every
+# client instead of a standalone stdio server per repository. Serena is
+# registered there; see `docs/agent-workflow/tooling.md`.
+#
+# Everything else in this stack is intentionally CLI-only — Beads, QMD,
+# Graphify, Fallow, ast-grep, Semgrep, OSV-Scanner and Gitleaks — so their tool
+# schemas do not occupy agent context on every task.

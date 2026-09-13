@@ -1,0 +1,39 @@
+# Graphify owns code topology only. Everything excluded here is either
+# machine-produced, vendored, runtime data, or prose that QMD already indexes.
+
+# Dependencies and build output
+node_modules/
+frontend/node_modules/
+frontend/dist/
+public/
+dist/
+build/
+
+# Test and analysis artifacts
+frontend/playwright-report/
+frontend/test-results/
+coverage/
+reports/
+.stryker-tmp/
+
+# Tool-local state and indexes
+.qmd/
+.beads/
+.tdd-state/
+.git/
+graphify-out/
+
+# Runtime data, not source. feed-state and feed-history are written by the app
+# at runtime; configs and data hold user feeds and the analytics database.
+feed-state/
+feed-history/
+configs/
+data/
+
+# Generated migration SQL, not hand-written source
+drizzle/migrations/
+
+# Prose and design assets. QMD owns docs retrieval; "Mkfd Redesign" is an
+# unused legacy design folder already excluded from Biome and Fallow.
+docs/
+Mkfd Redesign/

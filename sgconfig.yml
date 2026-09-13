@@ -1,0 +1,14 @@
+# ast-grep project configuration.
+#
+# ast-grep carries the Mkfd-specific structural invariants that Biome cannot
+# express and that no locked test already covers. It deliberately does NOT
+# duplicate rules the test suite already enforces — the FlareSolverr/browser
+# adapter boundaries and the `as any` / `as unknown as` anti-bypass ceilings are
+# pinned by accepted locked tests, and a second enforcement point would drift
+# from them.
+
+ruleDirs:
+  - .ast-grep/rules
+
+testConfigs:
+  - testDir: .ast-grep/rule-tests

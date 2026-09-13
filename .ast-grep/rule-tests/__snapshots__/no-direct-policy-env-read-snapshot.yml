@@ -1,0 +1,50 @@
+id: no-direct-policy-env-read
+snapshots:
+  const days = process.env.RETENTION_DAYS;:
+    labels:
+    - source: process.env.RETENTION_DAYS
+      style: primary
+      start: 13
+      end: 39
+  const enabled = process.env.RETENTION_DAYS_ENABLED === "true";:
+    labels:
+    - source: process.env.RETENTION_DAYS_ENABLED
+      style: primary
+      start: 16
+      end: 50
+  const globalAllowPrivate = process.env.ALLOW_PRIVATE_FETCHES === "true";:
+    labels:
+    - source: process.env.ALLOW_PRIVATE_FETCHES
+      style: primary
+      start: 27
+      end: 60
+  const globalAllowlist = parseAllowlist(process.env.OUTBOUND_FETCH_ALLOWLIST);:
+    labels:
+    - source: process.env.OUTBOUND_FETCH_ALLOWLIST
+      style: primary
+      start: 39
+      end: 75
+  const listViaBracket = process.env["OUTBOUND_FETCH_ALLOWLIST"];:
+    labels:
+    - source: process.env["OUTBOUND_FETCH_ALLOWLIST"]
+      style: primary
+      start: 23
+      end: 62
+  const runs = process.env.RETENTION_RUNS;:
+    labels:
+    - source: process.env.RETENTION_RUNS
+      style: primary
+      start: 13
+      end: 39
+  const timeout = Number(process.env.FEED_RUN_TIMEOUT_MS);:
+    labels:
+    - source: process.env.FEED_RUN_TIMEOUT_MS
+      style: primary
+      start: 23
+      end: 54
+  const viaBracket = process.env["ALLOW_PRIVATE_FETCHES"];:
+    labels:
+    - source: process.env["ALLOW_PRIVATE_FETCHES"]
+      style: primary
+      start: 19
+      end: 55

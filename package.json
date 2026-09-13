@@ -24,7 +24,16 @@
     "tdd:claude": "bun scripts/claude-test-author.ts",
     "tdd:tests": "bun scripts/tdd-test-lock.ts",
     "analyze": "bun x fallow --fail-on-issues",
-    "migrate:protected-values": "bun scripts/migrate-protected-values.ts"
+    "migrate:protected-values": "bun scripts/migrate-protected-values.ts",
+    "agents:apply": "bunx ruler apply --skills=false --gitignore=false",
+    "agents:check": "bun scripts/agents-check.ts",
+    "check:invariants": "ast-grep scan",
+    "check:fast": "bun run verify:static",
+    "check:structural": "bun x fallow --fail-on-issues",
+    "check:security": "bun scripts/check-security.ts",
+    "test:mutation": "bunx stryker run",
+    "test:mutation:incremental": "bunx stryker run --incremental",
+    "check": "bun run check:fast && bun run check:structural && bun run test"
   },
   "dependencies": {
     "@xmldom/xmldom": "^0.9.12",
@@ -48,6 +57,8 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.5.11",
+    "@intellectronica/ruler": "0.3.44",
+    "@stryker-mutator/core": "10.0.0",
     "@types/bun": "^1.1.12",
     "@types/js-yaml": "4.0.9",
     "@types/libmime": "5.3.0",
@@ -57,6 +68,7 @@
     "@types/node-imap": "^0.9.3",
     "drizzle-kit": "^0.31.10",
     "fallow": "^3.22.0",
+    "lefthook": "^2.1.12",
     "typescript": "5.7.3"
   },
   "overrides": {

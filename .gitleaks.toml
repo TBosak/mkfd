@@ -1,0 +1,60 @@
+# Gitleaks configuration for Mkfd v3.
+#
+# Extends the default ruleset — rules are never disabled here. Every allowlist
+# below is scoped to a specific path or a specific literal that was inspected
+# and confirmed not to be a credential. A real secret must still fail the scan.
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "generic-api-key"
+description = "Generic API Key"
+regex = '''(?i)(?:key|api|token|secret|client|passwd|password|auth|access)(?:[0-9a-z\-_\t .]{0,20})(?:[\s|']|[\s|"]){0,3}(?:=|>|:{1,3}=|\|\|:|<=|=>|:|\?=)(?:'|\"|\s|=|\x60){0,5}([0-9a-z\-_.=]{10,150})(?:['|\"|\n|\r|\s|\x60|;]|$)'''
+keywords = ["key", "api", "token", "secret", "client", "passwd", "password", "auth", "access"]
+
+  [rules.allowlist]
+  # The TDD lock manifests store SHA-256 digests of accepted test files. A
+  # 64-character hex digest matches the generic key heuristic but is a content
+  # hash, and the whole point of the manifest is that it is public and
+  # tamper-evident.
+  paths = ['''\.tdd-state[\\/].*-test-lock\.json''']
+
+[[rules]]
+id = "curl-auth-header"
+description = "Curl Authorization header"
+regex = '''(?i)\bcurl\b(?:.*?|.*?(?:[\r\n]{1,2}.*?){1,5})[ \t]-H[ \t]+(?:"(?:[A-Za-z0-9_-]+:\s*[^"]+&&|Authorization:\s*(?:Basic\s*[a-z0-9=;]+|Bearer\s*[\w.=-]+))"|'(?:[A-Za-z0-9_-]+:\s*[^']+&&|Authorization:\s*(?:Basic\s*[a-z0-9=;]+|Bearer\s*[\w.=-]+))')'''
+keywords = ["curl"]
+
+  [rules.allowlist]
+  # Two documentation examples POSTing to the non-routable host mkfd.local with
+  # a placeholder `mkfd_wh…` token. Matched on the whole curl line, so the
+  # allowlist has to target the match rather than the extracted secret.
+  regexTarget = "match"
+  regexes = ['''mkfd\.local''']
+
+[allowlist]
+description = "Paths and literals inspected and confirmed non-secret"
+
+paths = [
+  # Generated tool indexes and caches, not source. Graphify and QMD rebuild
+  # these from the tree; they are gitignored and never committed.
+  '''graphify-out[\\/]''',
+  '''\.qmd[\\/]''',
+  '''\.serena[\\/]''',
+  # Dependency and build output.
+  '''node_modules[\\/]''',
+  '''public[\\/]assets[\\/]''',
+]
+
+regexes = [
+  # Self-describing test fixtures. Each was read and confirmed to be a literal
+  # placeholder, not a credential in use anywhere.
+  '''testkey1234567890''',
+  '''p3-v2-golden-round-trips-test-key-32-chars-long''',
+  # Environment variable NAMES asserted by the e2e harness contract test, not
+  # values. The test asserts these names are required; it never holds a secret.
+  '''MKFD_E2E_(COOKIE_SECRET|ENCRYPTION_KEY|PASSKEY)''',
+  # Documentation examples against the non-routable host mkfd.local.
+  '''Bearer mkfd_wh[A-Za-z0-9_]*''',
+]

@@ -135,12 +135,29 @@ Do not add another retrieval or indexing tool without a demonstrated gap.
 
 ### Which tool for which question
 
-- *"Why does this work this way?" / "What did we decide about X?"* → QMD
-- *"What breaks if I change this interface?" / "What calls this?"* → Graphify
-- *"Where is this symbol, and what references it?"* → Serena
-- *"What is the current API of Hono/Bun/Playwright?"* → Context7
-- *"Is this dead code? Are there cycles?"* → Fallow
-- *"Does this violate an Mkfd architectural invariant?"* → ast-grep
+| Question | Tool | Command |
+|---|---|---|
+| "Why does this work this way?" / "What did we decide?" | QMD | `qmd search "<keywords>"` first; `qmd query "<question>"` when wording is uncertain |
+| "What breaks if I change this?" / "What calls this?" | Graphify | `graphify affected "<symbol>" --depth 2` |
+| "What are the architectural hubs?" | Graphify | `graphify god-nodes --top 10` |
+| "Where is this symbol, and what references it?" | Serena | MCP tools (Docker gateway, AI coding profile) |
+| "What is the current API of Hono/Bun/Playwright?" | Context7 | MCP tools (Docker gateway, AI coding profile) |
+| "Is this dead code? Are there cycles?" | Fallow | `bun run check:structural`, or `bun x fallow audit --base <ref>` for changed files only |
+| "Does this violate an Mkfd invariant?" | ast-grep | `bun run check:invariants` |
+
+QMD is indexed over `docs/` only (169 files, collection `mkfd-docs`). It knows
+nothing about the TypeScript source by design — that is Graphify and Serena.
+Re-run `qmd collection add docs --name mkfd-docs && qmd embed` after meaningful
+documentation changes; re-run `graphify update . --no-cluster` after structural
+code changes (moved files, new modules, renamed symbols), not after every edit.
+
+### MCP is managed by the Docker MCP gateway
+
+Serena, Context7, Playwright, GitHub, ast-grep and the rest are registered in
+the Docker MCP gateway under the **AI coding** profile — not as standalone
+per-project stdio servers, and not in `.mcp.json` (which is deliberately empty).
+Inspect with `docker mcp profile server ls`. Serena runs containerised with this
+repository mounted at `/workspaces/projects/mkfd`.
 
 ## Beads — durable continuity only
 
@@ -177,27 +194,34 @@ Beads.
 
 Run the sequence appropriate to the changed scope. Canonical commands:
 
-| Command | Covers |
-|---|---|
-| `bun run check:fast` | Biome + typecheck + ast-grep invariants |
-| `bun run check:structural` | Fallow structural analysis |
-| `bun run check:security` | Semgrep local rules + OSV + Gitleaks |
-| `bun run test` | Normal test suite |
-| `bun run verify:core` | Static + tests + catalog + build |
-| `bun run verify:full` | `verify:core` + Playwright e2e |
-| `bun run test:mutation` | Targeted Stryker scope |
-| `bun run agents:apply` | Regenerate `AGENTS.md`/`CLAUDE.md` from `.ruler/` |
-| `bun run agents:check` | Fail if generated agent files drift from `.ruler/` |
+| Command | Covers | Currently clean? |
+|---|---|---|
+| `bun run check:fast` | Biome + typecheck (`verify:static`) | yes |
+| `bun run check:invariants` | ast-grep Mkfd invariants | **no — 2 known violations** |
+| `bun run check:structural` | Fallow full-repo analysis | **no — 69 legacy findings** |
+| `bun run check:security` | Semgrep local rules + OSV + Gitleaks | Semgrep/Gitleaks clean; OSV reports 5 |
+| `bun run test` | Normal test suite | **no — 32 known failures** |
+| `bun run verify:core` | Static + tests + catalog + build | no (inherits the 32) |
+| `bun run verify:full` | `verify:core` + Playwright e2e | e2e itself is green |
+| `bun run test:mutation` | Targeted Stryker scope | baseline 44.71% |
+| `bun run agents:apply` | Regenerate `AGENTS.md`/`CLAUDE.md` from `.ruler/` | yes |
+| `bun run agents:check` | Fail if generated agent files drift from `.ruler/` | yes |
+
+**Several gates are knowingly red on pre-existing findings.** Compare against
+the baseline recorded in `docs/mkfd-v3-implementation-ledger.md`, never against
+"zero failures", and do not attribute a pre-existing failure to your own change
+without checking. The red gates are not wired into hooks or CI as blocking
+precisely because a gate that always fails stops being read.
 
 After a behavioural change to deterministic core logic, run targeted Stryker.
 A surviving mutant is triage input, not an automatic requirement for another
 test. If a mutant reveals a real gap, send the test author a new concise rule
 through the existing protocol — do not record the mutation round in Beads.
 
-`verify:core` is currently **not green**; see the pre-existing failures recorded
-in `docs/mkfd-v3-implementation-ledger.md`. Compare against that recorded
-baseline rather than against "zero failures", and never attribute a
-pre-existing failure to your own change without checking.
+Note that Stryker runs through the **command runner**, so it re-runs the whole
+configured suite per mutant and has no per-test selectivity. The Bun-specific
+runner was trialled and rejected (it mangles the Windows project path); see
+`stryker.config.json`.
 
 ## Skills ownership
 

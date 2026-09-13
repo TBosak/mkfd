@@ -1,0 +1,54 @@
+# Git hook orchestration.
+#
+# Hooks call the same canonical scripts CI and agents call — they never carry
+# their own copy of a command. Anything that currently has pre-existing
+# failures is deliberately NOT wired in as blocking: a hook that always fails
+# is a hook developers disable, and then it protects nothing.
+#
+# Not wired in yet, and why:
+#   - `bun run test`            32 known pre-existing failures (see the ledger)
+#   - `bun run check:structural` 69 legacy Fallow findings repo-wide; the
+#                                changed-file audit below is the scoped form
+#   - `bun run check:invariants` 2 real violations tracked as a Bead; promote to
+#                                pre-commit once that bug is fixed
+#   - `bun run check:security`   Semgrep pulls a container and OSV hits the
+#                                network; too slow for a hook, runs in CI
+
+pre-commit:
+  parallel: true
+  commands:
+    secrets:
+      # Staged content only, so a secret is caught before it exists in history.
+      run: gitleaks git --staged --no-banner -c .gitleaks.toml
+      skip:
+        - merge
+        - rebase
+    lint:
+      # `biome lint`, not `biome check`, deliberately. The project's canonical
+      # gate (`bun run lint` -> scripts/run-quality.ts) runs the linter only;
+      # the formatter has never been enforced, and several long-standing files
+      # do not satisfy it. A hook stricter than the gate it is supposed to
+      # protect blocks commits on pre-existing style and gets disabled, so this
+      # mirrors `bun run lint` and stays scoped to the staged files.
+      glob: "*.{ts,tsx,js,jsx,json}"
+      run: bunx biome lint --no-errors-on-unmatched {staged_files}
+      skip:
+        - merge
+        - rebase
+
+pre-push:
+  parallel: false
+  commands:
+    typecheck:
+      run: bun run typecheck
+    agent-instructions:
+      # Cheap, and catches the common mistake of editing the generated
+      # CLAUDE.md/AGENTS.md instead of .ruler/.
+      run: bun run agents:check
+    fallow-changed:
+      # Scoped to what this push actually changes. A full-repo Fallow run has
+      # 69 legacy findings and would block every push.
+      run: bun x fallow audit --base origin/{branch} || bun x fallow audit --base HEAD~1
+      skip:
+        - merge
+        - rebase

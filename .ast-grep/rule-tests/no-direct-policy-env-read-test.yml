@@ -1,0 +1,26 @@
+id: no-direct-policy-env-read
+valid:
+  # The approved path: the settings layer resolves precedence for you.
+  - const allowPrivate = effectiveSetting("allow_private_fetches", false);
+  - const options = getGlobalFetchPolicyOptions();
+  - const budget = resolveFetchPolicy(feedConfig).feedRunTimeoutMs;
+  # Bootstrap secrets are needed before a database exists, so they stay on env.
+  - const encKey = process.env.ENCRYPTION_KEY ?? "";
+  - const passkey = process.env.PASSKEY;
+  - const cookieSecret = process.env.COOKIE_SECRET;
+  # Unrelated environment reads are not this rule's business.
+  - const root = process.env.FILESYSTEM_FEEDS_ROOT ?? process.cwd();
+  - if (process.env.NODE_ENV === "production") { start(); }
+invalid:
+  # The live defect this rule was written from: workers/feed-updater.worker.ts
+  # built its own outbound policy from env, so the Settings UI never governed
+  # the scheduled worker.
+  - const globalAllowPrivate = process.env.ALLOW_PRIVATE_FETCHES === "true";
+  - const globalAllowlist = parseAllowlist(process.env.OUTBOUND_FETCH_ALLOWLIST);
+  - const timeout = Number(process.env.FEED_RUN_TIMEOUT_MS);
+  - const days = process.env.RETENTION_DAYS;
+  - const runs = process.env.RETENTION_RUNS;
+  - const enabled = process.env.RETENTION_DAYS_ENABLED === "true";
+  # Bracket access must not be an escape hatch from the dotted form.
+  - const viaBracket = process.env["ALLOW_PRIVATE_FETCHES"];
+  - const listViaBracket = process.env["OUTBOUND_FETCH_ALLOWLIST"];

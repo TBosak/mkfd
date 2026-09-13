@@ -1,0 +1,46 @@
+{
+	"$schema": "./node_modules/@stryker-mutator/core/schema/stryker-schema.json",
+	"_comment": "Mutation testing acts as a third reviewer of the tester/implementer contract: it mutates production behaviour and asks whether the accepted tests notice. The scope is deliberately small and deterministic to start — two pure utilities with dedicated suites — because a first run is diagnostic, not a gate. Widen it once a baseline exists. Browser automation, network paths, IMAP loops and worker threads are excluded on purpose: they are slow, environment-heavy, and their behaviour is pinned by the locked integration suites instead.",
+	"packageManager": "npm",
+	"testRunner": "command",
+	"reporters": ["html", "clear-text", "progress"],
+	"coverageAnalysis": "off",
+	"mutate": [
+		"utilities/log-redaction.utility.ts",
+		"utilities/css-target-builder.utility.ts"
+	],
+	"_ignoreComment": "Stryker copies the project into a sandbox. .claude/skills is a symlink mirror (see .gitignore) and copying symlinks fails with EPERM on Windows; the rest is bulk that slows every sandbox copy without being mutated or imported.",
+	"ignorePatterns": [
+		".claude",
+		".agents",
+		".github",
+		".beads",
+		".qmd",
+		".serena",
+		".tdd-state",
+		"graphify-out",
+		"public",
+		"docs",
+		"frontend/node_modules",
+		"frontend/dist",
+		"frontend/playwright-report",
+		"frontend/test-results",
+		"feed-state",
+		"feed-history",
+		"configs",
+		"data",
+		"Mkfd Redesign",
+		"reports",
+		".stryker-tmp"
+	],
+	"tempDirName": ".stryker-tmp",
+	"htmlReporter": {
+		"fileName": "reports/mutation/index.html"
+	},
+	"timeoutMS": 60000,
+	"concurrency": 4,
+	"commandRunner": {
+		"command": "bun test tests/log-redaction.utility.test.ts tests/log-redaction-call-sites.test.ts tests/log-redaction-regression-guard.test.ts tests/css-target-builder.test.ts"
+	},
+	"_runnerNote": "The Bun-specific Stryker runner (@hughescr/stryker-bun-runner) was trialled and rejected: it strips backslashes from the Windows project path (Cannot find package D:Projectsmkfd) and times out fetching Bun inspector URL. It also pulled smol-toml 1.7.0 (CVSS 8.2). The built-in command runner loses per-test coverage and selectivity, which is why each mutant re-runs the four suites below, but it works on both supported platforms."
+}
