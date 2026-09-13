@@ -65,6 +65,12 @@ jobs:
         with:
           bun-version: 1.3.14
 
+      # Required: agents:check shells out to `bunx ruler`, which must resolve
+      # the pinned @intellectronica/ruler devDependency. Without node_modules,
+      # bunx falls through to the unrelated `ruler` package on npm.
+      - name: Install root dependencies
+        run: bun install --frozen-lockfile
+
       # Ruler is the single source of truth for both providers' instructions.
       # This fails if someone edited the generated AGENTS.md/CLAUDE.md directly,
       # which is the only way the two can drift apart.
