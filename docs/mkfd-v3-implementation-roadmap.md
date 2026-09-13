@@ -328,7 +328,18 @@ Packets 4 and 5 should be sequential if one agent is doing all frontend work. Wi
 
 **Email work:** complete the secure worker secret channel from Packet 2, preserve v2 reverse/strict/outbound-webhook behavior through the new Output/Delivery step, transmit protected webhook headers/custom payload to the delivery worker, verify SQLite snapshots/deduplication and all formats across worker restarts, bound message/attachment parsing, sanitize content, and add a mock/live-fixture end-to-end path without leaking credentials.
 
-**Exit criteria:** independently authenticated webhook ingestion, filesystem roots, and IMAP credentials are safe at their boundaries; state/retention/restart behavior is deterministic; all three sources pass vertical tests.
+**IMAP connection lifecycle — reported bug ([#77](https://github.com/TBosak/mkfd/issues/77)):** email scraping works at container start and then fails permanently with `Timed out while connecting to server`, recovering only on restart. The reporter's workaround is a crontab restart every 30 minutes. The cause is a reconnect storm that leaks connections until the provider's concurrent-connection limit is reached, in `node/imap-watch.utility.ts`:
+
+- `start()` registers **both** `imap.on("close", …)` and `imap.on("error", …)` to call `reconnect()`, and node-imap emits both for a single failure — so one dropped connection schedules two reconnects. Each failed reconnect also falls into `catch { this.reconnect() }`, so the number of pending timers grows with every cycle. That is the interleaved `Reconnecting in 10s...` flood in the report.
+- `reconnect()` stores no timer handle, so nothing can be cancelled; `stop()` ends the socket but leaves pending timers, and a stopped watcher reconnects anyway.
+- `start()` reuses the same `Imap` instance and calls `connect()` on it again without destroying the previous socket. `removeAllListeners` runs only *after* a successful `connect()`, and only for `mail`/`close`/`error`, so a connect that times out leaves its listeners attached. The existing `setMaxListeners(20)` is evidence of that leak having been raised rather than fixed.
+- The delay is a fixed 10s with no backoff, jitter, or attempt cap, which hammers a server that may already be rate-limiting.
+
+Required behaviour: one reconnect in flight at a time; a cancellable timer that `stop()` actually clears; the previous connection fully destroyed and its listeners removed before a new one is created; exponential backoff with jitter and a bounded attempt count; and a terminal state that reports the feed as failed rather than looping silently. This is the same retry/backoff/cancellation contract Packet 3 defines for outbound fetches, and should reuse it rather than grow a second implementation.
+
+**Sequencing note:** this item depends on nothing in Packets 4 through 7A and is a live defect with users affected today, so it may be pulled forward as an independent slice — or shipped to v2 as a hotfix — without waiting for the rest of 7B.
+
+**Exit criteria:** independently authenticated webhook ingestion, filesystem roots, and IMAP credentials are safe at their boundaries; state/retention/restart behavior is deterministic; a watcher survives repeated connection loss without leaking connections or reconnect timers, and issue #77's failure cannot recur; all three sources pass vertical tests.
 
 **Feature coverage:** Webhook, Filesystem, Email Worker Multi-Format + History.
 
