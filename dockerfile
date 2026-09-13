@@ -1,4 +1,10 @@
-FROM oven/bun:1.2.2-debian
+# Debian 13 (trixie). The previous base, oven/bun:1.2.2-debian, is Debian 11
+# (bullseye): its security index advertises package versions the pool no longer
+# serves, so the apt step below fails with 404s on both amd64 and arm64. Bun
+# 1.2.2 has no non-bullseye variant, so escaping it requires moving the bun
+# version too - to 1.3.14, which is the version CI already runs the whole test
+# suite against.
+FROM oven/bun:1.3.14-debian@sha256:9dba1a1b43ce28c9d7931bfc4eb00feb63b0114720a0277a8f939ae4dfc9db6f
 ARG NODE_VERSION=22.14.0
 ENV PLAYWRIGHT_BROWSERS_PATH=/ms-playwright
 
