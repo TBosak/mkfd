@@ -12,9 +12,9 @@ services:
       # Place unpacked extensions in ./extensions/
       - ./extensions:/app/extensions
     environment:
-      - PASSKEY=${PASSKEY:-your_passkey_here}
-      - COOKIE_SECRET=${COOKIE_SECRET:-your_cookie_secret_here}
-      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-your_encryption_key_here}
+      - PASSKEY=${PASSKEY:?set PASSKEY to a unique secret; there is deliberately no default}
+      - COOKIE_SECRET=${COOKIE_SECRET:?set COOKIE_SECRET to at least 32 characters (openssl rand -base64 32); a shorter or known value breaks sessions and allows forgery}
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:?set ENCRYPTION_KEY to a random secret (openssl rand -base64 32); a known value exposes every stored credential}
       - SSL=${SSL:-false}
       # Public URL used in feed atom:link canonical references (e.g. https://mkfd.example.com)
       - SERVER_URL=${SERVER_URL:-http://localhost:5000}
