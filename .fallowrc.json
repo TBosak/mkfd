@@ -8,5 +8,23 @@
     "public/**",
     "drizzle/**",
     "Mkfd Redesign/**"
-  ]
+  ],
+  "ignoreDependencies": [
+    "motion",
+    "morphicons",
+    "@double-great/stylelint-a11y",
+    "react-doctor"
+  ],
+  "health": {
+    "thresholdOverrides": [
+      {
+        "files": [
+          "tests/p3-fetch-run-orchestration.test.ts"
+        ],
+        "maxCognitive": 20,
+        "maxCrap": 35,
+        "reason": "Accepted, locked test suite for the retry/fallback slice. The lead may not edit a locked test file, so a breach here cannot be refactored without returning it to the test author, and the complexity is inherent to exercising retry, backoff, deadline, cancellation and fallback in one scenario. Raised to keep the file visible under an explicit ceiling rather than dropped from the score. Revisit when the slice implements."
+      }
+    ]
+  }
 }
