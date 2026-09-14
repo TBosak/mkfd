@@ -38,6 +38,18 @@ export interface ImapConnectionLifecycleOptions {
 	scheduler: ReconnectScheduler;
 	/** Called once when the attempt budget is exhausted. */
 	onTerminalFailure?: (attempts: number) => void;
+	/**
+	 * Diagnostics sink. Production passes a console-backed logger; tests leave
+	 * it unset so the suite stays quiet.
+	 *
+	 * This is not optional decoration. Issue #77 was reported *entirely* from
+	 * log lines — a flood of "[IMAP] Reconnecting in 10s..." was the only
+	 * evidence anyone had. An earlier revision of this module replaced that
+	 * logging with nothing, which meant a recurrence would have been silent and
+	 * undiagnosable. A soak test against a deliberately dead endpoint caught it:
+	 * the watcher retried correctly and said nothing at all.
+	 */
+	log?: (message: string, error?: unknown) => void;
 }
 
 export class ImapConnectionLifecycle {
@@ -48,6 +60,10 @@ export class ImapConnectionLifecycle {
 
 	constructor(options: ImapConnectionLifecycleOptions) {
 		this.options = options;
+	}
+
+	private say(message: string, error?: unknown): void {
+		this.options.log?.(message, error);
 	}
 
 	/** Connections opened since construction, including reconnects. */
@@ -81,9 +97,10 @@ export class ImapConnectionLifecycle {
 		let connection: ImapLike;
 		try {
 			connection = this.options.createConnection();
-		} catch {
+		} catch (error) {
 			// A factory that throws is just a failed attempt; it goes through the
 			// same single-flight path rather than escaping as an unhandled error.
+			this.say("[IMAP] Failed to open a connection.", error);
 			this.requestReconnect();
 			return;
 		}
@@ -114,7 +131,13 @@ export class ImapConnectionLifecycle {
 		if (this.stopped) return;
 		// A connection already torn down must not schedule anything. Without this
 		// a late event from a discarded socket revives the storm.
-		if (this.current !== connection) return;
+		if (this.current !== connection) {
+			// Worth saying: this is the #77 fan-out being collapsed. node-imap
+			// reports one failure through several events, and each extra one lands
+			// here after the connection has already been replaced.
+			this.say("[IMAP] Ignoring a late event from a replaced connection.");
+			return;
+		}
 		this.requestReconnect();
 	}
 
@@ -123,6 +146,16 @@ export class ImapConnectionLifecycle {
 			this.teardown();
 			this.open();
 		});
+
+		if (outcome.scheduled) {
+			this.say(
+				`[IMAP] Connection lost; reconnect attempt ${outcome.attempt} in ${Math.round(outcome.delayMs)}ms.`,
+			);
+		} else if (outcome.reason === "already-pending") {
+			this.say(
+				"[IMAP] Another drop reported for the same failure; a reconnect is already pending.",
+			);
+		}
 
 		if (!outcome.scheduled && outcome.reason === "exhausted") {
 			this.options.onTerminalFailure?.(this.options.scheduler.attempts);

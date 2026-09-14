@@ -221,6 +221,10 @@ class ImapWatcher {
         maxDelayMs: RECONNECT_MAX_DELAY_MS,
         maxAttempts: RECONNECT_MAX_ATTEMPTS,
       }),
+      log: (message, error) => {
+        if (error !== undefined) console.error(message, error);
+        else console.log(message);
+      },
       onTerminalFailure: (attempts) => {
         console.error(
           `[IMAP] Giving up after ${attempts} consecutive reconnect attempts for feed ${this.config.feedId}. ` +
