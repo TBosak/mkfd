@@ -2,6 +2,8 @@
 import yaml from "js-yaml";
 import path from "node:path";
 import Imap from "node-imap";
+import { ImapConnectionLifecycle } from "./imap-connection-lifecycle.ts";
+import { ReconnectScheduler } from "./imap-reconnect-policy.ts";
 import libmime from "libmime";
 import minimist from "minimist";
 import { Feed } from "feed";
@@ -173,9 +175,34 @@ if (!imapOriginalConfig.password) {
     console.error(`[IMAP Node Watcher] Password for ${imapOriginalConfig.user} is missing or decryption failed. Ensure encryptedPassword is present in YAML and key is correct.`);
 }
 
+// Reconnect budget. The previous behaviour was a fixed 10s forever with no
+// cap, which hammered a server that may already be rate-limiting.
+const RECONNECT_BASE_DELAY_MS = 10_000;
+const RECONNECT_MAX_DELAY_MS = 300_000;
+const RECONNECT_MAX_ATTEMPTS = 20;
+
 class ImapWatcher {
   private config: RSSFeedOptions;
-  private imap: Imap;
+  /** The live connection, replaced wholesale on every reconnect. */
+  private connection: Imap | undefined;
+  private readonly lifecycle: ImapConnectionLifecycle;
+
+  /**
+   * Accessor for the live connection.
+   *
+   * Every mailbox operation below assumed `this.imap` was always present,
+   * which stopped being true once the connection became something the
+   * lifecycle replaces. Throwing names the real problem instead of letting
+   * an undefined slip into node-imap.
+   */
+  private get imap(): Imap {
+    if (!this.connection) {
+      throw new Error(
+        "[IMAP] No live connection; the watcher was used before start() or after stop.",
+      );
+    }
+    return this.connection;
+  }
 
   constructor(passedConfig: RSSFeedOptions) {
     this.config = passedConfig;
@@ -186,49 +213,77 @@ class ImapWatcher {
         console.error("[IMAP Node Watcher] CRITICAL: IMAP connection details (host, port) are missing in the processed config for feedId:", this.config.feedId);
     }
 
-    this.imap = new Imap({
+    this.lifecycle = new ImapConnectionLifecycle({
+      createConnection: () => this.createConnection(),
+      onReady: (connection) => this.onConnectionReady(connection as Imap),
+      scheduler: new ReconnectScheduler({
+        baseDelayMs: RECONNECT_BASE_DELAY_MS,
+        maxDelayMs: RECONNECT_MAX_DELAY_MS,
+        maxAttempts: RECONNECT_MAX_ATTEMPTS,
+      }),
+      log: (message, error) => {
+        if (error !== undefined) console.error(message, error);
+        else console.log(message);
+      },
+      onTerminalFailure: (attempts) => {
+        console.error(
+          `[IMAP] Giving up after ${attempts} consecutive reconnect attempts for feed ${this.config.feedId}. ` +
+            "The watcher will not retry again without a restart.",
+        );
+      },
+    });
+  }
+
+  start(): void {
+    this.lifecycle.start();
+  }
+
+  /**
+   * Builds a fresh connection for every attempt.
+   *
+   * Previously `start()` re-called `connect()` on the *same* Imap instance
+   * without destroying the old socket, so sockets and listeners accumulated
+   * until the provider refused new connections (issue #77). The lifecycle
+   * tears the previous one down before calling this.
+   */
+  private createConnection(): Imap {
+    const imapConnectionDetails = this.config.config;
+    const imap = new Imap({
       user: imapConnectionDetails?.user,
       password: imapConnectionDetails?.password,
       host: imapConnectionDetails?.host,
       port: imapConnectionDetails?.port,
       tls: true,
     });
+    this.connection = imap;
+    imap.connect();
+    return imap;
   }
 
-  async start(): Promise<void> {
+  /**
+   * Everything that used to follow a successful `connect()`.
+   *
+   * A failure here ends the socket rather than being swallowed, so the
+   * lifecycle sees the resulting `close` and retries — which is what the old
+   * code achieved by keeping `openBox` inside the same try as `connect`.
+   */
+  private async onConnectionReady(imap: Imap): Promise<void> {
+    console.log("[IMAP] Connected");
     try {
-      await this.connect();
       await this.openBox(this.config.config?.folder || "INBOX");
       this.fetchRecentStartupEmails();
-      this.imap.removeAllListeners("mail");
-      this.imap.removeAllListeners("close");
-      this.imap.removeAllListeners("error");
-      this.imap.setMaxListeners(20);
 
-      this.imap.on("mail", (n) => {
-        console.log(`[IMAP] New mail event received for feed ${this.config.feedId}: ${n} new email(s)`);
+      imap.on("mail", (n) => {
+        console.log(
+          `[IMAP] New mail event received for feed ${this.config.feedId}: ${n} new email(s)`,
+        );
         this.fetchNewEmails();
       });
-
-      this.imap.on("close", () => this.reconnect());
-      this.imap.on("error", () => this.reconnect());
     } catch (err) {
-      console.error("[IMAP] Failed to start:", err);
-      this.reconnect();
+      console.error("[IMAP] Failed to prepare the mailbox:", err);
+      imap.end();
     }
   }
-
-  private connect(): Promise<void> {
-    return new Promise((resolve, reject) => {
-      this.imap.once("ready", () => {
-        console.log("[IMAP] Connected");
-        resolve();
-      });
-      this.imap.once("error", reject);
-      this.imap.connect();
-    });
-  }
-
   private openBox(boxName: string): Promise<void> {
     return new Promise((resolve, reject) => {
       this.imap.openBox(boxName, false, (err) => {
@@ -467,16 +522,12 @@ class ImapWatcher {
     });
   }
 
-  private reconnect(): void {
-    console.log("[IMAP] Reconnecting in 10s...");
-    setTimeout(() => this.start(), 10000);
-  }
-
   public stop(): void {
-    if (this.imap) {
-      console.log("[IMAP] Stopping watcher...");
-      this.imap.end();
-    }
+    console.log("[IMAP] Stopping watcher...");
+    // Terminal: cancels any pending reconnect as well as closing the socket.
+    // The old stop() ended the socket but left the reconnect timer running,
+    // so a stopped watcher reconnected anyway.
+    this.lifecycle.stop();
   }
 
   private async handleWebhook(rssXml: string): Promise<void> {
